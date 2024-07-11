@@ -1,1 +1,0 @@
-describe_keyspaces_statement::= DESCRIBE KEYSPACES;

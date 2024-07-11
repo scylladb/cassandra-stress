@@ -40,7 +40,7 @@ public abstract class Operation
         this.settings = settings;
     }
 
-    public static interface RunOp
+    public interface RunOp
     {
         public boolean run() throws Exception;
         public int partitionCount();

@@ -30,7 +30,7 @@ import org.apache.cassandra.utils.IFilter.FilterKey;
 /**
  * Represents a decorated key, handy for certain operations
  * where just working with strings gets slow.
- *
+ * <p>
  * We do a lot of sorting of DecoratedKeys, so for speed, we assume that tokens correspond one-to-one with keys.
  * This is not quite correct in the case of RandomPartitioner (which uses MD5 to hash keys to tokens);
  * if this matters, you can subclass RP to use a stronger hash, or use a non-lossy tokenization scheme (as in the
@@ -38,13 +38,7 @@ import org.apache.cassandra.utils.IFilter.FilterKey;
  */
 public abstract class DecoratedKey implements PartitionPosition, FilterKey
 {
-    public static final Comparator<DecoratedKey> comparator = new Comparator<DecoratedKey>()
-    {
-        public int compare(DecoratedKey o1, DecoratedKey o2)
-        {
-            return o1.compareTo(o2);
-        }
-    };
+    public static final Comparator<DecoratedKey> comparator = DecoratedKey::compareTo;
 
     private final Token token;
 
@@ -65,7 +59,7 @@ public abstract class DecoratedKey implements PartitionPosition, FilterKey
     {
         if (this == obj)
             return true;
-        if (obj == null || !(obj instanceof DecoratedKey))
+        if (!(obj instanceof DecoratedKey))
             return false;
 
         DecoratedKey other = (DecoratedKey)obj;

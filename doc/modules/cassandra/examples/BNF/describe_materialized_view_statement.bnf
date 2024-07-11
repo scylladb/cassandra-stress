@@ -1,1 +1,0 @@
-describe_materialized_view_statement::= DESCRIBE MATERIALIZED VIEW materialized_view;

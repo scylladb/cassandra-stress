@@ -1,1 +1,0 @@
-describe_type_statement::= DESCRIBE TYPE udt_name;

@@ -120,7 +120,6 @@ import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.io.sstable.Component;
 import org.apache.cassandra.io.sstable.Descriptor;
 import org.apache.cassandra.io.sstable.ISSTableScanner;
-import org.apache.cassandra.io.sstable.SSTable;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.schema.KeyspaceParams;
 import org.apache.cassandra.schema.Types;
@@ -171,7 +170,6 @@ import com.datastax.driver.core.UserType;
 import com.datastax.driver.core.WriteType;
 import com.datastax.driver.core.exceptions.CodecNotFoundException;
 import com.datastax.driver.core.exceptions.DriverException;
-import com.datastax.driver.core.exceptions.InvalidQueryException;
 import com.datastax.driver.core.exceptions.InvalidTypeException;
 import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.RetryPolicy;
@@ -630,26 +628,23 @@ public class BulkLoader {
 
             try {
                 semaphore.acquire();
-                try {
-                    ResultSetFuture future = session.executeAsync(s);
-                    Futures.addCallback(future, new FutureCallback<ResultSet>() {
-                        @Override
-                        public void onSuccess(ResultSet result) {
-                            semaphore.release();
-                            metrics.statementsSent += numStatements;
-                        }
+                ResultSetFuture future = session.executeAsync(s);
+                Futures.addCallback(future, new FutureCallback<ResultSet>() {
+                    @Override
+                    public void onSuccess(ResultSet result) {
+                        semaphore.release();
+                        metrics.statementsSent += numStatements;
+                    }
 
-                        @Override
-                        public void onFailure(Throwable t) {
-                            semaphore.release();
-                            metrics.statementsFailed += numStatements;
-                            out.println("Error sending: " + s);
-                            out.println(t);
-                        }
-                    }, MoreExecutors.directExecutor());
-                } finally {
-                }
-            } catch (InterruptedException e) {
+                    @Override
+                    public void onFailure(Throwable t) {
+                        semaphore.release();
+                        metrics.statementsFailed += numStatements;
+                        out.println("Error sending: " + s);
+                        out.println(t);
+                    }
+                }, MoreExecutors.directExecutor());
+            } catch (InterruptedException ignored) {
             }
         }
 
@@ -684,7 +679,6 @@ public class BulkLoader {
 
         private static final String SELECT_DROPPED_COLUMNS = "SELECT * FROM system_schema.dropped_columns";
 
-        @SuppressWarnings("serial")
         @Override
         public CFMetaData getCFMetaData(String keyspace, String cfName) {
             Pair<String, String> key = Pair.create(keyspace, cfName);
