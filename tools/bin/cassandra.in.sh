@@ -14,61 +14,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if [ "x$CASSANDRA_HOME" = "x" ]; then
-    CASSANDRA_HOME="`dirname $0`/../.."
+# Scylla adaption. Some one will still have to find us SCYLLA_HOME
+# or place us there.
+# By default we assume that `scylla-tools-java` live next to `scylla`.
+if [ "$SCYLLA_HOME" = "" ]; then
+    SCYLLA_HOME="$(dirname "$0")/../../../scylla"
 fi
 
-# The directory where Cassandra's configs live (required)
-if [ "x$CASSANDRA_CONF" = "x" ]; then
-    CASSANDRA_CONF="$CASSANDRA_HOME/conf"
+if [ "$SCYLLA_CONF" = "" ]; then
+    SCYLLA_CONF="$SCYLLA_HOME/conf"
 fi
 
 # The java classpath (required)
-CLASSPATH="$CASSANDRA_CONF"
+CLASSPATH="$SCYLLA_CONF"
 
 # This can be the path to a jar file, or a directory containing the
 # compiled classes. NOTE: This isn't needed by the startup script,
 # it's just used here in constructing the classpath.
-if [ -d $CASSANDRA_HOME/build ] ; then
-    cassandra_bin="$CASSANDRA_HOME/build/classes/main"
-    cassandra_bin="$cassandra_bin:$CASSANDRA_HOME/build/classes/thrift"
-    cassandra_bin="$cassandra_bin:`ls -1 $CASSANDRA_HOME/build/apache-cassandra*.jar`"
-    cassandra_bin="$cassandra_bin:$CASSANDRA_HOME/build/classes/stress"
+if [ -d "$SCYLLA_HOME/build" ] ; then
+    cassandra_bin="$SCYLLA_HOME/build/classes/main"
+    cassandra_bin="$cassandra_bin:$SCYLLA_HOME/build/classes/thrift"
+    # shellcheck disable=SC2006
+    cassandra_bin="$cassandra_bin:`ls -1 $SCYLLA_HOME/build/apache-cassandra*.jar`"
+    cassandra_bin="$cassandra_bin:$SCYLLA_HOME/build/classes/stress"
     CLASSPATH="$CLASSPATH:$cassandra_bin"
 fi
 
 # the default location for commitlogs, sstables, and saved caches
 # if not set in cassandra.yaml
-cassandra_storagedir="$CASSANDRA_HOME/data"
+cassandra_storagedir="$SCYLLA_HOME/data"
 
 # JAVA_HOME can optionally be set here
 #JAVA_HOME=/usr/local/jdk6
 
-# Scylla adaption. Some one will still have to find us SCYLLA_HOME
-# or place us there.
-# By default we assume that `scylla-tools-java` live next to `scylla`.
-if [ "x$SCYLLA_HOME" = "x" ]; then
-    SCYLLA_HOME="`dirname $0`/../../../scylla"
-fi
-if [ "x$SCYLLA_CONF" = "x" ]; then
-    SCYLLA_CONF="$SCYLLA_HOME/conf"
-fi
 
-CONFIG_FILE_REALPATH=`realpath $CASSANDRA_CONF/cassandra.yaml`
+
+CONFIG_FILE_REALPATH=$(realpath $SCYLLA_CONF/cassandra.yaml)
 # If scylla.yaml is found - use it as the config file.
 if [ -f "$SCYLLA_CONF/scylla.yaml" ]; then
-    CONFIG_FILE_REALPATH=`realpath $SCYLLA_CONF/scylla.yaml`
+    CONFIG_FILE_REALPATH=$(realpath $SCYLLA_CONF/scylla.yaml)
 fi
 
 CONFIGURATION_FILE_OPT="-Dcassandra.config=file://$CONFIG_FILE_REALPATH"
 
 # The java classpath (required)
-CLASSPATH="$CASSANDRA_CONF:$cassandra_bin"
+CLASSPATH="$SCYLLA_CONF:$cassandra_bin"
 
-for jar in "$CASSANDRA_HOME"/tools/lib/*.jar; do
+for jar in "$SCYLLA_HOME"/tools/lib/*.jar; do
     CLASSPATH="$CLASSPATH:$jar"
 done
-for jar in "$CASSANDRA_HOME"/lib/*.jar; do
+for jar in "$SCYLLA_HOME"/lib/*.jar; do
     CLASSPATH="$CLASSPATH:$jar"
 done
 
@@ -82,7 +77,7 @@ if [ -n "$JAVA_HOME" ]; then
     # Why we can't have nice things: Solaris combines x86 and x86_64
     # installations in the same tree, using an unconventional path for the
     # 64bit JVM.  Since we prefer 64bit, search the alternate path first,
-    # (see https://issues.apache.org/jira/browse/CASSANDRA-4638).
+    # (see https://issues.apache.org/jira/browse/SCYLLA-4638).
     for java in "$JAVA_HOME"/bin/amd64/java "$JAVA_HOME"/bin/java; do
         if [ -x "$java" ]; then
             JAVA="$java"
@@ -99,38 +94,27 @@ if [ -z $JAVA ] ; then
 fi
 
 # Determine the sort of JVM we'll be running on.
-java_ver_output=`"${JAVA:-java}" -version 2>&1`
-jvmver=`echo "$java_ver_output" | grep '[openjdk|java] version' | awk -F'"' 'NR==1 {print $2}' | cut -d\- -f1`
+java_ver_output=$("${JAVA:-java}" -version 2>&1)
+jvmver=$(echo "$java_ver_output" | grep '[openjdk|java] version' | awk -F'"' 'NR==1 {print $2}' | cut -d- -f1)
 JVM_VERSION=${jvmver%_*}
-
 JAVA_VERSION=11
-if [ "$JVM_VERSION" = "1.8.0" ]  ; then
-    JVM_PATCH_VERSION=${jvmver#*_}
-    if [ "$JVM_VERSION" \< "1.8" ] || [ "$JVM_VERSION" \> "1.8.2" ] ; then
-        echo "Cassandra 4.0 requires either Java 8 (update 151 or newer) or Java 11 (or newer). Java $JVM_VERSION is not supported."
-        exit 1;
-    fi
-    if [ "$JVM_PATCH_VERSION" -lt 151 ] ; then
-        echo "Cassandra 4.0 requires either Java 8 (update 151 or newer) or Java 11 (or newer). Java 8 update $JVM_PATCH_VERSION is not supported."
-        exit 1;
-    fi
-    JAVA_VERSION=8
-elif [ "$JVM_VERSION" \< "11" ] ; then
+
+if [ "$JVM_VERSION" -lt "11" ] ; then
     echo "Cassandra 4.0 requires either Java 8 (update 151 or newer) or Java 11 (or newer)."
     exit 1;
 fi
 
-jvm=`echo "$java_ver_output" | grep -A 1 '[openjdk|java] version' | awk 'NR==2 {print $1}'`
+jvm=$(echo "$java_ver_output" | grep -A 1 '[openjdk|java] version' | awk 'NR==2 {print $1}')
 case "$jvm" in
     OpenJDK)
         JVM_VENDOR=OpenJDK
         # this will be "64-Bit" or "32-Bit"
-        JVM_ARCH=`echo "$java_ver_output" | awk 'NR==3 {print $2}'`
+        JVM_ARCH=$(echo "$java_ver_output" | awk 'NR==3 {print $2}')
         ;;
     "Java(TM)")
         JVM_VENDOR=Oracle
         # this will be "64-Bit" or "32-Bit"
-        JVM_ARCH=`echo "$java_ver_output" | awk 'NR==3 {print $3}'`
+        JVM_ARCH=$(echo "$java_ver_output" | awk 'NR==3 {print $3}')
         ;;
     *)
         # Help fill in other JVM values
@@ -140,14 +124,14 @@ case "$jvm" in
 esac
 
 # Read user-defined JVM options from jvm-server.options file
-JVM_OPTS_FILE=$CASSANDRA_CONF/jvm${jvmoptions_variant:--clients}.options
+JVM_OPTS_FILE=$SCYLLA_CONF/jvm${jvmoptions_variant:--clients}.options
 if [ $JAVA_VERSION -ge 11 ] ; then
-    JVM_DEP_OPTS_FILE=$CASSANDRA_CONF/jvm11${jvmoptions_variant:--clients}.options
+    JVM_DEP_OPTS_FILE=$SCYLLA_CONF/jvm11${jvmoptions_variant:--clients}.options
 else
-    JVM_DEP_OPTS_FILE=$CASSANDRA_CONF/jvm8${jvmoptions_variant:--clients}.options
+    JVM_DEP_OPTS_FILE=$SCYLLA_CONF/jvm8${jvmoptions_variant:--clients}.options
 fi
 
-for opt in `grep "^-" $JVM_OPTS_FILE` `grep "^-" $JVM_DEP_OPTS_FILE`
+for opt in `grep "^-" "$JVM_OPTS_FILE"` `grep "^-" "$JVM_DEP_OPTS_FILE"`
 do
   JVM_OPTS="$JVM_OPTS $opt"
 done
