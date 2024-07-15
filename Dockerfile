@@ -1,4 +1,4 @@
-FROM amazoncorretto:11-alpine as build
+FROM amazoncorretto:11-alpine AS build
 
 WORKDIR /app
 
@@ -7,11 +7,12 @@ COPY . .
 RUN apk update \
     && apk upgrade \
     && apk add apache-ant \
+    && ant realclean \
     && mkdir -p build lib \
-    && ant artifacts
+    && ant maven-declare-dependencies artifacts
 
 
-FROM amazoncorretto:11-alpine as production
+FROM amazoncorretto:11-alpine AS production
 
 ENV SCYLLA_HOME=/scylla-tools-java
 ENV SCYLLA_CONF=/scylla-tools-java/conf

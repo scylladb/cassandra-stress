@@ -14,9 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Scylla adaption. Some one will still have to find us SCYLLA_HOME
-# or place us there.
-# By default we assume that `scylla-tools-java` live next to `scylla`.
 if [ "$SCYLLA_HOME" = "" ]; then
     SCYLLA_HOME="$(dirname "$0")/../../../scylla"
 fi
@@ -48,29 +45,21 @@ cassandra_storagedir="$SCYLLA_HOME/data"
 #JAVA_HOME=/usr/local/jdk6
 
 
-
-CONFIG_FILE_REALPATH=$(realpath $SCYLLA_CONF/cassandra.yaml)
+CONFIG_FILE_REALPATH=$(realpath "$SCYLLA_CONF/cassandra.yaml")
 # If scylla.yaml is found - use it as the config file.
 if [ -f "$SCYLLA_CONF/scylla.yaml" ]; then
-    CONFIG_FILE_REALPATH=$(realpath $SCYLLA_CONF/scylla.yaml)
+    CONFIG_FILE_REALPATH=$(realpath "$SCYLLA_CONF/scylla.yaml")
 fi
 
 CONFIGURATION_FILE_OPT="-Dcassandra.config=file://$CONFIG_FILE_REALPATH"
 
-# The java classpath (required)
-CLASSPATH="$SCYLLA_CONF:$cassandra_bin"
-
 for jar in "$SCYLLA_HOME"/tools/lib/*.jar; do
     CLASSPATH="$CLASSPATH:$jar"
 done
+
 for jar in "$SCYLLA_HOME"/lib/*.jar; do
     CLASSPATH="$CLASSPATH:$jar"
 done
-
-
-#
-# Java executable and per-Java version JVM settings
-#
 
 # Use JAVA_HOME if set, otherwise look for java in PATH
 if [ -n "$JAVA_HOME" ]; then
@@ -97,10 +86,9 @@ fi
 java_ver_output=$("${JAVA:-java}" -version 2>&1)
 jvmver=$(echo "$java_ver_output" | grep '[openjdk|java] version' | awk -F'"' 'NR==1 {print $2}' | cut -d- -f1)
 JVM_VERSION=${jvmver%_*}
-JAVA_VERSION=11
 
-if [ "$JVM_VERSION" -lt "11" ] ; then
-    echo "Cassandra 4.0 requires either Java 8 (update 151 or newer) or Java 11 (or newer)."
+if [ "$JVM_VERSION" \< "11" ] ; then
+    echo "Cassandra-Stress requires Java 11 (or newer)."
     exit 1;
 fi
 
@@ -124,14 +112,9 @@ case "$jvm" in
 esac
 
 # Read user-defined JVM options from jvm-server.options file
-JVM_OPTS_FILE=$SCYLLA_CONF/jvm${jvmoptions_variant:--clients}.options
-if [ $JAVA_VERSION -ge 11 ] ; then
-    JVM_DEP_OPTS_FILE=$SCYLLA_CONF/jvm11${jvmoptions_variant:--clients}.options
-else
-    JVM_DEP_OPTS_FILE=$SCYLLA_CONF/jvm8${jvmoptions_variant:--clients}.options
-fi
+JVM_OPTS_FILE=$SCYLLA_CONF/jvm11${jvmoptions_variant:--clients}.options
 
-for opt in `grep "^-" "$JVM_OPTS_FILE"` `grep "^-" "$JVM_DEP_OPTS_FILE"`
+for opt in $(grep "^-" "$JVM_OPTS_FILE")
 do
   JVM_OPTS="$JVM_OPTS $opt"
 done
