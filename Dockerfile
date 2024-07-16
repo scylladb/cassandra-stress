@@ -1,15 +1,19 @@
 FROM amazoncorretto:11-alpine AS build
 
+ARG VERISON
+
 WORKDIR /app
 
 COPY . .
 
 RUN apk update \
     && apk upgrade \
-    && apk add apache-ant \
+    && apk add apache-ant bash \
     && ant realclean \
     && mkdir -p build lib \
-    && ant maven-declare-dependencies artifacts
+    && ant -Dversion=${VERSION} maven-declare-dependencies artifacts \
+    && bash ./SCYLLA-VERSION-GEN \
+    && cp build/SCYLLA-* build/dist/
 
 
 FROM amazoncorretto:11-alpine AS production
@@ -27,7 +31,6 @@ RUN apk update \
     && apk upgrade \
     && chmod +x tools/bin/cassandra-stress \
     && chmod +x tools/bin/cassandra-stressd \
-    && chmod +x tools/bin/cassandra.in.sh \
     && rm tools/bin/*.bat
 
 CMD ["cassandra-stress"]

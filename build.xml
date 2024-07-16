@@ -14,7 +14,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<project basedir="." default="jar" name="apache-cassandra"
+<project basedir="." default="jar" name="cassandra-stress"
          xmlns:artifact="antlib:org.apache.maven.artifact.ant"
          xmlns:if="ant:if"
          xmlns:unless="ant:unless">
@@ -949,13 +949,13 @@
                 <exclude name=".externalToolBuilders/**"/>
                 <!-- exclude NetBeans files -->
                 <exclude name="ide/nbproject/private/**"/>
+                <exclude name="Dockerfile"/>
+                <exclude name=".dockerignore"/>
             </tarfileset>
 
             <!-- Everything else (assumed to be scripts), is executable -->
             <tarfileset dir="${basedir}" prefix="${final.name}-src" mode="755">
                 <include name="tools/bin/*"/>
-                <exclude name="tools/bin/*.in.sh"/>
-                <exclude name="tools/bin/*.bat"/>
             </tarfileset>
         </tar>
 
