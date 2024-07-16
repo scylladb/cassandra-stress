@@ -167,6 +167,8 @@
         <pathelement location="${build.classes.thrift}"/>
         <fileset dir="${build.dir.lib}">
             <include name="**/*.jar"/>
+            <exclude name="**/*-sources.jar"/>
+            <exclude name="**/ant-*.jar"/>
         </fileset>
     </path>
     <path id="cassandra.classpath.test">
@@ -751,7 +753,10 @@
 
     <target name="_build_multi_java">
         <javac fork="true"
-               debug="true" debuglevel="${debuglevel}" encoding="utf-8"
+               compiler="modern"
+               debug="true"
+               debuglevel="${debuglevel}"
+               encoding="utf-8"
                destdir="${build.classes.main}"
                includeantruntime="false"
                source="${ant.java.version}"
@@ -799,10 +804,19 @@
 
     <target name="stress-build" depends="build" description="build stress tool">
         <mkdir dir="${stress.build.classes}"/>
-        <javac compiler="modern" debug="true" debuglevel="${debuglevel}" encoding="utf-8"
-               destdir="${stress.build.classes}" includeantruntime="true" source="${source.version}"
-               target="${target.version}">
+        <javac fork="true"
+               compiler="modern"
+               debug="true"
+               debuglevel="${debuglevel}"
+               encoding="utf-8"
+               destdir="${stress.build.classes}"
+               includeantruntime="false"
+               source="${ant.java.version}"
+               target="${ant.java.version}"
+               memorymaximumsize="512M">
             <src path="${stress.build.src}"/>
+            <compilerarg value="-XDignore.symbol.file"/>
+            <compilerarg line="${java11-jvmargs}"/>
             <classpath>
                 <path refid="cassandra.classpath"/>
             </classpath>
@@ -843,34 +857,6 @@
         <copy file="NOTICE.txt"
               tofile="${build.classes.thrift}/META-INF/NOTICE.txt"/>
 
-        <!-- Main Jar -->
-        <jar jarfile="${build.dir}/${final.name}.jar">
-            <fileset dir="${build.classes.main}">
-                <exclude name="org/apache/cassandra/thrift/ITransportFactory*.class"/>
-                <exclude name="org/apache/cassandra/thrift/TFramedTransportFactory*.class"/>
-                <exclude name="com/scylladb/**"/>
-            </fileset>
-            <manifest>
-                <attribute name="Multi-Release" value="true"/>
-                <attribute name="Implementation-Title" value="Cassandra"/>
-                <attribute name="Implementation-Version" value="${version}"/>
-                <attribute name="Implementation-Vendor" value="Apache"/>
-            </manifest>
-        </jar>
-
-        <!-- Scylla tools extensions -->
-        <jar jarfile="${build.dir}/${final.scylla-tools.name}.jar">
-            <fileset dir="${build.classes.main}">
-                <include name="com/scylladb/**"/>
-                <exclude name="org/apache/**"/>
-            </fileset>
-            <manifest>
-                <attribute name="Implementation-Title" value="Scylla-Tools"/>
-                <attribute name="Implementation-Version" value="${version}"/>
-                <attribute name="Implementation-Vendor" value="ScyllaDB"/>
-            </manifest>
-        </jar>
-
         <!-- Stress jar -->
         <mkdir dir="${stress.build.classes}"/>
         <manifest file="${stress.manifest}">
@@ -881,12 +867,17 @@
         <mkdir dir="${build.dir}/tools/lib/"/>
         <jar destfile="${build.dir}/tools/lib/stress.jar" manifest="${stress.manifest}">
             <fileset dir="${stress.build.classes}"/>
+            <fileset dir="${build.classes.main}">
+                <exclude name="org/apache/cassandra/thrift/ITransportFactory*.class"/>
+                <exclude name="org/apache/cassandra/thrift/TFramedTransportFactory*.class"/>
+                <exclude name="com/scylladb/**"/>
+            </fileset>
         </jar>
     </target>
 
     <!-- creates release tarballs -->
     <target name="artifacts" depends="jar,stress-build"
-            description="Create Cassandra release artifacts">
+            description="Create Cassandra Stress release artifacts">
         <mkdir dir="${dist.dir}"/>
         <!-- fix the control linefeed so that builds on windows works on linux -->
         <fixcrlf srcdir="conf" includes="**/*" excludes="**/*.bat, **/*.ps1" eol="lf" eof="remove"/>
@@ -894,8 +885,6 @@
         <copy todir="${dist.dir}/lib">
             <fileset dir="${build.dir.lib}/jars"/>
             <fileset dir="${build.dir}">
-                <include name="${final.name}.jar"/>
-                <include name="${final.scylla-tools.name}.jar"/>
                 <include name="${ant.project.name}-thrift-${version}.jar"/>
             </fileset>
         </copy>
