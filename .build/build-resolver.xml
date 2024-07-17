@@ -80,7 +80,7 @@
         <resolver:resolve>
             <remoterepos refid="all"/>
             <dependencies>
-                <dependency groupId="de.jflex" artifactId="jflex" version="1.6.0" />
+                <dependency groupId="de.jflex" artifactId="jflex" version="1.9.1" />
             </dependencies>
             <path refid="jflex.classpath" classpath="runtime"/>
         </resolver:resolve>
