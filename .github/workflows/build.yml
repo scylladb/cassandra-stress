@@ -48,7 +48,7 @@ jobs:
         if: ${{ inputs.version != '' }}
         run: ant -Dversion=${{ inputs.version }} jar
       - name: Build latest
-        if: ${{ inputs.version != '' }}
+        if: ${{ inputs.version == '' }}
         run: ant jar
       - name: Artifacts
         if: ${{ inputs.version != '' }}
