@@ -23,19 +23,12 @@ on:
         description: 'Build latest version'
 jobs:
   build:
-    strategy:
-      matrix:
-        java: [ '11' ]
-        os: [ 'ubuntu-latest' ]
-    runs-on: ${{ matrix.os }}
+    runs-on: 'ubuntu-latest'
+    container: amazoncorretto:11-al2-full
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'corretto'
-          java-version: ${{ matrix.java }}
       - name: Setup Ant
         uses: cedx/setup-ant@v2
         with:
