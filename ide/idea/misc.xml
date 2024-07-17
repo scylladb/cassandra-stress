@@ -1,4 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_10" default="false" project-jdk-name="11" project-jdk-type="JavaSDK" />
+  <component name="ExternalStorageConfigurationManager" enabled="true" />
+  <component name="MavenProjectsManager">
+    <option name="originalFiles">
+      <list>
+        <option value="$PROJECT_DIR$/build/tmp-apache-cassandra-3.11.13-SNAPSHOT-deps.pom" />
+        <option value="$PROJECT_DIR$/build/apache-cassandra-3.11.13-SNAPSHOT-parent.pom" />
+        <option value="$PROJECT_DIR$/build/apache-cassandra-thrift-3.11.13-SNAPSHOT.pom" />
+        <option value="$PROJECT_DIR$/build/apache-cassandra-3.11.13-SNAPSHOT.pom" />
+        <option value="$PROJECT_DIR$/build/cassandra-stress-thrift-3.11.13-SNAPSHOT.pom" />
+        <option value="$PROJECT_DIR$/build/cassandra-stress-3.11.13-SNAPSHOT.pom" />
+        <option value="$PROJECT_DIR$/build/cassandra-stress-3.11.13-SNAPSHOT-parent.pom" />
+        <option value="$PROJECT_DIR$/build/tmp-cassandra-stress-3.11.13-SNAPSHOT-deps.pom" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="11" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
 </project>
