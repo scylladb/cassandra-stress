@@ -36,7 +36,7 @@ jobs:
         with:
           distribution: 'corretto'
           java-version: ${{ matrix.java }}
-          cache: 'maven'
+#          cache: 'maven'
 #          cache-dependency-path: |
 #            build/cassandra-stress*.pom
       - name: Setup Ant
