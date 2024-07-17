@@ -11,7 +11,7 @@ RUN apk update \
     && apk add apache-ant bash \
     && ant realclean \
     && mkdir -p build lib \
-    && ant -Dversion=${VERSION} maven-declare-dependencies artifacts \
+    && ant -Dversion=$VERSION maven-declare-dependencies artifacts \
     && bash ./SCYLLA-VERSION-GEN \
     && cp build/SCYLLA-* build/dist/
 

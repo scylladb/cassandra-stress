@@ -1,0 +1,92 @@
+name: "Build Cassandra-Stress"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        required: false
+        description: 'Version of the release'
+        default: ''
+      latest:
+        required: false
+        default: false
+        description: 'Build latest version'
+  workflow_call:
+    inputs:
+      version:
+        required: false
+        description: 'Version of the release'
+        type: boolean
+        default: ''
+      latest:
+        required: false
+        default: false
+        type: boolean
+        description: 'Build latest version'
+jobs:
+  build:
+    strategy:
+      matrix:
+        java: [ '11' ]
+        os: [ 'ubuntu-latest' ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'corretto'
+          java-version: ${{ matrix.java }}
+          cache: 'maven'
+          cache-dependency-path: |
+            build/cassandra-stress*.pom
+      - name: Setup Ant
+        uses: cedx/setup-ant@v2
+        with:
+          optional-tasks: true
+          version: latest
+      - name: Build with version ${{ inputs.version }}
+        if: ${{ inputs.version != '' }}
+        run: ant -Dversion=${{ inputs.version }} jar
+      - name: Build latest
+        if: ${{ inputs.version != '' }}
+        run: ant jar
+      - name: Artifacts
+        if: ${{ inputs.version != '' }}
+        run: ant -Dversion=${{ inputs.version }} artifacts
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        id: release
+        if: ${{ inputs.version != '' }}
+        with:
+          make_latest: ${{ inputs.latest }}
+          name: "v${{ steps.version_tag.outputs.tag }}"
+          tag_name: "v${{ steps.version_tag.outputs.tag }}"
+          generate_release_notes: true
+          append_body: true
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            build/cassandra-stress-${{ inputs.version }}-bin.tar.gz
+            build/cassandra-stress-${{ inputs.version }}-bin.tar.gz.sha256
+            build/cassandra-stress-${{ inputs.version }}-bin.tar.gz.sha512
+            build/cassandra-stress-${{ inputs.version }}-src.tar.gz
+            build/cassandra-stress-${{ inputs.version }}-src.tar.gz.sha256
+            build/cassandra-stress-${{ inputs.version }}-src.tar.gz.sha512
+      - name: "Generate release changelog"
+        if: ${{ inputs.version != '' }}
+        uses: heinrichreimer/action-github-changelog-generator@v2.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          author: true
+          releaseUrl: ${{ steps.release.outputs.url }}
+          issues: false
+          pullRequests: true
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        if: ${{ inputs.version != '' }}
+        with:
+          commit_message: "Update CHANGELOG.md"
+          branch: master
+          commit_options: '--no-verify --signoff'
+          file_pattern: CHANGELOG.md

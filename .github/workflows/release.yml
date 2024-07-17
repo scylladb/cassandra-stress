@@ -44,15 +44,21 @@ jobs:
           branch: master
           commit_options: '--no-verify --signoff'
           file_pattern: CHANGELOG.md
-  docker_image:
+  docker:
     needs: ['create_release']
     uses: "./.github/workflows/docker.yml"
     with:
       docker_target: production
-      platforms: linux/amd64
+      platforms: linux/amd64,linux/arm64
       version: ${{ inputs.version }}
       image: ${{ vars.IMAGE }}
     secrets:
       CR_PAT: ${{ secrets.CR_PAT }}
       REGISTRY: ${{ secrets.REGISTRY }}
       REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+  build:
+    needs: ['create_release']
+    uses: "./.github/workflows/build.yml"
+    with:
+      version: ${{ inputs.version }}
+      latest: true
