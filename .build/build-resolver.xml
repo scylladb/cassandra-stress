@@ -71,13 +71,6 @@
         <resolver:resolve>
             <remoterepos refid="all"/>
             <dependencies>
-                <dependency groupId="org.jacoco" artifactId="org.jacoco.ant" version="${jacoco.version}" />
-            </dependencies>
-            <path refid="jacocoant.classpath" classpath="runtime"/>
-        </resolver:resolve>
-        <resolver:resolve>
-            <remoterepos refid="all"/>
-            <dependencies>
                 <dependency groupId="org.antlr" artifactId="antlr" version="3.5.2"/>
                 <dependency groupId="org.antlr" artifactId="antlr-runtime" version="3.5.2"/>
                 <dependency groupId="org.antlr" artifactId="ST4" version="4.0.8"/>
@@ -151,14 +144,6 @@
             <files dir="${test.lib}/jars" layout="{artifactId}-{version}-{classifier}.{extension}" scopes="test,!provide,!system"/>
         </resolver:resolve>
 
-
-        <!-- jacoco agent jar comes wrapped in a jar -->
-        <unzip src="${local.repository}/org/jacoco/org.jacoco.agent/${jacoco.version}/org.jacoco.agent-${jacoco.version}.jar" dest="${build.dir.lib}/jars">
-            <patternset>
-                <include name="*.jar"/>
-            </patternset>
-            <mapper type="flatten"/>
-        </unzip>
     </target>
 
     <target name="resolver-dist-lib" depends="resolver-retrieve-build,write-poms">

@@ -121,13 +121,6 @@
     <!-- skip flushing schema tables during tests -->
     <property name="cassandra.test.flush_local_schema_changes" value="false"/>
 
-    <!-- https://www.eclemma.org/jacoco/ -->
-    <property name="jacoco.export.dir" value="${build.dir}/jacoco/"/>
-    <property name="jacoco.partials.dir" value="${jacoco.export.dir}/partials"/>
-    <property name="jacoco.partialexecfile" value="${jacoco.partials.dir}/partial.exec"/>
-    <property name="jacoco.finalexecfile" value="${jacoco.export.dir}/jacoco.exec"/>
-    <property name="jacoco.version" value="0.7.5.201505241946"/>
-
     <property name="bytebuddy.version" value="1.10.10"/>
 
     <property name="byteman.version" value="4.0.2"/>
@@ -198,8 +191,6 @@
         <mkdir dir="${stress.test.classes}"/>
         <mkdir dir="${build.src.gen-java}"/>
         <mkdir dir="${build.dir.lib}"/>
-        <mkdir dir="${jacoco.export.dir}"/>
-        <mkdir dir="${jacoco.partials.dir}"/>
     </target>
 
     <target name="clean" description="Remove all locally created artifacts">
@@ -207,8 +198,6 @@
         <delete dir="${build.classes}"/>
         <delete dir="${build.src.gen-java}"/>
         <delete dir="${version.properties.dir}"/>
-        <delete dir="${jacoco.export.dir}"/>
-        <delete dir="${jacoco.partials.dir}"/>
     </target>
     <target depends="clean" name="cleanall"/>
 
@@ -385,9 +374,6 @@
                 </dependency>
                 <dependency groupId="net.java.dev.jna" artifactId="jna" version="5.14.0"/>
 
-                <dependency groupId="org.jacoco" artifactId="org.jacoco.agent" version="${jacoco.version}"/>
-                <dependency groupId="org.jacoco" artifactId="org.jacoco.ant" version="${jacoco.version}"/>
-
                 <dependency groupId="org.jboss.byteman" artifactId="byteman-install" version="${byteman.version}"/>
                 <dependency groupId="org.jboss.byteman" artifactId="byteman" version="${byteman.version}"/>
                 <dependency groupId="org.jboss.byteman" artifactId="byteman-submit" version="${byteman.version}"/>
@@ -552,14 +538,9 @@
             <dependency groupId="org.apache.ant" artifactId="ant-junit" version="1.9.7"/>
             <dependency groupId="org.hamcrest" artifactId="hamcrest" scope="test"/>
 
-            <dependency groupId="org.jacoco" artifactId="org.jacoco.agent"/>
-            <dependency groupId="org.jacoco" artifactId="org.jacoco.ant"/>
 
             <dependency groupId="org.junit" artifactId="junit-bom" type="pom" scope="test"/>
             <dependency groupId="org.assertj" artifactId="assertj-core" scope="test"/>
-            <!-- coverage debs -->
-            <dependency groupId="org.jacoco" artifactId="org.jacoco.agent" scope="test"/>
-            <dependency groupId="org.jacoco" artifactId="org.jacoco.ant" scope="test"/>
 
             <dependency groupId="org.jboss.byteman" artifactId="byteman-install" scope="provided"/>
             <dependency groupId="org.jboss.byteman" artifactId="byteman" scope="provided"/>
@@ -1052,15 +1033,9 @@
         <attribute name="exclude" default=""/>
         <attribute name="filelist" default=""/>
         <attribute name="testtag" default=""/>
-        <attribute name="usejacoco" default="no"/>
         <attribute name="showoutput" default="false"/>
 
         <sequential>
-            <condition property="additionalagent"
-                       value="-javaagent:${build.dir.lib}/jars/jacocoagent.jar=destfile=${jacoco.partialexecfile}"
-                       else="">
-                <istrue value="${usejacoco}"/>
-            </condition>
             <taskdef name="junit-timeout" classname="org.apache.cassandra.JStackJUnitTask">
                 <classpath>
                     <pathelement location="${test.classes}"/>
