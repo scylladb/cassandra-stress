@@ -16,7 +16,6 @@ on:
         required: false
         description: 'Version of the release'
         type: boolean
-        default: ''
       latest:
         required: false
         default: false
