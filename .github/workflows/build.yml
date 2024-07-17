@@ -6,7 +6,6 @@ on:
       version:
         required: false
         description: 'Version of the release'
-        default: ''
       latest:
         required: false
         default: false
