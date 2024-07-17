@@ -24,7 +24,7 @@ on:
 jobs:
   build:
     runs-on: 'ubuntu-latest'
-    container: amazoncorretto:11-al2-full
+    container: amazoncorretto:11-alpine
     steps:
       - uses: actions/checkout@v4
         with:
