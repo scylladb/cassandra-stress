@@ -23,12 +23,19 @@ on:
         description: 'Build latest version'
 jobs:
   build:
-    runs-on: 'ubuntu-latest'
-    container: amazoncorretto:11-alpine
+    strategy:
+      matrix:
+        java: [ '11' ]
+        os: [ 'ubuntu-latest' ]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'corretto'
+          java-version: ${{ matrix.java }}
       - name: Setup Ant
         uses: cedx/setup-ant@v2
         with:
@@ -39,7 +46,9 @@ jobs:
         run: ant -Dversion=${{ inputs.version }} jar
       - name: Build latest
         if: ${{ inputs.version == '' }}
-        run: ant jar
+        run: |
+          ant init
+          ant jar
       - name: Artifacts
         if: ${{ inputs.version != '' }}
         run: ant -Dversion=${{ inputs.version }} artifacts
