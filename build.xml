@@ -854,7 +854,7 @@
     -->
     <target name="build" depends="resolver-retrieve-build,build-project" description="Compile Cassandra classes"/>
 
-    <target name="_build_multi_java">
+    <target name="build_java">
         <javac fork="true"
                compiler="modern"
                debug="true"
@@ -878,7 +878,7 @@
     <target depends="init,gen-cql3-grammar"
             name="build-project">
         <echo message="${ant.project.name}: ${ant.file}"/>
-        <antcall target="_build_multi_java"/>
+        <antcall target="build_java"/>
         <antcall target="createVersionPropFile"/>
         <copy todir="${build.classes.main}">
             <fileset dir="${build.src.resources}"/>
@@ -904,7 +904,6 @@
             <src path="${stress.test.src}"/>
         </javac>
     </target>
-
     <target name="stress-build" depends="build" description="build stress tool">
         <mkdir dir="${stress.build.classes}"/>
         <javac fork="true"
@@ -928,7 +927,6 @@
             <fileset dir="${stress.build.src}/resources"/>
         </copy>
     </target>
-
     <target name="stress-test" depends="stress-build-test, build-test" description="Runs stress tests">
         <testmacro inputdir="${stress.test.src}"
                    timeout="${test.timeout}">
@@ -1075,26 +1073,6 @@
             </fileset>
         </checksum>
     </target>
-
-    <target name="build-jmh" depends="build-test, jar" description="Create JMH uber jar">
-        <jar jarfile="${build.test.dir}/deps.jar">
-            <zipgroupfileset dir="${build.dir.lib}/jars">
-                <include name="*jmh*.jar"/>
-                <include name="jopt*.jar"/>
-                <include name="commons*.jar"/>
-            </zipgroupfileset>
-            <zipgroupfileset dir="${build.lib}" includes="*.jar"/>
-        </jar>
-        <jar jarfile="${build.test.dir}/benchmarks.jar">
-            <manifest>
-                <attribute name="Main-Class" value="org.openjdk.jmh.Main"/>
-            </manifest>
-            <zipfileset src="${build.test.dir}/deps.jar" excludes="META-INF/*.SF"/>
-            <fileset dir="${build.classes.main}"/>
-            <fileset dir="${test.classes}"/>
-        </jar>
-    </target>
-
     <target name="build-test" depends="stress-build, write-poms, resolver-dist-lib"
             description="Compile test classes" unless="no-build-test">
         <javac
@@ -1526,43 +1504,6 @@
         <install pomFile="${build.dir}/${final.name}.pom"
                  file="${build.dir}/${final.name}-javadoc.jar"
                  classifier="javadoc"/>
-    </target>
-
-    <!-- Publish artifacts to remote Maven repository -->
-    <target name="publish"
-            depends="mvn-install,artifacts"
-            if="release"
-            description="Publishes the artifacts to the Maven repository">
-
-        <!-- the parent -->
-        <deploy pomFile="${build.dir}/${final.name}-parent.pom"
-                file="${build.dir}/${final.name}-parent.pom"
-                packaging="pom"/>
-
-        <!-- the cassandra-thrift jar -->
-        <deploy pomFile="${build.dir}/${ant.project.name}-thrift-${version}.pom"
-                file="${build.dir}/${ant.project.name}-thrift-${version}.jar"/>
-        <deploy pomFile="${build.dir}/${ant.project.name}-thrift-${version}.pom"
-                file="${build.dir}/${ant.project.name}-thrift-${version}-sources.jar"
-                classifier="sources"/>
-        <deploy pomFile="${build.dir}/${ant.project.name}-thrift-${version}.pom"
-                file="${build.dir}/${ant.project.name}-thrift-${version}-javadoc.jar"
-                classifier="javadoc"/>
-
-        <!-- the cassandra-all jar -->
-        <deploy pomFile="${build.dir}/${final.name}.pom"
-                file="${build.dir}/${final.name}.jar"/>
-        <deploy pomFile="${build.dir}/${final.name}.pom"
-                file="${build.dir}/${final.name}-sources.jar"
-                classifier="sources"/>
-        <deploy pomFile="${build.dir}/${final.name}.pom"
-                file="${build.dir}/${final.name}-javadoc.jar"
-                classifier="javadoc"/>
-
-        <!-- the distribution -->
-        <sign-dist file="${build.dir}/${final.name}-bin.tar.gz"/>
-        <sign-dist file="${build.dir}/${final.name}-src.tar.gz"/>
-
     </target>
 
     <!-- Generate IDEA project description files -->
