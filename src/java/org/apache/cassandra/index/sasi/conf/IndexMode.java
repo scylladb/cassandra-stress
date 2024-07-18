@@ -26,7 +26,6 @@ import org.apache.cassandra.config.ColumnDefinition;
 import org.apache.cassandra.index.sasi.analyzer.AbstractAnalyzer;
 import org.apache.cassandra.index.sasi.analyzer.NoOpAnalyzer;
 import org.apache.cassandra.index.sasi.analyzer.NonTokenizingAnalyzer;
-import org.apache.cassandra.index.sasi.analyzer.StandardAnalyzer;
 import org.apache.cassandra.index.sasi.disk.OnDiskIndexBuilder.Mode;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.AsciiType;
@@ -83,7 +82,7 @@ public class IndexMode
                 if (analyzerClass != null)
                     analyzer = (AbstractAnalyzer) analyzerClass.newInstance();
                 else if (TOKENIZABLE_TYPES.contains(validator))
-                    analyzer = new StandardAnalyzer();
+                    analyzer = new NoOpAnalyzer();
             }
         }
         catch (InstantiationException | IllegalAccessException e)

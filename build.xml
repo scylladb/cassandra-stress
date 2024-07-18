@@ -909,7 +909,7 @@
             </classpath>
         </javac>
     </target>
-    <target depends="init,gen-cql3-grammar,generate-cql-html,generate-jflex-java"
+    <target depends="init,gen-cql3-grammar,generate-cql-html"
             name="build-project">
         <echo message="${ant.project.name}: ${ant.file}"/>
         <antcall target="_build_multi_java"/>
