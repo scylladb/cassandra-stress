@@ -53,7 +53,7 @@ jobs:
       version: ${{ inputs.version }}
       image: ${{ vars.IMAGE }}
     secrets:
-      CR_PAT: ${{ secrets.CR_PAT }}
+      REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
       REGISTRY: ${{ secrets.REGISTRY }}
       REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
   build:
