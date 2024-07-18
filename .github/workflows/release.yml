@@ -6,7 +6,7 @@ on:
       - "v*"
 
 jobs:
-  create_release:
+  tag:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version_tag.outputs.tag }}
@@ -21,17 +21,17 @@ jobs:
         with:
           tagRegex: "v(.*)"
   docker:
-    needs: ['create_release']
+    needs: ['tag']
     uses: "./.github/workflows/docker.yml"
     with:
-      version: ${{ inputs.version }}
+      version: ${{ needs.tag.outputs.version }}
     secrets:
       REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
       REGISTRY: ${{ secrets.REGISTRY }}
       REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
   build:
-    needs: ['create_release']
+    needs: ['tag']
     uses: "./.github/workflows/build.yml"
     with:
-      version: ${{ inputs.version }}
+      version: ${{ needs.tag.outputs.version }}
       latest: true
