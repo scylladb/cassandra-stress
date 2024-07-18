@@ -1,7 +1,5 @@
 FROM amazoncorretto:11-alpine AS build
 
-ARG VERISON
-
 WORKDIR /app
 
 COPY . .
@@ -11,7 +9,7 @@ RUN apk update \
     && apk add apache-ant bash \
     && ant realclean \
     && mkdir -p build lib \
-    && ant -Dversion=$VERSION maven-declare-dependencies artifacts \
+    && ant -Drelease=true artifacts \
     && bash ./SCYLLA-VERSION-GEN \
     && cp build/SCYLLA-* build/dist/
 
