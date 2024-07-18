@@ -14,17 +14,12 @@ on:
         description: ''
         type: string
       platforms:
-        default: linux/amd64
+        default: linux/amd64,linux/arm64
         required: false
         description: ''
         type: string
-      dev:
-        default: false
-        required: false
-        description: ''
-        type: boolean
       image:
-        default: 'ghcr.io/codelieutenant/website'
+        default: 'scylladb/cassandra-stress'
         required: false
         description: ''
         type: string
@@ -84,6 +79,8 @@ jobs:
           platforms: ${{ inputs.platforms }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          tags: ${{ inputs.image }}:latest, ${{ inputs.image }}:${{ inputs.version }}
+          tags: |
+            ${{ inputs.image }}:latest 
+            ${{ inputs.image }}:${{ inputs.version }}
           build-args: |
             VERSION=${{ inputs.version }}

@@ -24,10 +24,7 @@ jobs:
     needs: ['create_release']
     uses: "./.github/workflows/docker.yml"
     with:
-      docker_target: production
-      platforms: linux/amd64,linux/arm64
       version: ${{ inputs.version }}
-      image: ${{ vars.IMAGE }}
     secrets:
       REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
       REGISTRY: ${{ secrets.REGISTRY }}
