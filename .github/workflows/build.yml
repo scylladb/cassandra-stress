@@ -61,8 +61,8 @@ jobs:
         if: ${{ inputs.version != '' }}
         with:
           make_latest: ${{ inputs.latest }}
-          name: "v${{ steps.version_tag.outputs.tag }}"
-          tag_name: "v${{ steps.version_tag.outputs.tag }}"
+          name: "v${{ inputs.version }}"
+          tag_name: "v${{ inputs.version }}"
           generate_release_notes: true
           append_body: true
           prerelease: false
