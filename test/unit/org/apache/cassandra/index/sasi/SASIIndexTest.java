@@ -62,7 +62,6 @@ import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.index.sasi.analyzer.AbstractAnalyzer;
-import org.apache.cassandra.index.sasi.analyzer.DelimiterAnalyzer;
 import org.apache.cassandra.index.sasi.analyzer.NoOpAnalyzer;
 import org.apache.cassandra.index.sasi.analyzer.NonTokenizingAnalyzer;
 import org.apache.cassandra.index.sasi.conf.ColumnIndex;
@@ -2538,9 +2537,7 @@ public class SASIIndexTest
 
         new HashMap<Class<? extends AbstractAnalyzer>, List<String>>()
         {{
-            put(StandardAnalyzer.class, textColumns);
             put(NonTokenizingAnalyzer.class, textColumns);
-            put(DelimiterAnalyzer.class, textColumns);
             put(NoOpAnalyzer.class, allColumns);
         }}
         .forEach((analyzer, supportedColumns) -> {

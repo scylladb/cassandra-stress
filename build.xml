@@ -241,14 +241,6 @@
             </dependencies>
             <path refid="cql3-grammar.classpath" classpath="runtime"/>
         </resolver:resolve>
-        <resolver:resolve>
-            <remoterepos refid="all"/>
-            <dependencies>
-                <dependency groupId="de.jflex" artifactId="jflex" version="1.9.1" />
-            </dependencies>
-            <path refid="jflex.classpath" classpath="runtime"/>
-        </resolver:resolve>
-
         <macrodef name="install">
             <attribute name="pomFile"/>
             <attribute name="file"/>
@@ -389,27 +381,6 @@
             <arg value="10"/> <!-- default is 60 -->
         </java>
     </target>
-
-    <target name="generate-cql-html" depends="resolver-init" description="Generate HTML from textile source">
-        <taskdef classpathref="wikitext.classpath" resource="wikitexttasks.properties"/>
-        <wikitext-to-html markupLanguage="Textile">
-            <fileset dir="${basedir}">
-                <include name="doc/cql3/*.textile"/>
-            </fileset>
-        </wikitext-to-html>
-    </target>
-
-    <!--
-        Generates Java sources for tokenization support from jflex
-        grammar files
-    -->
-    <target name="generate-jflex-java" description="Generate Java from jflex grammar">
-<!--        <taskdef classname="jflex.anttask.JFlexTask" name="jflex" classpath="${build.dir.lib}/jars/jflex-1.9.1.jar" />-->
-        <taskdef classname="jflex.anttask.JFlexTask" classpathref="jflex.classpath" name="jflex"/>
-        <jflex file="${build.src.java}/org/apache/cassandra/index/sasi/analyzer/StandardTokenizerImpl.jflex"
-               destdir="${build.src.gen-java}/"/>
-    </target>
-
     <!--
        Fetch Maven Ant Tasks and Cassandra's dependencies
        These targets are intentionally free of dependencies so that they
@@ -588,9 +559,6 @@
                 </dependency>
                 <dependency groupId="joda-time" artifactId="joda-time" version="2.4"/>
                 <dependency groupId="com.carrotsearch" artifactId="hppc" version="0.5.4"/>
-                <dependency groupId="de.jflex" artifactId="jflex" version="1.9.1">
-                    <exclusion groupId="org.apache.ant" artifactId="ant"/>
-                </dependency>
                 <dependency groupId="com.github.rholder" artifactId="snowball-stemmer" version="1.3.0.581.1"/>
                 <dependency groupId="com.googlecode.concurrent-trees" artifactId="concurrent-trees" version="2.4.0"/>
                 <dependency groupId="com.github.ben-manes.caffeine" artifactId="caffeine" version="2.2.6"/>
@@ -785,8 +753,6 @@
             <dependency groupId="org.hdrhistogram" artifactId="HdrHistogram"/>
 
             <dependency groupId="com.github.luben" artifactId="zstd-jni"/>
-            <!-- sasi deps -->
-            <dependency groupId="de.jflex" artifactId="jflex"/>
             <dependency groupId="com.github.rholder" artifactId="snowball-stemmer"/>
             <dependency groupId="com.googlecode.concurrent-trees" artifactId="concurrent-trees"/>
 
@@ -909,7 +875,7 @@
             </classpath>
         </javac>
     </target>
-    <target depends="init,gen-cql3-grammar,generate-cql-html"
+    <target depends="init,gen-cql3-grammar"
             name="build-project">
         <echo message="${ant.project.name}: ${ant.file}"/>
         <antcall target="_build_multi_java"/>
