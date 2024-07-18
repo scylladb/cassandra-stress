@@ -1,5 +1,7 @@
 FROM amazoncorretto:11-alpine AS build
 
+ARG CASSANDRA_STRESS_VERSION
+
 WORKDIR /app
 
 COPY . .
@@ -9,10 +11,9 @@ RUN apk update \
     && apk add apache-ant bash \
     && ant realclean \
     && mkdir -p build lib \
-    && ant -Drelease=true artifacts \
+    && ant -Drelease=true -Dversion="$CASSANDRA_STRESS_VERSION" artifacts \
     && bash ./SCYLLA-VERSION-GEN \
     && cp build/SCYLLA-* build/dist/
-
 
 FROM amazoncorretto:11-alpine AS production
 

@@ -1,5 +1,8 @@
 name: "Build Cassandra-Stress"
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
     inputs:

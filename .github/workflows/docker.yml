@@ -34,13 +34,9 @@ on:
         required: false
         type: string
       platforms:
-        default: linux/amd64
+        default: linux/amd64,linux/arm64
         required: false
         type: string
-      dev:
-        default: false
-        required: false
-        type: boolean
       image:
         default: 'scylladb/cassandra-stress'
         required: false
@@ -82,3 +78,5 @@ jobs:
           tags: |
             ${{ inputs.image }}:latest 
             ${{ inputs.image }}:${{ inputs.version }}
+          build-args: |
+            CASSANDRA_STRESS_VERSION=${{ inputs.version }}
