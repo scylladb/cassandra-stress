@@ -24,7 +24,7 @@ jobs:
     needs: ['tag']
     uses: "./.github/workflows/docker.yml"
     with:
-      version: ${{ needs.tag.outputs.version }}
+      version: '${{ needs.tag.outputs.version }}'
     secrets:
       REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
       REGISTRY: ${{ secrets.REGISTRY }}
@@ -33,5 +33,5 @@ jobs:
     needs: ['tag']
     uses: "./.github/workflows/build.yml"
     with:
-      version: ${{ needs.tag.outputs.version }}
+      version: '${{ needs.tag.outputs.version }}'
       latest: true

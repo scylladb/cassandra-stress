@@ -15,7 +15,7 @@ on:
       version:
         required: false
         description: 'Version of the release'
-        type: boolean
+        type: string
       latest:
         required: false
         default: false
@@ -43,7 +43,7 @@ jobs:
           version: latest
       - name: Build with version ${{ inputs.version }}
         if: ${{ inputs.version != '' }}
-        run: ant -Dversion=${{ inputs.version }} jar
+        run: ant -Dversion=${{ inputs.version }} -Drelease=true jar
       - name: Build latest
         if: ${{ inputs.version == '' }}
         run: |
@@ -51,7 +51,7 @@ jobs:
           ant jar
       - name: Artifacts
         if: ${{ inputs.version != '' }}
-        run: ant -Dversion=${{ inputs.version }} artifacts
+        run: ant -Dversion=${{ inputs.version }} -Drelease=true artifacts
       - name: Release
         uses: softprops/action-gh-release@v2
         id: release
