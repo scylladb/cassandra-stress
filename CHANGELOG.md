@@ -1,40 +1,8 @@
 # Changelog
 
-## [v](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v) (2024-07-18)
+## [v3.11.14](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v3.11.14) (2024-07-18)
 
-[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/v0.1.0...v)
-
-## [v0.1.0](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v) (2024-07-18)
-
-[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/v0.0.7...v0.1.0)
-
-## [v0.0.7](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v) (2024-07-18)
-
-[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/v0.0.6...v0.0.7)
-
-## [v0.0.6](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v) (2024-07-18)
-
-[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/v0.0.5...v0.0.6)
-
-## [v0.0.5](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v) (2024-07-18)
-
-[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/v0.0.4...v0.0.5)
-
-## [v0.0.4](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v) (2024-07-18)
-
-[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/v0.0.3...v0.0.4)
-
-## [v0.0.3](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v) (2024-07-18)
-
-[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/v0.0.2...v0.0.3)
-
-## [v0.0.2](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v) (2024-07-18)
-
-[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/v0.0.1...v0.0.2)
-
-## [v0.0.1](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v) (2024-07-18)
-
-[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/1f91e99223b0d1b7ed8390400d4a06ac08e4aa85...v0.0.1)
+[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/1f91e99223b0d1b7ed8390400d4a06ac08e4aa85...v3.11.14)
 
 
 
