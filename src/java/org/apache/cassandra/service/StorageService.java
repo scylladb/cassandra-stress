@@ -101,7 +101,6 @@ import org.apache.cassandra.utils.logging.LoggingSupportFactory;
 import org.apache.cassandra.utils.progress.ProgressEvent;
 import org.apache.cassandra.utils.progress.ProgressEventType;
 import org.apache.cassandra.utils.progress.jmx.JMXProgressSupport;
-import org.apache.cassandra.utils.progress.jmx.LegacyJMXProgressSupport;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.OpenDataException;
 
@@ -128,13 +127,6 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
     private static final boolean REQUIRE_SCHEMAS = !Boolean.getBoolean("cassandra.skip_schema_check");
 
     private final JMXProgressSupport progressSupport = new JMXProgressSupport(this);
-
-    /**
-     * @deprecated backward support to previous notification interface
-     * Will be removed on 4.0
-     */
-    @Deprecated
-    private final LegacyJMXProgressSupport legacyProgressSupport;
 
     private static final AtomicInteger threadCounter = new AtomicInteger(1);
 
@@ -297,8 +289,6 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         jmxObjectName = "org.apache.cassandra.db:type=StorageService";
         MBeanWrapper.instance.registerMBean(this, jmxObjectName);
         MBeanWrapper.instance.registerMBean(StreamManager.instance, StreamManager.OBJECT_NAME);
-
-        legacyProgressSupport = new LegacyJMXProgressSupport(this, jmxObjectName);
 
         /* register the verb handlers */
         MessagingService.instance().registerVerbHandlers(MessagingService.Verb.MUTATION, new MutationVerbHandler());
@@ -3797,8 +3787,6 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
 
         RepairRunnable task = new RepairRunnable(this, cmd, options, keyspace);
         task.addProgressListener(progressSupport);
-        if (legacy)
-            task.addProgressListener(legacyProgressSupport);
         return new FutureTask<>(task, null);
     }
 
