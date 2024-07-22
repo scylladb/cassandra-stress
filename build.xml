@@ -849,6 +849,38 @@
         </java>
     </target>
 
+    <!-- Run tests and reports errors and generates a junit report after -->
+    <macrodef name="testmacro">
+        <attribute name="inputdir" />
+        <attribute name="timeout" default="${test.timeout}" />
+        <attribute name="forkmode" default="perTest"/>
+        <attribute name="showoutput" default="true"/>
+        <element name="optjvmargs" implicit="true" optional="true" />
+        <attribute name="filter" default="**/${test.name}.java"/>
+        <attribute name="exclude" default="" />
+        <attribute name="filelist" default="" />
+        <attribute name="testtag" default=""/>
+
+        <sequential>
+            <testmacrohelper inputdir="@{inputdir}" timeout="@{timeout}"
+                             forkmode="@{forkmode}" filter="@{filter}"
+                             exclude="@{exclude}" filelist="@{filelist}"
+                             testtag="@{testtag}" showoutput="false" >
+                <optjvmargs/>
+            </testmacrohelper>
+            <fail message="Some test(s) failed.">
+                <condition>
+                    <and>
+                        <isset property="testfailed"/>
+                        <not>
+                            <isset property="ant.test.failure.ignore"/>
+                        </not>
+                    </and>
+                </condition>
+            </fail>
+        </sequential>
+    </macrodef>
+
     <!--
         The build target builds all the .class files
     -->
@@ -1152,7 +1184,7 @@
                 <jvmarg value="-Dstorage-config=${test.conf}"/>
                 <jvmarg value="-Djava.awt.headless=true"/>
                 <!-- Cassandra 3.0+ needs <jvmarg line="... ${additionalagent}" /> here! (not value=) -->
-                <jvmarg line="-javaagent:${build.lib}/jamm-${jamm.version}.jar ${additionalagent}"/>
+                <jvmarg line="-javaagent:${build.lib}/jamm-${jamm.version}.jar"/>
                 <jvmarg value="-ea"/>
                 <jvmarg value="-Djava.io.tmpdir=${tmp.dir}"/>
                 <jvmarg value="-Dcassandra.debugrefcount=true"/>
