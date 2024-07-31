@@ -1,6 +1,10 @@
 # Changelog
 
-## [v3.12.0](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v3.12.0) (2024-07-22)
+## [v3.12.1](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v3.12.1) (2024-07-31)
+
+[Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/v3.12.0...v3.12.1)
+
+## [v3.12.0](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v3.12.1) (2024-07-22)
 
 [Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/v3.11.14...v3.12.0)
 
@@ -11,7 +15,7 @@
 - cassandra-stress: Make default repl. strategy NetworkTopologyStrategy [\#2](https://github.com/CodeLieutenant/cassandra-stress/pull/2) ([CodeLieutenant](https://github.com/CodeLieutenant))
 - cassandra-stress: delay before retry [\#1](https://github.com/CodeLieutenant/cassandra-stress/pull/1) ([CodeLieutenant](https://github.com/CodeLieutenant))
 
-## [v3.11.14](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v3.12.0) (2024-07-18)
+## [v3.11.14](https://github.com/CodeLieutenant/cassandra-stress/releases/tag/v3.12.1) (2024-07-18)
 
 [Full Changelog](https://github.com/CodeLieutenant/cassandra-stress/compare/1f91e99223b0d1b7ed8390400d4a06ac08e4aa85...v3.11.14)
 
