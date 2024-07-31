@@ -990,18 +990,6 @@
     <target name="jar"
             depends="stress-build, write-poms"
             description="Assemble Cassandra JAR files">
-        <mkdir dir="${build.classes.main}/META-INF"/>
-        <mkdir dir="${build.classes.thrift}/META-INF"/>
-        <copy file="LICENSE.txt"
-              tofile="${build.classes.main}/META-INF/LICENSE.txt"/>
-        <copy file="LICENSE.txt"
-              tofile="${build.classes.thrift}/META-INF/LICENSE.txt"/>
-        <copy file="NOTICE.txt"
-              tofile="${build.classes.main}/META-INF/NOTICE.txt"/>
-        <copy file="NOTICE.txt"
-              tofile="${build.classes.thrift}/META-INF/NOTICE.txt"/>
-
-        <!-- Stress jar -->
         <mkdir dir="${stress.build.classes}"/>
         <manifest file="${stress.manifest}">
             <attribute name="Built-By" value="Pavel Yaskevich"/>
@@ -1011,11 +999,8 @@
         <mkdir dir="${build.dir}/tools/lib/"/>
         <jar destfile="${build.dir}/tools/lib/stress.jar" manifest="${stress.manifest}">
             <fileset dir="${stress.build.classes}"/>
-            <fileset dir="${build.classes.main}">
-                <exclude name="org/apache/cassandra/thrift/ITransportFactory*.class"/>
-                <exclude name="org/apache/cassandra/thrift/TFramedTransportFactory*.class"/>
-                <exclude name="com/scylladb/**"/>
-            </fileset>
+            <fileset dir="${build.classes.main}"/>
+            <fileset dir="${build.classes.thrift}"/>
         </jar>
     </target>
 
