@@ -28,8 +28,11 @@ COPY --from=build /app/build/dist .
 
 RUN apk update \
     && apk upgrade \
+    && apk add bash \
     && chmod +x tools/bin/cassandra-stress \
     && chmod +x tools/bin/cassandra-stressd \
     && rm tools/bin/*.bat
+
+SHELL [ "/bin/bash" ]
 
 CMD ["cassandra-stress"]
