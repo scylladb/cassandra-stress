@@ -160,10 +160,12 @@ public class StressAction implements Runnable
 
             runIds.add(threadCount + " threadCount");
             prevThreadCount = threadCount;
-            if (threadCount < 16)
-                threadCount *= 2;
+            if (threadCount < 500)
+                threadCount += 100;
+            else if (threadCount < 1500)
+                threadCount *= 1.2;
             else
-                threadCount *= 1.5;
+                threadCount *= 1.1;
 
             if (!results.isEmpty() && threadCount > settings.rate.maxThreads)
                 break;
