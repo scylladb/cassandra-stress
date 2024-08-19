@@ -1,0 +1,35 @@
+name: Build DockerImage on Label
+
+on:
+  pull_request:
+    types:
+      - labeled
+
+jobs:
+  branch:
+    if: contains(github.event.pull_request.labels.*.name, 'build-docker-image')
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.extract_branch.outputs.branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Extract branch name
+        shell: bash
+        run: |
+          branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+          branch=$(sed 's/\//-/g' <<< $branch)
+          echo "branch=$branch" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+  docker:
+    if: contains(github.event.pull_request.labels.*.name, 'build-docker-image')
+    needs: ["branch"]
+    uses: "./.github/workflows/docker.yml"
+    with:
+      version: "${{ needs.branch.outputs.name }}"
+    secrets:
+      REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+      REGISTRY: ${{ secrets.REGISTRY }}
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
