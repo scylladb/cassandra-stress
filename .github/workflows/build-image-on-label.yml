@@ -1,5 +1,8 @@
 name: Build DockerImage on Label
 
+permissions:
+  contents: write
+
 on:
   pull_request:
     types:
