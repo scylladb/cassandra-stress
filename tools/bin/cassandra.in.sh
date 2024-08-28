@@ -14,8 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if [ "$SCYLLA_HOME" = "" ]; then
-  SCYLLA_HOME="$(dirname "$0")/../.."
+SCYLLA_HOME="$(dirname "$0")"
+
+while [ "$SCYLLA_HOME" != "/" ]; do
+  if [ -d "$SCYLLA_HOME/conf" ]; then
+    break
+  fi
+  SCYLLA_HOME="$(dirname "$SCYLLA_HOME")"
+done
+
+if [ "$SCYLLA_HOME" = "/" ]; then
+  echo "Error: 'conf' directory not found in any parent directory."
+  exit 1
 fi
 
 if [ "$SCYLLA_CONF" = "" ]; then
@@ -56,7 +66,7 @@ for jar in "$SCYLLA_HOME"/tools/lib/*.jar; do
   CLASSPATH="$CLASSPATH:$jar"
 done
 
-for jar in "$SCYLLA_HOME"/build/lib/jars/*.jar; do
+for jar in "$SCYLLA_HOME"/lib/*.jar; do
   CLASSPATH="$CLASSPATH:$jar"
 done
 
