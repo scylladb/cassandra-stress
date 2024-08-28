@@ -62,13 +62,8 @@ fi
 
 CONFIGURATION_FILE_OPT="-Dcassandra.config=file://$CONFIG_FILE_REALPATH"
 
-for jar in "$SCYLLA_HOME"/tools/lib/*.jar; do
-  CLASSPATH="$CLASSPATH:$jar"
-done
-
-for jar in "$SCYLLA_HOME"/lib/*.jar; do
-  CLASSPATH="$CLASSPATH:$jar"
-done
+CLASSPATH="${CLASSPATH}:$(find "$SCYLLA_HOME/lib" "$SCYLLA_HOME/build/lib" "$SCYLLA_HOME/tools" -name '*.jar' -print 2>/dev/null | paste -sd ":" -)"
+CLASSPATH="${CLASSPATH#:}"
 
 # Use JAVA_HOME if set, otherwise look for java in PATH
 if [ -n "$JAVA_HOME" ]; then
