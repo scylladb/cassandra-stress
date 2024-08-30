@@ -68,3 +68,18 @@ $ tools/bin/cassandra-stress read n=10000000 -node 192.168.1.101 -o read # 1M re
 $ tools/bin/cassandra-stress write -node 192.168.1.101,192.168.1.102 n=10000000 # 10M inserts spread across two nodes
 $ tools/bin/cassandra-stress help -pop # Print help for population distribution option
 ```
+
+Or run it in a container, please don't miss the quotes around the command line:
+
+``` console
+$ docker run scylladb/cassandra-stress 'cassandra-stress write n=100000 -node 1.2.3.4'
+```
+
+Or use the container interactively:
+
+``` console
+$ docker run --rm -d --name c-s -it --entrypoint=/bin/bash -i scylladb/cassandra-stress:latest
+$ docker exec -it c-s /bin/bash
+```
+
+`
