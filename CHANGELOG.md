@@ -1,6 +1,28 @@
 # Changelog
 
-## [v3.12.2](https://github.com/scylladb/cassandra-stress/releases/tag/v3.12.2) (2024-08-11)
+## [v3.14.0](https://github.com/scylladb/cassandra-stress/releases/tag/v3.14.0) (2024-09-03)
+
+[Full Changelog](https://github.com/scylladb/cassandra-stress/compare/v3.13.0...v3.14.0)
+
+**Implemented enhancements:**
+
+- feat\(cassandra.in.sh\): Refactor script for readability and consistency [\#17](https://github.com/scylladb/cassandra-stress/pull/17) ([Daniel-Boll](https://github.com/Daniel-Boll))
+
+**Merged pull requests:**
+
+- feature\(docker\): adding support for dependabot [\#19](https://github.com/scylladb/cassandra-stress/pull/19) ([CodeLieutenant](https://github.com/CodeLieutenant))
+- README.md: reformat and add note on running c-s with container [\#18](https://github.com/scylladb/cassandra-stress/pull/18) ([tchaikov](https://github.com/tchaikov))
+
+## [v3.13.0](https://github.com/scylladb/cassandra-stress/releases/tag/v3.14.0) (2024-08-21)
+
+[Full Changelog](https://github.com/scylladb/cassandra-stress/compare/v3.12.2...v3.13.0)
+
+**Merged pull requests:**
+
+- fix\(docker\): Use ubuntu and eclipse-temurin base image [\#14](https://github.com/scylladb/cassandra-stress/pull/14) ([CodeLieutenant](https://github.com/CodeLieutenant))
+- improve\(runMulti\): Improve threadCount steps to find max throughput [\#12](https://github.com/scylladb/cassandra-stress/pull/12) ([roydahan](https://github.com/roydahan))
+
+## [v3.12.2](https://github.com/scylladb/cassandra-stress/releases/tag/v3.14.0) (2024-08-11)
 
 [Full Changelog](https://github.com/scylladb/cassandra-stress/compare/v3.12.1...v3.12.2)
 
@@ -8,11 +30,11 @@
 
 - fix\(docker\): adding bash to support SCT for Scylla enterprice [\#9](https://github.com/scylladb/cassandra-stress/pull/9) ([CodeLieutenant](https://github.com/CodeLieutenant))
 
-## [v3.12.1](https://github.com/scylladb/cassandra-stress/releases/tag/v3.12.2) (2024-07-31)
+## [v3.12.1](https://github.com/scylladb/cassandra-stress/releases/tag/v3.14.0) (2024-07-31)
 
 [Full Changelog](https://github.com/scylladb/cassandra-stress/compare/v3.12.0...v3.12.1)
 
-## [v3.12.0](https://github.com/scylladb/cassandra-stress/releases/tag/v3.12.2) (2024-07-22)
+## [v3.12.0](https://github.com/scylladb/cassandra-stress/releases/tag/v3.14.0) (2024-07-22)
 
 [Full Changelog](https://github.com/scylladb/cassandra-stress/compare/v3.11.14...v3.12.0)
 
@@ -23,7 +45,7 @@
 - cassandra-stress: Make default repl. strategy NetworkTopologyStrategy [\#2](https://github.com/scylladb/cassandra-stress/pull/2) ([CodeLieutenant](https://github.com/CodeLieutenant))
 - cassandra-stress: delay before retry [\#1](https://github.com/scylladb/cassandra-stress/pull/1) ([CodeLieutenant](https://github.com/CodeLieutenant))
 
-## [v3.11.14](https://github.com/scylladb/cassandra-stress/releases/tag/v3.12.2) (2024-07-18)
+## [v3.11.14](https://github.com/scylladb/cassandra-stress/releases/tag/v3.14.0) (2024-07-18)
 
 [Full Changelog](https://github.com/scylladb/cassandra-stress/compare/1f91e99223b0d1b7ed8390400d4a06ac08e4aa85...v3.11.14)
 
