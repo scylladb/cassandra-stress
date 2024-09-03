@@ -22,6 +22,10 @@ RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
 
 FROM eclipse-temurin:11-jre-noble AS production
 
+LABEL org.opencontainers.image.source="https://github.com/scylladb/cassandra-stress"
+LABEL org.opencontainers.image.title="ScyllaDB Cassandra Stress"
+
+
 ENV SCYLLA_HOME=/scylla-tools-java
 ENV SCYLLA_CONF=/scylla-tools-java/conf
 ENV PATH=$PATH:$SCYLLA_HOME/tools/bin

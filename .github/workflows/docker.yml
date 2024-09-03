@@ -50,6 +50,9 @@ on:
         required: true
 jobs:
   build:
+    env:
+      DOCKER_BUILDKIT: 1
+      BUILDX_GIT_INFO: 1
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,7 +79,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ${{ inputs.image }}:latest 
+            ${{ inputs.image }}:latest
             ${{ inputs.image }}:${{ inputs.version }}
           build-args: |
             CASSANDRA_STRESS_VERSION=${{ inputs.version }}
