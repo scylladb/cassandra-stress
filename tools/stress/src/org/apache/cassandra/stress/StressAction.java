@@ -266,7 +266,11 @@ public class StressAction implements Runnable
 
         if (durationUnits != null)
         {
-            Uninterruptibles.sleepUninterruptibly(duration, durationUnits);
+            try {
+                done.await(duration, durationUnits);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
             workManager.stop();
         }
         else if (opCount <= 0)
