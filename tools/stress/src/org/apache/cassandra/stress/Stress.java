@@ -231,5 +231,7 @@ public final class Stress
         Signal.handle(new Signal("ABRT"), handler);
         Signal.handle(new Signal("TERM"), handler);
         Signal.handle(new Signal("INT"), handler);
+        Signal.handle(new Signal("TERM"), handler);
+        Signal.handle(new Signal("INT"), handler);
     }
 }
