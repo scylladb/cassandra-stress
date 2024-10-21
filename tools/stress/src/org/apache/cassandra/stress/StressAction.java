@@ -231,6 +231,7 @@ public class StressAction implements Runnable
 
         final StressMetrics metrics = new StressMetrics(output, settings.log.intervalMillis, settings);
 
+        final CountDownLatch anyFailed = new CountDownLatch(1);
         final CountDownLatch releaseConsumers = new CountDownLatch(1);
         final CountDownLatch done = new CountDownLatch(threadCount);
         final CountDownLatch start = new CountDownLatch(threadCount);
@@ -238,7 +239,7 @@ public class StressAction implements Runnable
         for (int i = 0; i < threadCount; i++)
         {
             consumers[i] = new Consumer(operations, isWarmup,
-                                        done, start, releaseConsumers, workManager, metrics, rateLimiter);
+                                        done, start, releaseConsumers, anyFailed, workManager, metrics, rateLimiter);
         }
 
         // starting worker threadCount
@@ -266,7 +267,16 @@ public class StressAction implements Runnable
 
         if (durationUnits != null)
         {
-            Uninterruptibles.sleepUninterruptibly(duration, durationUnits);
+            try {
+                if(settings.errors.failFast) {
+                    // I'm assuming Consumers don't finish successfully ahead of set duration
+                    anyFailed.await(duration, durationUnits);
+                } else {
+                    done.await(duration, durationUnits);
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
             workManager.stop();
         }
         else if (opCount <= 0)
@@ -402,6 +412,7 @@ public class StressAction implements Runnable
         private final CountDownLatch done;
         private final CountDownLatch start;
         private final CountDownLatch releaseConsumers;
+        private final CountDownLatch anyFailed;
         public final Queue<OpMeasurement> measurementsRecycling;
         public final Queue<OpMeasurement> measurementsReporting;
         public Consumer(OpDistributionFactory operations,
@@ -409,6 +420,7 @@ public class StressAction implements Runnable
                         CountDownLatch done,
                         CountDownLatch start,
                         CountDownLatch releaseConsumers,
+                        CountDownLatch anyFailed,
                         WorkManager workManager,
                         StressMetrics metrics,
                         UniformRateLimiter rateLimiter)
@@ -417,6 +429,7 @@ public class StressAction implements Runnable
             this.done = done;
             this.start = start;
             this.releaseConsumers = releaseConsumers;
+            this.anyFailed = anyFailed;
             this.metrics = metrics;
             this.opStream = new StreamOfOperations(opDistribution, rateLimiter, workManager);
             this.measurementsRecycling =  new SpscArrayQueue<OpMeasurement>(8*1024);
@@ -462,6 +475,10 @@ public class StressAction implements Runnable
 
                 while (true)
                 {
+                    if (settings.errors.failFast && anyFailed.getCount() == 0) {
+                        success = false;
+                        break;
+                    }
                     // Assumption: All ops are thread local, operations are never shared across threads.
                     Operation op = opStream.nextOp();
                     if (op == null)
@@ -493,6 +510,7 @@ public class StressAction implements Runnable
                             output.printException(e);
 
                         success = false;
+                        anyFailed.countDown();
                         opStream.abort();
                         metrics.cancel();
                         return;
@@ -503,6 +521,7 @@ public class StressAction implements Runnable
             {
                 System.err.println(e.getMessage());
                 success = false;
+                anyFailed.countDown();
             }
             finally
             {

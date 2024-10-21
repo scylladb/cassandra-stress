@@ -35,6 +35,7 @@ public class SettingsErrors implements Serializable
 {
 
     public final boolean ignore;
+    public final boolean failFast;
     public final int tries;
     public final boolean skipReadValidation;
     public final boolean skipUnsupportedColumns;
@@ -51,6 +52,7 @@ public class SettingsErrors implements Serializable
     public SettingsErrors(Options options)
     {
         ignore = options.ignore.setByUser();
+        failFast = options.failFast.setByUser();
         this.tries = Math.max(1, Integer.parseInt(options.retries.value()) + 1);
         skipReadValidation = options.skipReadValidation.setByUser();
         skipUnsupportedColumns = options.skipUnsupportedColumns.setByUser();
@@ -93,6 +95,7 @@ public class SettingsErrors implements Serializable
     {
         final OptionSimple retries = new OptionSimple("retries=", "[0-9]+", "9", "Number of tries to perform for each operation before failing", false);
         final OptionSimple ignore = new OptionSimple("ignore", "", null, "Do not fail on errors", false);
+        final OptionSimple failFast = new OptionSimple("fail-fast", "", null, "Fail on first thread failure when running for set <duration>", false);
         final OptionSimple skipReadValidation = new OptionSimple("skip-read-validation", "", null, "Skip read validation and message output", false);
         final OptionSimple skipUnsupportedColumns = new OptionSimple("skip-unsupported-columns", "", null, "Skip unsupported columns, such as maps and embedded collections, when generating data for a user profile.", false);
 
@@ -103,7 +106,7 @@ public class SettingsErrors implements Serializable
         @Override
         public List<? extends Option> options()
         {
-            return Arrays.asList(retries, ignore, skipReadValidation, skipUnsupportedColumns,
+            return Arrays.asList(retries, ignore, failFast, skipReadValidation, skipUnsupportedColumns,
                                  delayPolicy, minDelayMs, maxDelayMs);
         }
 
@@ -128,6 +131,7 @@ public class SettingsErrors implements Serializable
     public void printSettings(ResultLogger out)
     {
         out.printf("  Ignore: %b%n", ignore);
+        out.printf("  Fail fast setting: %b%n", failFast);
         out.printf("  Tries: %d%n", tries);
         if (delayPolicy == DelayPolicy.CONSTANT && minDelayMs == 0) {
             return;
