@@ -18,6 +18,9 @@
 package org.apache.cassandra.stress;
 
 import java.io.*;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.net.Socket;
 import java.net.SocketException;
 
@@ -26,6 +29,9 @@ import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.WindowsTimer;
+
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 public final class Stress
 {
@@ -56,6 +62,8 @@ public final class Stress
 
     public static void main(String[] arguments) throws Exception
     {
+        registerSignalHandler();
+
         if (FBUtilities.isWindows)
             WindowsTimer.startTimerPeriod(1);
 
@@ -196,4 +204,32 @@ public final class Stress
         }
     }
 
+    private static String threadDump(boolean lockedMonitors, boolean lockedSynchronizers) {
+        StringBuffer threadDump = new StringBuffer(System.lineSeparator());
+        ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+        for(ThreadInfo threadInfo : threadMXBean.dumpAllThreads(lockedMonitors, lockedSynchronizers)) {
+            threadDump.append(threadInfo.toString());
+        }
+        return threadDump.toString();
+    }
+
+    private static void registerSignalHandler() {
+        SignalHandler handler = signal -> {
+            System.out.println("Caught signal: " + signal.getName());
+            System.out.println(threadDump(true, true));
+            switch (signal.getName()) {
+                case "ABRT":
+                    System.exit(128 + 6);
+                case "TERM":
+                    System.exit(128 + 15);
+                case "INT":
+                    System.exit(128 + 2);
+                default:
+                    System.exit(1);
+            }
+        };
+        Signal.handle(new Signal("ABRT"), handler);
+        Signal.handle(new Signal("TERM"), handler);
+        Signal.handle(new Signal("INT"), handler);
+    }
 }
