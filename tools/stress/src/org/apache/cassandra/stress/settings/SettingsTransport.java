@@ -121,6 +121,7 @@ public class SettingsTransport implements Serializable
             encOptions.algorithm = options.alg.value();
             encOptions.protocol = options.protocol.value();
             encOptions.cipher_suites = options.ciphers.value().split(",");
+            encOptions.hostname_verification = Boolean.parseBoolean(options.hostnameVerification.value());
         }
         return encOptions;
     }
@@ -138,11 +139,12 @@ public class SettingsTransport implements Serializable
         final OptionSimple alg = new OptionSimple("ssl-alg=", ".*", "SunX509", "SSL: algorithm", false);
         final OptionSimple storeType = new OptionSimple("store-type=", ".*", "JKS", "SSL: keystore format", false);
         final OptionSimple ciphers = new OptionSimple("ssl-ciphers=", ".*", "TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_256_CBC_SHA", "SSL: comma delimited list of encryption suites to use", false);
+        final OptionSimple hostnameVerification = new OptionSimple("hostname-verification=", ".*", "false", "SSL: enable hostname verification in Java Driver", false);
 
         @Override
         public List<? extends Option> options()
         {
-            return Arrays.asList(factory, trustStore, trustStorePw, keyStore, keyStorePw, protocol, alg, storeType, ciphers);
+            return Arrays.asList(factory, trustStore, trustStorePw, keyStore, keyStorePw, protocol, alg, storeType, ciphers, hostnameVerification);
         }
     }
 

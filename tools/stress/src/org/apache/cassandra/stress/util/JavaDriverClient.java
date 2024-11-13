@@ -18,18 +18,25 @@
 package org.apache.cassandra.stress.util;
 
 import java.io.File;
+import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLParameters;
 
 import com.datastax.driver.core.*;
+import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
+import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.policies.RackAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy.ReplicaOrdering;
 import com.datastax.driver.core.policies.WhiteListPolicy;
+import com.datastax.shaded.netty.channel.socket.SocketChannel;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.cassandra.config.EncryptionOptions;
@@ -165,9 +172,22 @@ public class JavaDriverClient
         {
             SSLContext sslContext;
             sslContext = SSLFactory.createSSLContext(encryptionOptions, true);
-            SSLOptions sslOptions = JdkSSLOptions.builder()
-                                                 .withSSLContext(sslContext)
-                                                 .withCipherSuites(encryptionOptions.cipher_suites).build();
+
+            RemoteEndpointAwareJdkSSLOptions sslOptions = new RemoteEndpointAwareJdkSSLOptions(sslContext, encryptionOptions.cipher_suites)
+            {
+                @Override
+                protected SSLEngine newSSLEngine(SocketChannel channel, InetSocketAddress remoteEndpoint)
+                {
+                    SSLEngine engine = super.newSSLEngine(channel, remoteEndpoint);
+                    if (encryptionOptions.hostname_verification) {
+                        SSLParameters parameters = engine.getSSLParameters();
+                        parameters.setEndpointIdentificationAlgorithm("HTTPS");
+                        engine.setSSLParameters(parameters);
+                    }
+                    return engine;
+                }
+            };
+
             clusterBuilder.withSSL(sslOptions);
         }
 
@@ -185,20 +205,42 @@ public class JavaDriverClient
             clusterBuilder.withScyllaCloudConnectionConfig(cloudConfigFile);
         }
 
-        cluster = clusterBuilder.build();
-        Metadata metadata = cluster.getMetadata();
-        System.out.printf(
-                "Connected to cluster: %s, max pending requests per connection %d, max connections per host %d%n",
-                metadata.getClusterName(),
-                maxPendingPerConnection,
-                connectionsPerHost);
-        for (Host host : metadata.getAllHosts())
-        {
-            System.out.printf("Datatacenter: %s; Host: %s; Rack: %s%n",
-                    host.getDatacenter(), host.getAddress(), host.getRack());
-        }
+        try {
+            cluster = clusterBuilder.build();
+            Metadata metadata = cluster.getMetadata();
+            System.out.printf(
+                    "Connected to cluster: %s, max pending requests per connection %d, max connections per host %d%n",
+                    metadata.getClusterName(),
+                    maxPendingPerConnection,
+                    connectionsPerHost);
+            for (Host host : metadata.getAllHosts())
+            {
+                System.out.printf("Datatacenter: %s; Host: %s; Rack: %s%n",
+                        host.getDatacenter(), host.getAddress(), host.getRack());
+            }
 
-        session = cluster.connect();
+            session = cluster.connect();
+        } catch (NoHostAvailableException e) {
+            Throwable sslException = findExceptionInErrors(e, SSLHandshakeException.class);
+            if (sslException != null)
+                System.err.println(String.format(
+                        "  Failed to connect to node due to an error during SSL handshake %s: %s",
+                        sslException.getClass().getName(), sslException.getMessage()));
+            throw e;
+        }
+    }
+
+    private Throwable findExceptionInErrors(NoHostAvailableException e, Class<? extends Throwable> exceptionClass) {
+        for (Throwable error : e.getErrors().values()) {
+            Throwable current = error;
+            while (current != null) {
+                if (exceptionClass.isInstance(current)) {
+                    return current;
+                }
+                current = current.getCause();
+            }
+        }
+        return null;
     }
 
     public Cluster getCluster()
