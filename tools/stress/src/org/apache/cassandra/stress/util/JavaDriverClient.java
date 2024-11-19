@@ -103,6 +103,7 @@ public class JavaDriverClient
     private LoadBalancingPolicy loadBalancingPolicy(StressSettings settings)
     {
         LoadBalancingPolicy ret = null;
+        ReplicaOrdering replicaOrdering = null;
 
         if (settings.node.rack != null) {
             RackAwareRoundRobinPolicy.Builder policyBuilder = RackAwareRoundRobinPolicy.builder();
@@ -110,15 +111,17 @@ public class JavaDriverClient
                 policyBuilder.withLocalDc(settings.node.datacenter);
             policyBuilder = policyBuilder.withLocalRack(settings.node.rack);
             ret = policyBuilder.build();
+            replicaOrdering = ReplicaOrdering.NEUTRAL;
         } else {
             DCAwareRoundRobinPolicy.Builder policyBuilder = DCAwareRoundRobinPolicy.builder();
             if (settings.node.datacenter != null)
                 policyBuilder.withLocalDc(settings.node.datacenter);
             ret = policyBuilder.build();
+            replicaOrdering = ReplicaOrdering.RANDOM;
         }
         if (settings.node.isWhiteList)
             ret = new WhiteListPolicy(ret, settings.node.resolveAll(settings.port.nativePort));
-        return new TokenAwarePolicy(ret, ReplicaOrdering.NEUTRAL);
+        return new TokenAwarePolicy(ret, replicaOrdering);
     }
 
     public PreparedStatement prepare(String query)
