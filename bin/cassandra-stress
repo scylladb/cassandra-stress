@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -16,31 +16,130 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if [ "x$CASSANDRA_INCLUDE" = "x" ]; then
-    # Locations (in order) to use when searching for an include file.
-    for include in "`dirname "$0"`/cassandra.in.sh" \
-                   "$HOME/.cassandra.in.sh" \
-                   /usr/share/scylla/cassandra/cassandra.in.sh \
-                   /usr/local/share/cassandra/cassandra.in.sh \
-                   /opt/cassandra/cassandra.in.sh; do
-        if [ -r "$include" ]; then
-            . "$include"
-            break
-        fi
-    done
-elif [ -r "$CASSANDRA_INCLUDE" ]; then
-    . "$CASSANDRA_INCLUDE"
+find_all_jars() {
+  find "$1" -name '*.jar' -print 2>/dev/null | paste -sd ":" -
+}
+
+DESC="Cassandra Stress"
+
+if [ -n "$JAVA_HOME" ]; then
+    if [ -x "$JAVA_HOME/bin/java" ]; then
+      JAVA="$JAVA_HOME/bin/java"
+    fi
+else
+  JAVA=java
 fi
 
-if [ -z "$CLASSPATH" ]; then
+if [ -z "$JAVA" ]; then
+  echo Unable to find java executable. Check JAVA_HOME and PATH environment variables. >&2
+  exit 1
+fi
+
+java_ver_output=$("${JAVA:-java}" -version 2>&1)
+jvmver=$(echo "$java_ver_output" | grep '[openjdk|java] version' | awk -F'"' 'NR==1 {print $2}' | cut -d. -f1)
+if [ "$jvmver" -lt "11" ]; then
+  echo "Cassandra-Stress requires Java 11 (or newer)."
+  exit 1
+fi
+
+CASSANDRA_STRESS_HOME="$(realpath "$(dirname "$0")")"
+
+while [ "$CASSANDRA_STRESS_HOME" != "/" ]; do
+  if [ -d "$CASSANDRA_STRESS_HOME/conf" ]; then
+    break
+  fi
+  CASSANDRA_STRESS_HOME="$(dirname "$CASSANDRA_STRESS_HOME")"
+done
+
+if [ "$CASSANDRA_STRESS_HOME" = "/" ]; then
+  echo "Error: 'conf' directory not found in any parent directory."
+  exit 1
+fi
+
+if [ "$CASSANDRA_STRESS_CONFIG" = "" ]; then
+  CASSANDRA_STRESS_CONFIG="$CASSANDRA_STRESS_HOME/conf"
+fi
+
+if [ -d "$CASSANDRA_STRESS_HOME/build" ]; then
+  classes="$CASSANDRA_STRESS_HOME/build/classes"
+  CLASSPATH="$classes/thrift:$classes/main:$(find_all_jars "$CASSANDRA_STRESS_HOME/build/lib")"
+
+  CLASSPATH="${CLASSPATH#:}"
+fi
+
+if [ "$CASSANDRA_STRESS_STORAGE_DIR" = "" ]; then
+  CASSANDRA_STRESS_STORAGE_DIR="$CASSANDRA_STRESS_HOME/data"
+fi
+
+CONFIG_FILE_REALPATH=$(realpath "$CASSANDRA_STRESS_CONFIG/cassandra.yaml")
+
+if [ -f "$CASSANDRA_STRESS_CONFIG/scylla.yaml" ]; then
+  CONFIG_FILE_REALPATH=$(realpath "$CASSANDRA_STRESS_CONFIG/scylla.yaml")
+fi
+
+CLASSPATH="${CLASSPATH}:$(find_all_jars "$CASSANDRA_STRESS_HOME/lib")"
+CLASSPATH="${CLASSPATH#:}"
+
+if [ "$CLASSPATH" = "" ]; then
     echo "You must set the CLASSPATH var" >&2
     exit 1
 fi
 
-"$JAVA" -server -ea -cp "$CLASSPATH" $JVM_OPTS \
-        $CONFIGURATION_FILE_OPT \
-        -Dcassandra.storagedir="$cassandra_storagedir" \
-        -Dlogback.configurationFile=logback-tools.xml \
-         org.apache.cassandra.stress.Stress $@
+while read -r opt; do
+  JVM_OPTS="$JVM_OPTS $opt"
+done < <(grep "^-" "$CASSANDRA_STRESS_CONFIG/jvm-clients.options")
 
-# vi:ai sw=4 ts=4 tw=0 et
+case "$1" in
+  usage)
+    echo "Cassandra-Stress Server Usage: $0 start|stop|status [-h <host>]"
+    echo "Cassandra-Stress Usage: $0 [options]"
+    exit 1
+  ;;
+  start)
+    echo "Starting $DESC: "
+    # shellcheck disable=SC2086,SC2068
+    "$JAVA" $JVM_OPTS \
+      -server \
+      -cp "$CLASSPATH" \
+      -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \
+      -Dcassandra.logdir="$CASSANDRA_STRESS_STORAGE_DIR/logs" \
+      -Dlogback.configurationFile="$CASSANDRA_STRESS_CONFIG/logback.xml" \
+      org.apache.cassandra.stress.StressServer \
+      $@ 1> $CASSANDRA_STRESS_STORAGE_DIR/logs/stressd.out.log 2> $CASSANDRA_STRESS_STORAGE_DIR/logs/stressd.err.log &
+    echo $! > ./stressd.pid
+    echo "done."
+  ;;
+
+  stop)
+    PID="$(cat ./stressd.pid 2> /dev/null)"
+
+    if [ "$PID" = "" ]; then
+      echo "$DESC is not running."
+    else
+      kill -9 "$PID"
+      rm ./stressd.pid
+      echo "$DESC is stopped."
+    fi
+  ;;
+
+  status)
+    PID="$(cat ./stressd.pid 2> /dev/null)"
+
+    if [ "$PID" = "" ]; then
+      echo "$DESC is not running."
+    else
+      echo "$DESC is running with pid $PID."
+    fi
+  ;;
+
+  *)
+    # shellcheck disable=SC2086,SC2068
+    "$JAVA" $JVM_OPTS \
+      -cp $CLASSPATH \
+      -Dcassandra.config="file://$CONFIG_FILE_REALPATH" \
+      -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \
+      -Dcassandra.logdir="$CASSANDRA_STRESS_STORAGE_DIR/logs" \
+      -Dlogback.configurationFile="$CASSANDRA_STRESS_CONFIG/logback.xml" \
+        org.apache.cassandra.stress.Stress $@
+  ;;
+esac
