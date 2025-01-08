@@ -42,7 +42,11 @@ if [ "$jvmver" -lt "11" ]; then
   exit 1
 fi
 
-CASSANDRA_STRESS_HOME="$(realpath "$(dirname "$0")")"
+if [ -d "/usr/share/cassandra-stress" ]; then
+  CASSANDRA_STRESS_HOME="/usr/share/cassandra-stress"
+else
+  CASSANDRA_STRESS_HOME="$(realpath "$(dirname "$0")")"
+fi
 
 if [ -d "/etc/cassandra-stress" ]; then
   CASSANDRA_STRESS_CONFIG="/etc/cassandra-stress"
