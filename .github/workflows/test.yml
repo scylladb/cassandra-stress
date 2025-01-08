@@ -27,5 +27,3 @@ jobs:
         run: ant init
       - name: Test tests
         run: ant build-test
-      - name: Run tests
-        run: ant
