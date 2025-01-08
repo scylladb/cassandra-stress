@@ -8,7 +8,8 @@ build:
 .PHONY: release
 release:
 	@echo "Building release..."
-	@ant artifacts -Drelease=true
+	@ant artifacts -Drelease=true -Dversion=$(VERSION)
+	@./scripts/build-rpm.sh --version $(VERSION)
 
 .PHONY: docker-build
 docker-build:
