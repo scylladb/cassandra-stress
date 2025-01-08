@@ -42,23 +42,32 @@ if [ "$jvmver" -lt "11" ]; then
   exit 1
 fi
 
-CASSANDRA_STRESS_HOME="$(realpath "$(dirname "$0")")"
+if [ -d "/usr/share/cassandra-stress" ]; then
+  CASSANDRA_STRESS_HOME="/usr/share/cassandra-stress"
+else
+  CASSANDRA_STRESS_HOME="$(realpath "$(dirname "$0")")"
+fi
 
-while [ "$CASSANDRA_STRESS_HOME" != "/" ]; do
-  if [ -d "$CASSANDRA_STRESS_HOME/conf" ]; then
-    break
+if [ -d "/etc/cassandra-stress" ]; then
+  CASSANDRA_STRESS_CONFIG="/etc/cassandra-stress"
+else
+  while [ "$CASSANDRA_STRESS_HOME" != "/" ]; do
+    if [ -d "$CASSANDRA_STRESS_HOME/conf" ]; then
+      break
+    fi
+    CASSANDRA_STRESS_HOME="$(dirname "$CASSANDRA_STRESS_HOME")"
+  done
+
+  if [ "$CASSANDRA_STRESS_HOME" = "/" ]; then
+    echo "Error: 'conf' directory not found in any parent directory."
+    exit 1
   fi
-  CASSANDRA_STRESS_HOME="$(dirname "$CASSANDRA_STRESS_HOME")"
-done
 
-if [ "$CASSANDRA_STRESS_HOME" = "/" ]; then
-  echo "Error: 'conf' directory not found in any parent directory."
-  exit 1
+  if [ "$CASSANDRA_STRESS_CONFIG" = "" ]; then
+    CASSANDRA_STRESS_CONFIG="$CASSANDRA_STRESS_HOME/conf"
+  fi
 fi
 
-if [ "$CASSANDRA_STRESS_CONFIG" = "" ]; then
-  CASSANDRA_STRESS_CONFIG="$CASSANDRA_STRESS_HOME/conf"
-fi
 
 if [ -d "$CASSANDRA_STRESS_HOME/build" ]; then
   classes="$CASSANDRA_STRESS_HOME/build/classes"

@@ -3,22 +3,22 @@
 . /etc/os-release
 
 print_usage() {
-    echo "build_rpm.sh --reloc-pkg build/scylla-tools-package.tar.gz"
-    echo "  --reloc-pkg specify relocatable package path"
+    echo "build_rpm.sh --version 3.17.0"
+    echo "  --version cassandra-stress version"
     echo "  --builddir specify rpmbuild directory"
     exit 1
 }
 
-RELOC_PKG=build/scylla-tools-package.tar.gz
+RELOC_PKG=build/cassandra-stress-bin.tar.gz
 BUILDDIR=build/redhat
 while [ $# -gt 0 ]; do
     case "$1" in
-        "--reloc-pkg")
-            RELOC_PKG=$2
-            shift 2
-            ;;
         "--builddir")
             BUILDDIR="$2"
+            shift 2
+            ;;
+        "--version")
+            VERSION="$2"
             shift 2
             ;;
         *)
@@ -30,25 +30,16 @@ done
 RELOC_PKG=$(readlink -f "$RELOC_PKG")
 RPMBUILD=$(readlink -f "$BUILDDIR")
 mkdir -p "$BUILDDIR"
-tar -C "$BUILDDIR" -xpf "$RELOC_PKG" scylla-tools/SCYLLA-RELEASE-FILE scylla-tools/SCYLLA-RELOCATABLE-FILE scylla-tools/SCYLLA-VERSION-FILE scylla-tools/SCYLLA-PRODUCT-FILE scylla-tools/dist/redhat
-cd "$BUILDDIR"/scylla-tools
-
-RELOC_PKG_BASENAME=$(basename "$RELOC_PKG")
-SCYLLA_VERSION=$(cat SCYLLA-VERSION-FILE)
-SCYLLA_RELEASE=$(cat SCYLLA-RELEASE-FILE)
-PRODUCT=$(cat SCYLLA-PRODUCT-FILE)
+tar -C "$BUILDDIR" -xpf "$RELOC_PKG"
 
 mkdir -p $RPMBUILD/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 
-ln -fv "$RELOC_PKG" "$RPMBUILD/SOURCES/"
+ln -fv "$RELOC_PKG" "$RPMBUILD/SOURCES/cassandra-stress.tar.gz"
 
-parameters=(
-    -D"version $SCYLLA_VERSION"
-    -D"release $SCYLLA_RELEASE"
-    -D"product $PRODUCT"
-    -D"reloc_pkg $RELOC_PKG_BASENAME"
-)
-
-cp dist/redhat/scylla-tools.spec "$RPMBUILD/SPECS"
+cp dist/redhat/cassandra-stress.spec "$RPMBUILD/SPECS"
 # this rpm can be install on both fedora / centos7, so drop distribution name from the file name
-rpmbuild -ba "${parameters[@]}" --define '_binary_payload w2.xzdio' --define "_topdir $RPMBUILD" --undefine "dist" $RPMBUILD/SPECS/scylla-tools.spec
+rpmbuild -ba \
+    --define "version $VERSION" \
+    --define "_topdir $RPMBUILD" \
+    --undefine "dist" \
+    "$RPMBUILD/SPECS/cassandra-stress.spec"
