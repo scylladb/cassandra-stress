@@ -7,11 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        required: false
+        required: true
         description: 'Version of the release'
       latest:
         required: false
-        default: false
         description: 'Build latest version'
   workflow_call:
     inputs:
@@ -29,7 +28,7 @@ jobs:
     strategy:
       matrix:
         java: [ '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'ubuntu-24.04' ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
