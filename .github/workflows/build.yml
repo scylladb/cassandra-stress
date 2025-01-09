@@ -75,12 +75,12 @@ jobs:
           prerelease: false
           fail_on_unmatched_files: true
           files: |
-            build/cassandra-stress-${{ inputs.version }}-bin.tar.gz
-            build/cassandra-stress-${{ inputs.version }}-bin.tar.gz.sha256
-            build/cassandra-stress-${{ inputs.version }}-bin.tar.gz.sha512
-            build/cassandra-stress-${{ inputs.version }}-src.tar.gz
-            build/cassandra-stress-${{ inputs.version }}-src.tar.gz.sha256
-            build/cassandra-stress-${{ inputs.version }}-src.tar.gz.sha512
+            build/cassandra-stress-bin.tar.gz
+            build/cassandra-stress-bin.tar.gz.sha256
+            build/cassandra-stress-bin.tar.gz.sha512
+            build/cassandra-stress-src.tar.gz
+            build/cassandra-stress-src.tar.gz.sha256
+            build/cassandra-stress-src.tar.gz.sha512
             build/cassandra-stress_${{ inputs.version }}_all.deb
             build/redhat/RPMS/noarch/cassandra-stress-${{ inputs.version }}-1.noarch.rpm
       - name: "Generate release changelog"
