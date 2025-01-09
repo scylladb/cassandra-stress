@@ -1,24 +1,19 @@
-#!/bin/bash -e
+#!/bin/bash
+
+set -ex
 
 . /etc/os-release
 
 print_usage() {
-    echo "build_deb.sh --reloc-pkg build/cassandra-stress-bin.tar.gz"
-    echo "  --reloc-pkg specify relocatable package path"
-    echo "  --builddir specify Debian package build path"
+    echo "build_deb.sh --version 3.17.0"
+    echo "  --version cassandra-stress version"
     exit 1
 }
 
-RELOC_PKG=build/cassandra-stress-bin.tar.gz
-BUILDDIR=build/debian
 while [ $# -gt 0 ]; do
     case "$1" in
-        "--reloc-pkg")
-            RELOC_PKG=$2
-            shift 2
-            ;;
-        "--builddir")
-            BUILDDIR="$2"
+        "--version")
+            VERSION="$2"
             shift 2
             ;;
         *)
@@ -27,13 +22,16 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-RELOC_PKG=$(readlink -f "$RELOC_PKG")
-rm -rf  "$BUILDDIR/debian"
-tar -C "$BUILDDIR" -xpf "$RELOC_PKG"
-cd "$BUILDDIR"
+cd build || exit 1
+rm -rf "cassandra-stress" "cassandra-stress-$VERSION"
+cp -r dist "cassandra-stress-$VERSION"
+tar -czf "cassandra-stress_$VERSION.orig.tar.xz" "cassandra-stress-$VERSION"
+mkdir -p "cassandra-stress-$VERSION/debian"
+mv "cassandra-stress_$VERSION.orig.tar.xz" "cassandra-stress-$VERSION/debian"
 
-mv ../../dist/debian .
-PKG_NAME=$(dpkg-parsechangelog --show-field Source)
-PKG_VERSION=$(dpkg-parsechangelog --show-field Version |sed -e 's/-1$//')
-ln -fv "$RELOC_PKG" ../"$PKG_NAME"_"$PKG_VERSION".orig.tar.gz
-debuild -rfakeroot -us -uc
+cd "cassandra-stress-$VERSION" || exit 1
+rm -rf debian
+mkdir -p debian
+cp -r ../../dist/debian/* ./debian
+sed -i "s/%version/$VERSION/g" debian/changelog
+dpkg-buildpackage -us -uc

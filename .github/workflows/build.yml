@@ -7,11 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        required: false
+        required: true
         description: 'Version of the release'
       latest:
         required: false
-        default: false
         description: 'Build latest version'
   workflow_call:
     inputs:
@@ -29,7 +28,7 @@ jobs:
     strategy:
       matrix:
         java: [ '11' ]
-        os: [ 'ubuntu-latest' ]
+        os: [ 'ubuntu-24.04' ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +43,11 @@ jobs:
         with:
           optional-tasks: true
           version: latest
+      - name: Install Deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm dpkg-dev devscripts debhelper dh-make build-essential
+
       - name: Build with version ${{ inputs.version }}
         if: ${{ inputs.version != '' }}
         run: ant -Dversion=${{ inputs.version }} -Drelease=true jar
@@ -54,7 +58,10 @@ jobs:
           ant jar
       - name: Artifacts
         if: ${{ inputs.version != '' }}
-        run: ant -Dversion=${{ inputs.version }} -Drelease=true artifacts
+        run: |
+          ant -Dversion=${{ inputs.version }} -Drelease=true artifacts
+          ./scripts/build_deb.sh --version ${{ inputs.version }}
+          ./scripts/build_rpm.sh --version ${{ inputs.version }}
       - name: Release
         uses: softprops/action-gh-release@v2
         id: release
@@ -68,12 +75,14 @@ jobs:
           prerelease: false
           fail_on_unmatched_files: true
           files: |
-            build/cassandra-stress-${{ inputs.version }}-bin.tar.gz
-            build/cassandra-stress-${{ inputs.version }}-bin.tar.gz.sha256
-            build/cassandra-stress-${{ inputs.version }}-bin.tar.gz.sha512
-            build/cassandra-stress-${{ inputs.version }}-src.tar.gz
-            build/cassandra-stress-${{ inputs.version }}-src.tar.gz.sha256
-            build/cassandra-stress-${{ inputs.version }}-src.tar.gz.sha512
+            build/cassandra-stress-bin.tar.gz
+            build/cassandra-stress-bin.tar.gz.sha256
+            build/cassandra-stress-bin.tar.gz.sha512
+            build/cassandra-stress-src.tar.gz
+            build/cassandra-stress-src.tar.gz.sha256
+            build/cassandra-stress-src.tar.gz.sha512
+            build/cassandra-stress_${{ inputs.version }}_all.deb
+            build/redhat/RPMS/noarch/cassandra-stress-${{ inputs.version }}-1.noarch.rpm
       - name: "Generate release changelog"
         if: ${{ inputs.version != '' }}
         uses: heinrichreimer/action-github-changelog-generator@v2.4

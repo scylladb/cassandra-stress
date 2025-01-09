@@ -174,7 +174,7 @@
         path="${build.dir}/maven-ant-tasks-${maven-ant-tasks.version}.jar" />
     <path id="scylla-driver-core.classpath"
         path="${build.dir}/scylla-driver-core-${base.javaDriverVersion}-shaded.jar" />
-    <path id="cassandra.classpath">
+    <path id="cassandra-stress.classpath">
         <pathelement location="${build.classes.main}" />
         <pathelement location="${build.classes.thrift}" />
         <fileset dir="${build.dir.lib}">
@@ -1277,7 +1277,7 @@
                 -->
                 <classpath>
                     <pathelement path="${java.class.path}" />
-                    <!-- <path refid="cassandra-stress.classpath" /> -->
+                    <path refid="cassandra-stress.classpath" />
                     <path refid="cassandra-stress.classpath.test" />
                     <pathelement location="${test.classes}" />
                     <pathelement location="${test.conf}" />
