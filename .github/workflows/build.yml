@@ -44,6 +44,11 @@ jobs:
         with:
           optional-tasks: true
           version: latest
+      - name: Install Deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm dpkg-dev devscripts debhelper dh-make
+
       - name: Build with version ${{ inputs.version }}
         if: ${{ inputs.version != '' }}
         run: ant -Dversion=${{ inputs.version }} -Drelease=true jar
@@ -54,7 +59,10 @@ jobs:
           ant jar
       - name: Artifacts
         if: ${{ inputs.version != '' }}
-        run: ant -Dversion=${{ inputs.version }} -Drelease=true artifacts
+        run: |
+          ant -Dversion=${{ inputs.version }} -Drelease=true artifacts
+          ./scripts/build_deb.sh --version ${{ inputs.version }}
+          ./scripts/build_rpm.sh --version ${{ inputs.version }}
       - name: Release
         uses: softprops/action-gh-release@v2
         id: release
@@ -74,6 +82,8 @@ jobs:
             build/cassandra-stress-${{ inputs.version }}-src.tar.gz
             build/cassandra-stress-${{ inputs.version }}-src.tar.gz.sha256
             build/cassandra-stress-${{ inputs.version }}-src.tar.gz.sha512
+            build/cassandra-stress_${{ inputs.version }}_all.deb
+            build/redhat/RPMS/noarch/cassandra-stress-${{ inputs.version }}-1.noarch.rpm
       - name: "Generate release changelog"
         if: ${{ inputs.version != '' }}
         uses: heinrichreimer/action-github-changelog-generator@v2.4
