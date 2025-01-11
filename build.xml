@@ -36,6 +36,7 @@
     <!-- default version and SCM information -->
     <property name="base.version" value="3.12.0"/>
     <property name="base.javaDriverVersion" value="3.11.5.3"/>
+    <property name="lib.override.com.scylladb.scylla-driver-core" value=""/>
     <property name="scm.connection" value="scm:https://gitbox.apache.org/repos/asf/cassandra.git"/>
     <property name="scm.developerConnection" value="scm:https://gitbox.apache.org/repos/asf/cassandra.git"/>
     <property name="scm.url" value="https://gitbox.apache.org/repos/asf?p=cassandra.git;a=tree"/>
@@ -100,6 +101,17 @@
     <property name="maven-ant-tasks.url"
               value="https://repo.maven.apache.org/maven2/org/apache/maven/maven-ant-tasks"/>
     <!-- details of how and which Maven repository we publish to -->
+    <property name="scylla-driver-core.repo-cache.path.base" value="${local.repository}/com/scylladb/scylla-driver-core"/>
+    <property name="scylla-driver-core.remote-url.base"
+              value="https://repo.maven.apache.org/maven2/com/scylladb/scylla-driver-core"/>
+    <property name="scylla-driver-core.remote-url"
+              value="${scylla-driver-core.remote-url.base}/${base.javaDriverVersion}/scylla-driver-core-${base.javaDriverVersion}.jar"/>
+    <property name="scylla-driver-core.build.path"
+              value="${build.dir}/scylla-driver-core-${base.javaDriverVersion}-shaded.jar"/>
+    <property name="scylla-driver-core.repo-cache.path"
+              value="${scylla-driver-core.repo-cache.path.base}/${base.javaDriverVersion}/scylla-driver-core-${base.javaDriverVersion}-shaded.jar"/>
+    <property name="scylla-driver-core.override.done.flag.path"
+              value="${scylla-driver-core.repo-cache.path.base}/${base.javaDriverVersion}/override-done"/>
     <property name="maven.version" value="3.0.3"/>
     <condition property="maven-repository-url"
                value="https://repository.apache.org/service/local/staging/deploy/maven2">
@@ -152,10 +164,24 @@
         <available file="${build.src.java}" type="dir"/>
     </condition>
 
+    <condition property="scylla-driver-core.override.done">
+        <available file="${scylla-driver-core.override.done.flag.path}"/>
+    </condition>
+    
+    <condition property="scylla-driver-core.override.want">
+        <and>
+            <not>
+                <equals arg1="${lib.override.com.scylladb.scylla-driver-core}" arg2=""/>
+            </not>
+            <available file="${lib.override.com.scylladb.scylla-driver-core}"/>
+        </and>
+    </condition>
+
     <property name="java11-jvmargs"
               value="--add-exports java.sql/java.sql=ALL-UNNAMED --add-exports java.base/jdk.internal.misc=ALL-UNNAMED --add-opens java.base/jdk.internal.module=ALL-UNNAMED --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-exports java.base/sun.nio.ch=ALL-UNNAMED --add-exports java.management.rmi/com.sun.jmx.remote.internal.rmi=ALL-UNNAMED --add-exports java.rmi/sun.rmi.registry=ALL-UNNAMED --add-exports java.rmi/sun.rmi.server=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED"/>
 
     <path id="maven-ant-tasks.classpath" path="${build.dir}/maven-ant-tasks-${maven-ant-tasks.version}.jar"/>
+    <path id="scylla-driver-core.classpath" path="${build.dir}/scylla-driver-core-${base.javaDriverVersion}-shaded.jar"/>
     <path id="cassandra.classpath">
         <pathelement location="${build.classes.main}"/>
         <pathelement location="${build.classes.thrift}"/>
@@ -420,10 +446,29 @@
         <property name="maven-ant-tasks.initialized" value="true"/>
     </target>
 
+    <target name="scylla-driver-core.override.install" if="scylla-driver-core.override.want"
+            depends="init" description="Fetch Scylla Driver Core from Maven Local Repository">
+        <echo>Use local Scylla Driver Core library ${lib.override.com.scylladb.scylla-driver-core}</echo>
+        <copy file="${lib.override.com.scylladb.scylla-driver-core}"
+              tofile="${scylla-driver-core.build.path}"/>
+        <copy file="${lib.override.com.scylladb.scylla-driver-core}"
+              tofile="${scylla-driver-core.repo-cache.path}"/>
+        <touch file="${scylla-driver-core.override.done.flag.path}"/>
+    </target>
+
+    <target name="scylla-driver-core.override.cleanup" unless="scylla-driver-core.override.want, scylla-driver-core.override.done"
+            depends="init" description="Remove Scylla Driver Core from Maven From Local Repository">
+        <delete quiet="true" failonerror="false" file="${scylla-driver-core.build.path}"/>
+        <delete quiet="true" failonerror="false" file="${scylla-driver-core.repo-cache.path}/"/>
+        <delete quiet="true" failonerror="false" file="${scylla-driver-core.override.done.flag.path}"/>
+    </target>
+
+    <target name="scylla-driver-core.override" depends="init,scylla-driver-core.override.install,scylla-driver-core.override.cleanup"/>
+
     <!-- this task defines the dependencies that will be fetched by Maven ANT Tasks
          the dependencies are re-used for publishing artifacts to Maven Central
          in order to keep everything consistent -->
-    <target name="maven-declare-dependencies" depends="maven-ant-tasks-init"
+    <target name="maven-declare-dependencies" depends="maven-ant-tasks-init, scylla-driver-core.override"
             description="Define dependencies and dependency versions">
         <!-- The parent pom defines the versions of all dependencies -->
         <artifact:pom id="parent-pom"
@@ -843,6 +888,7 @@
         <propertyfile file="${version.properties.dir}/version.properties">
             <entry key="CassandraVersion" value="${version}"/>
             <entry key="JavaDriverVersion" value="${base.javaDriverVersion}"/>
+            <entry key="JavaDriverOverride" value="${lib.override.com.scylladb.scylla-driver-core}"/>
         </propertyfile>
     </target>
 
