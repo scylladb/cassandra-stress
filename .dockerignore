@@ -1,6 +1,5 @@
 Dockerfile
 .idea/
-build/
 dist/
 ide/
 lib/
