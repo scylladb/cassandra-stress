@@ -1,6 +1,6 @@
 # Changelog
 
-## [v3.17.2](https://github.com/scylladb/cassandra-stress/releases/tag/v3.17.2) (2025-01-17)
+## [v3.17.2](https://github.com/scylladb/cassandra-stress/releases/tag/v3.17.2) (2025-01-21)
 
 [Full Changelog](https://github.com/scylladb/cassandra-stress/compare/v3.17.1...v3.17.2)
 
