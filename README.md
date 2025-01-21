@@ -148,7 +148,7 @@ If you prefer a Dockerized build, follow these steps:
 
     To build with custom driver jar, put jar into root repo directory and run build command:
     ```shell
-    docker build -t cassandra-stress --build-args BUILD_OPTS=-Dlib.override.com.scylladb.scylla-driver-core=/app/<jar-file-name>.jar --compress .
+    docker build -t cassandra-stress --build-arg BUILD_OPTS=-Dlib.override.com.scylladb.scylla-driver-core=/app/<jar-file-name>.jar --compress .
     ```
 
 Once built, you can run the image locally using:
