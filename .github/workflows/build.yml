@@ -39,7 +39,7 @@ jobs:
           distribution: 'corretto'
           java-version: ${{ matrix.java }}
       - name: Setup Ant
-        uses: cedx/setup-ant@v2
+        uses: cedx/setup-ant@v4
         with:
           optional-tasks: true
           version: latest
