@@ -3,7 +3,9 @@
   "extends": [
     "config:recommended"
   ],
-  "schedule": ["every weekend"],
+  "schedule": [
+    "every weekend"
+  ],
   "labels": [
     "renovate",
     "dependencies"
@@ -11,16 +13,20 @@
   "enabledManagers": [
     "maven",
     "dockerfile",
-    "regex",
+    "custom.regex",
     "github-actions"
   ],
-  "customManagers": [{
+  "customManagers": [
+    {
       "customType": "regex",
       "datasourceTemplate": "maven",
-      "fileMatch": ["(^|/)build\\.xml$"],
+      "fileMatch": [
+        "(^|/)build\\.xml$"
+      ],
       "depNameTemplate": "com.scylladb:scylla-driver-core",
       "matchStrings": [
         "<property name=\"base.javaDriverVersion\" value=\"(?<currentValue>[\\w+\\.\\-]*)\""
       ]
-  }]
+    }
+  ]
 }
