@@ -46,6 +46,8 @@ public class SettingsSchema implements Serializable
     private final String compactionStrategy;
     private final Map<String, String> compactionStrategyOptions;
     public final String keyspace;
+    private final Command cmd_type;
+
 
     public SettingsSchema(Options options, SettingsCommand command)
     {
@@ -61,6 +63,7 @@ public class SettingsSchema implements Serializable
         compression = options.compression.value();
         compactionStrategy = options.compaction.getStrategy();
         compactionStrategyOptions = options.compaction.getOptions();
+        cmd_type = command.type;
     }
 
     public void createKeySpaces(StressSettings settings)
@@ -92,6 +95,13 @@ public class SettingsSchema implements Serializable
 
             //Add standard1
             client.execute(createStandard1StatementCQL3(settings), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
+
+
+            if (cmd_type == Command.COUNTER_WRITE)
+            {
+                //Add counter1
+                client.execute(createCounter1StatementCQL3(settings), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
+            }
 
             System.out.println(String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
             Thread.sleep(settings.node.nodes.size() * 1000L); // seconds
