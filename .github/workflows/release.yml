@@ -33,7 +33,7 @@ jobs:
       REGISTRY: ${{ secrets.REGISTRY }}
       REGISTRY_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   build:
-    needs: ['tag']
+    needs: ['tag', 'docker']
     uses: "./.github/workflows/build.yml"
     with:
       version: '${{ needs.tag.outputs.version }}'
