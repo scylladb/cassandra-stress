@@ -27,7 +27,7 @@ import org.apache.cassandra.utils.btree.BTree.Dir;
 
 import static org.apache.cassandra.utils.btree.BTree.findIndex;
 
-public class BTreeSet<V> implements NavigableSet<V>, List<V>
+public class BTreeSet<V> implements NavigableSet<V>
 {
     protected final Comparator<? super V> comparator;
     protected final Object[] tree;
