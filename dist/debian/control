@@ -11,4 +11,4 @@ Priority: extra
 Architecture: all
 Recommends: ntp | time-daemon
 Description: Cassandra-stress is a Java-based command-line stress testing tool for Apache Cassandra and Scylla.
-Depends: openjdk-11-jre-headless | openjdk-11-jre | oracle-java11-set-default | temurin-11-jre, procps, libsnappy-java, libsnappy-jni
+Depends: java-runtime-headless, procps, libsnappy-java, libsnappy-jni
