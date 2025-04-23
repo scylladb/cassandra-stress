@@ -9,9 +9,5 @@ on:
       - master
 
 jobs:
-  build-on-pull:
-    uses: "./.github/workflows/build.yml"
-    with:
-      latest: false
   test-on-pull:
     uses: "./.github/workflows/test.yml"

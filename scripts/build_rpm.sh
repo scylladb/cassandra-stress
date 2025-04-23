@@ -13,17 +13,17 @@ RELOC_PKG=build/cassandra-stress-bin.tar.gz
 BUILDDIR=build/redhat
 while [ $# -gt 0 ]; do
     case "$1" in
-        "--builddir")
-            BUILDDIR="$2"
-            shift 2
-            ;;
-        "--version")
-            VERSION="$2"
-            shift 2
-            ;;
-        *)
-            print_usage
-            ;;
+    "--builddir")
+        BUILDDIR="$2"
+        shift 2
+        ;;
+    "--version")
+        VERSION="$2"
+        shift 2
+        ;;
+    *)
+        print_usage
+        ;;
     esac
 done
 
@@ -43,3 +43,5 @@ rpmbuild -ba \
     --define "_topdir $RPMBUILD" \
     --undefine "dist" \
     "$RPMBUILD/SPECS/cassandra-stress.spec"
+
+mv "build/redhat/RPMS/noarch/cassandra-stress-$VERSION-1.noarch.rpm" "build/cassandra-stress-$VERSION-1.noarch.rpm"

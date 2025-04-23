@@ -6,9 +6,39 @@ on:
 
 jobs:
   build:
+    uses: "./.github/workflows/build.yml"
+    with:
+      version: '1.0.0'
+  test-rpm:
+    needs: build
     strategy:
       matrix:
-        java: [ '11' ]
+        os: [ 'fedora:41', 'fedora:42', 'rockylinux/rockylinux:9-ubi-micro' ]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: cassandra-stress
+      - run: |
+          docker run --rm -v ${{ github.workspace }}/build:/mnt -w /mnt ${{ matrix.os }} bash -c "yum install -y ./cassandra-stress-dev-1.noarch.rpm && cassandra-stress --version"
+
+  test-deb:
+    needs: build
+    strategy:
+      matrix:
+        os: [ 'ubuntu:22.04', 'ubuntu:24.04', 'debian:12-bookworm-slim' ]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: cassandra-stress
+      - run: |
+          docker run --rm -v ${{ github.workspace }}/build:/mnt -w /mnt ${{ matrix.os }} bash -c "apt-get install -y ./cassandra-stress-dev_1_all.deb && cassandra-stress --version"
+
+  build-test:
+    strategy:
+      matrix:
+        java: [ '21', '23' ]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
