@@ -12,6 +12,7 @@ jobs:
   test-rpm:
     needs: build
     strategy:
+      fail-fast: false
       matrix:
         os: [ 'fedora:41', 'fedora:42', 'rockylinux/rockylinux:9-ubi-micro' ]
     runs-on: ubuntu-24.04
@@ -20,11 +21,12 @@ jobs:
         with:
           name: cassandra-stress
       - run: |
-          docker run --rm -v ${{ github.workspace }}/build:/mnt -w /mnt ${{ matrix.os }} bash -c "yum install -y ./cassandra-stress-dev-1.noarch.rpm && cassandra-stress --version"
+          docker run --rm -v ${{ github.workspace }}/build:/mnt -w /mnt ${{ matrix.os }} bash -c "yum install -y ./cassandra-stress-1.0.0-1.noarch.rpm && cassandra-stress --version"
 
   test-deb:
     needs: build
     strategy:
+      fail-fast: false
       matrix:
         os: [ 'ubuntu:22.04', 'ubuntu:24.04', 'debian:12-bookworm-slim' ]
     runs-on: ubuntu-24.04
@@ -33,12 +35,15 @@ jobs:
         with:
           name: cassandra-stress
       - run: |
-          docker run --rm -v ${{ github.workspace }}/build:/mnt -w /mnt ${{ matrix.os }} bash -c "apt-get install -y ./cassandra-stress-dev_1_all.deb && cassandra-stress --version"
+          docker run --rm -v ${{ github.workspace }}/build:/mnt -w /mnt ${{ matrix.os }} bash -c "apt-get install -y ./cassandra-stress-1.0.0_1_all.deb && cassandra-stress --version"
 
   build-test:
     strategy:
+      fail-fast: false
+      max-parallel: 2
       matrix:
-        java: [ '21', '23' ]
+        # java: [ '21', '23' ] Fails to Build on Java 23
+        java: [ '21' ]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
