@@ -36,7 +36,9 @@ jobs:
         with:
           name: cassandra-stress
       - run: |
-          docker run --rm -v ${{ github.workspace }}:/mnt -w /mnt ${{ matrix.os }} bash -c "apt-get install -y ./cassandra-stress-1.0.0_1_all.deb && cassandra-stress --version"
+          docker run -d --name test-${{ matrix.os }} --rm -v ${{ github.workspace }}:/mnt -w /mnt ${{ matrix.os }} /bin/tail -f /dev/null
+          docker exec test-${{ matrix.os }} bash -c "apt-get update && apt-get install -y ./cassandra-stress_1.0.0_all.deb"
+          docker exec test-${{ matrix.os }} cassandra-stress --version
 
   # build-test:
   #   strategy:
