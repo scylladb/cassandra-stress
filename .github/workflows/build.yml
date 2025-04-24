@@ -9,17 +9,26 @@ on:
       version:
         required: true
         description: 'Version of the release'
+      java:
+        required: false
+        description: 'Java version'
+        type: string
+        default: '21'
   workflow_call:
     inputs:
       version:
         required: false
         description: 'Version of the release'
         type: string
+      java:
+        required: false
+        description: 'Java version'
+        type: string
+        default: '21'
 jobs:
   build:
     strategy:
       matrix:
-        java: [ '21' ]
         os: [ 'ubuntu-24.04' ]
     runs-on: ${{ matrix.os }}
     steps:
@@ -29,7 +38,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: ${{ matrix.java }}
+          java-version: ${{ inputs.java }}
       - name: Setup Ant
         uses: cedx/setup-ant@v4
         with:
@@ -48,7 +57,7 @@ jobs:
           ./scripts/build_rpm.sh --version ${{ inputs.version }}
       - uses: actions/upload-artifact@v4
         with:
-          name: cassandra-stress
+          name: cassandra-stress-java${{ inputs.java }}
           path: |
             build/cassandra-stress-bin.tar.gz
             build/cassandra-stress-bin.tar.gz.sha256

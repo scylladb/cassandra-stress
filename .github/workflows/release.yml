@@ -29,21 +29,22 @@ jobs:
     with:
       version: '${{ needs.tag.outputs.version }}'
     secrets:
-      REGISTRY_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       REGISTRY: ${{ secrets.REGISTRY }}
-      REGISTRY_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   build:
     needs: ['tag']
     uses: "./.github/workflows/build.yml"
     with:
       version: '${{ needs.tag.outputs.version }}'
+      java: '21'
   release:
     needs: ['tag', 'docker', 'build']
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: cassandra-stress
+          name: cassandra-stress-java21
       - name: Release
         uses: softprops/action-gh-release@v2
         id: release
