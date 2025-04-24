@@ -37,13 +37,14 @@ jobs:
     uses: "./.github/workflows/build.yml"
     with:
       version: '${{ needs.tag.outputs.version }}'
+      java: '21'
   release:
     needs: ['tag', 'docker', 'build']
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: cassandra-stress
+          name: cassandra-stress-java21
       - name: Release
         uses: softprops/action-gh-release@v2
         id: release
