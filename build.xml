@@ -1015,8 +1015,8 @@
             encoding="utf-8"
             destdir="${build.classes.main}"
             includeantruntime="false"
-            source="${ant.java.version}"
-            target="${ant.java.version}"
+            source="${source.version}"
+            target="${target.version}"
             memorymaximumsize="512M">
             <src path="${build.src.java}" />
             <src path="${build.src.gen-java}" />

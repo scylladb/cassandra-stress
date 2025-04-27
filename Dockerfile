@@ -18,7 +18,7 @@ ARG BUILD_OPTS
 
 RUN --mount=type=cache,target=/root/.m2 ant realclean \
     && ant ${BUILD_OPTS} \
-    && ant ${BUILD_OPTS} -Drelease=true -Dversion="${CASSANDRA_STRESS_VERSION}" artifacts \
+    && ant ${BUILD_OPTS} -Drelease=true -Drelease.version=21 -Dversion="${CASSANDRA_STRESS_VERSION}" artifacts \
     && chmod +x build/dist/bin/cassandra-stress
 
 

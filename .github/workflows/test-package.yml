@@ -32,9 +32,9 @@ jobs:
         shell: bash
         run: |
           if [ "${{ inputs.type }}" == "deb" ]; then
-            docker run --rm -v /tmp:/tmp -v ${{ github.workspace }}:/mnt -w /mnt ${{ inputs.os }} bash -c "apt-get update && apt-get install -y ./cassandra-stress_${{ inputs.version }}_all.deb && cassandra-stress version >> /tmp/version.log"
+            docker run --rm -v /tmp:/tmp -v ${{ github.workspace }}:/mnt -w /mnt ${{ inputs.os }} bash -c "apt-get update && apt-get install -y ./cassandra-stress-java${{ inputs.java }}_${{ inputs.version }}_all.deb && cassandra-stress version >> /tmp/version.log"
           elif [ "${{ inputs.type }}" == "rpm" ]; then
-            docker run --rm -v /tmp:/tmp -v ${{ github.workspace }}:/mnt -w /mnt ${{ inputs.os }} bash -c "yum install -y ./cassandra-stress-${{ inputs.version }}-1.noarch.rpm && cassandra-stress version >> /tmp/version.log"
+            docker run --rm -v /tmp:/tmp -v ${{ github.workspace }}:/mnt -w /mnt ${{ inputs.os }} bash -c "yum install -y ./cassandra-stress-java${{ inputs.java }}-${{ inputs.version }}-1.noarch.rpm && cassandra-stress version >> /tmp/version.log"
           else
             echo "Unsupported distribution type: ${{ inputs.type }}"
             exit 1

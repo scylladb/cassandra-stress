@@ -35,13 +35,22 @@ jobs:
   build:
     needs: ['tag']
     uses: "./.github/workflows/build.yml"
+    strategy:
+      matrix:
+        java: [ '11', '17', '21' ]
     with:
       version: '${{ needs.tag.outputs.version }}'
-      java: '21'
+      java: '${{ matrix.java }}'
   release:
     needs: ['tag', 'docker', 'build']
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: cassandra-stress-java11
+      - uses: actions/download-artifact@v4
+        with:
+          name: cassandra-stress-java17
       - uses: actions/download-artifact@v4
         with:
           name: cassandra-stress-java21
@@ -57,14 +66,32 @@ jobs:
           prerelease: false
           fail_on_unmatched_files: true
           files: |
-            build/cassandra-stress-bin.tar.gz
-            build/cassandra-stress-bin.tar.gz.sha256
-            build/cassandra-stress-bin.tar.gz.sha512
-            build/cassandra-stress-src.tar.gz
-            build/cassandra-stress-src.tar.gz.sha256
-            build/cassandra-stress-src.tar.gz.sha512
-            build/cassandra-stress_${{ needs.tag.outputs.version }}_all.deb
-            build/cassandra-stress-${{ needs.tag.outputs.version }}-1.noarch.rpm
+            cassandra-stress-bin-java11.tar.gz
+            cassandra-stress-bin-java11.tar.gz.sha256
+            cassandra-stress-bin-java11.tar.gz.sha512
+            cassandra-stress-src-java11.tar.gz
+            cassandra-stress-src-java11.tar.gz.sha256
+            cassandra-stress-src-java11.tar.gz.sha512
+            cassandra-stress-java11_${{ needs.tag.outputs.version }}_all.deb
+            cassandra-stress-java11-${{ needs.tag.outputs.version }}-1.noarch.rpm
+
+            cassandra-stress-bin-java17.tar.gz
+            cassandra-stress-bin-java17.tar.gz.sha256
+            cassandra-stress-bin-java17.tar.gz.sha512
+            cassandra-stress-src-java17.tar.gz
+            cassandra-stress-src-java17.tar.gz.sha256
+            cassandra-stress-src-java17.tar.gz.sha512
+            cassandra-stress-java17_${{ needs.tag.outputs.version }}_all.deb
+            cassandra-stress-java17-${{ needs.tag.outputs.version }}-1.noarch.rpm
+
+            cassandra-stress-bin-java21.tar.gz
+            cassandra-stress-bin-java21.tar.gz.sha256
+            cassandra-stress-bin-java21.tar.gz.sha512
+            cassandra-stress-src-java21.tar.gz
+            cassandra-stress-src-java21.tar.gz.sha256
+            cassandra-stress-src-java21.tar.gz.sha512
+            cassandra-stress-java21_${{ needs.tag.outputs.version }}_all.deb
+            cassandra-stress-java21-${{ needs.tag.outputs.version }}-1.noarch.rpm
       - name: "Generate release changelog"
         uses: heinrichreimer/action-github-changelog-generator@v2.4
         with:
