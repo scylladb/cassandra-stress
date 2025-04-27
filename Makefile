@@ -21,6 +21,7 @@ docker-build:
 		--build-arg CASSANDRA_STRESS_VERSION=3 \
 		--compress .
 
+.PHONY: docker-run
 docker-run:
 	@echo "Running docker image..."
 	@docker run \

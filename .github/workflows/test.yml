@@ -3,18 +3,23 @@ name: "Test Cassandra-Stress"
 on:
   workflow_dispatch:
   workflow_call:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
 
 jobs:
   build:
+    strategy:
+      fail-fast: true
+      matrix:
+        java: [ '11', '17','21' ]
     uses: "./.github/workflows/build.yml"
     with:
       version: '1.0.0'
-      java: '21'
-  build-java17:
-    uses: "./.github/workflows/build.yml"
-    with:
-      version: '1.0.0'
-      java: '17'
+      java: '${{ matrix.java }}'
 
   test-rpm:
     needs: build
@@ -22,48 +27,52 @@ jobs:
       fail-fast: false
       matrix:
         os: [ 'fedora:41', 'fedora:42' ]
+        java: [ '11', '17', '21' ]
     uses: "./.github/workflows/test-package.yml"
     with:
       type: 'rpm'
       os: ${{ matrix.os }}
       version: '1.0.0'
-      java: '21'
+      java: '${{ matrix.java }}'
   test-deb:
     needs: build
     strategy:
       fail-fast: false
       matrix:
         os: ['ubuntu:24.04']
+        java: [ '11', '17', '21' ]
     uses: "./.github/workflows/test-package.yml"
     with:
       type: 'deb'
       os: ${{ matrix.os }}
       version: '1.0.0'
-      java: '21'
-  test-rpm-java17:
-    needs: build-java17
+      java: '${{ matrix.java }}'
+  test-rpm-older-java:
+    needs: build
     strategy:
       fail-fast: false
       matrix:
-        os: [ 'fedora:41', 'fedora:42', 'rockylinux/rockylinux:9-ubi' ]
+        java: [ '11', '17' ]
+        os: [ 'rockylinux/rockylinux:9-ubi' ]
     uses: "./.github/workflows/test-package.yml"
     with:
       type: 'rpm'
       os: ${{ matrix.os }}
       version: '1.0.0'
-      java: '17'
-  test-deb-java17:
-    needs: build-java17
+      java: '${{  matrix.java }}'
+  test-deb-older-java:
+    needs: build
     strategy:
       fail-fast: false
       matrix:
-        os: ['ubuntu:24.04', 'debian:bookworm-slim']
+        os: ['debian:bookworm-slim']
+        java: [ '11', '17' ]
     uses: "./.github/workflows/test-package.yml"
     with:
       type: 'deb'
       os: ${{ matrix.os }}
       version: '1.0.0'
-      java: '17'
+      java: '${{ matrix.java }}'
 
   build-test:
     strategy:
@@ -88,3 +97,44 @@ jobs:
         run: ant init
       - name: Test tests
         run: ant build-test
+
+  integration-test:
+    needs: build
+    cancel-timeout-minutes: 1
+    timeout-minutes: 15
+    name: "Integration Test ${{ matrix.java }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '11', '17', '21' ]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download Cassandra Stress binary
+        uses: actions/download-artifact@v4
+        with:
+          name: cassandra-stress-java${{ matrix.java }}
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+      - name: Setup Scylla
+        run: |
+          ulimit -n 65536
+          sudo sysctl -w fs.aio-max-nr=30000000
+          sudo sysctl -w fs.file-max=30000000
+
+          docker compose -f ./compose.yml up -d --wait
+          until docker logs scylla 2>&1 | grep "Starting listening for CQL clients" > /dev/null; do sleep 0.2; done
+      - name: Run tests
+        run: |
+          SCYLLA_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' scylla)"
+          tar -C /opt -xzf cassandra-stress-bin-java${{ matrix.java }}.tar.gz
+
+          /opt/cassandra-stress/bin/cassandra-stress write cl=QUORUM duration=5m -schema 'replication(strategy=NetworkTopologyStrategy,replication_factor=1) compaction(strategy=SizeTieredCompactionStrategy)' -mode cql3 native -rate threads=4 -pop seq=1..20971520 -col 'n=FIXED(10) size=FIXED(512)' -log interval=5 -node "$SCYLLA_IP"
+
+          /opt/cassandra-stress/bin/cassandra-stress read  cl=QUORUM duration=5m -schema 'replication(strategy=NetworkTopologyStrategy,replication_factor=1) compaction(strategy=SizeTieredCompactionStrategy)' -mode cql3 native -rate threads=4 -pop seq=1..20971520 -col 'n=FIXED(10) size=FIXED(512)' -log interval=5 -node "$SCYLLA_IP"

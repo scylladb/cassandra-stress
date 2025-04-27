@@ -1,0 +1,18 @@
+networks:
+  cassandra_stress:
+    name: cassandra_stress
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.101.0/24
+
+services:
+  scylla:
+    image: scylladb/scylla:${SCYLLA_TEST_VERSION:-2025.1}
+    restart: unless-stopped
+    container_name: scylla
+    command: --smp 2 --memory 1024M --api-address 0.0.0.0
+    networks:
+      cassandra_stress:
+        ipv4_address: 192.168.101.2

@@ -27,6 +27,7 @@ on:
         default: "21"
 jobs:
   build:
+    name: Build Cassandra-Stress ${{ inputs.version }} for Java ${{ inputs.java }}
     strategy:
       matrix:
         os: ["ubuntu-24.04"]
