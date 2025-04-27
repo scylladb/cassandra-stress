@@ -23,9 +23,9 @@ find_all_jars() {
 DESC="Cassandra Stress"
 
 if [ -n "$JAVA_HOME" ]; then
-    if [ -x "$JAVA_HOME/bin/java" ]; then
-      JAVA="$JAVA_HOME/bin/java"
-    fi
+  if [ -x "$JAVA_HOME/bin/java" ]; then
+    JAVA="$JAVA_HOME/bin/java"
+  fi
 else
   JAVA=java
 fi
@@ -68,7 +68,6 @@ else
   fi
 fi
 
-
 if [ -d "$CASSANDRA_STRESS_HOME/build" ]; then
   classes="$CASSANDRA_STRESS_HOME/build/classes"
   CLASSPATH="$classes/thrift:$classes/main:$(find_all_jars "$CASSANDRA_STRESS_HOME/build/lib")"
@@ -90,65 +89,80 @@ CLASSPATH="${CLASSPATH}:$(find_all_jars "$CASSANDRA_STRESS_HOME/lib")"
 CLASSPATH="${CLASSPATH#:}"
 
 if [ "$CLASSPATH" = "" ]; then
-    echo "You must set the CLASSPATH var" >&2
-    exit 1
+  echo "You must set the CLASSPATH var" >&2
+  exit 1
 fi
 
 while read -r opt; do
   JVM_OPTS="$JVM_OPTS $opt"
 done < <(grep "^-" "$CASSANDRA_STRESS_CONFIG/jvm-clients.options")
 
+if [ "$jvmver" -gt "20" ]; then
+  JVM_OPTS="$JVM_OPTS \
+    -XX:+UseZGC \
+    -XX:+EnableDynamicAgentLoading \
+    -XX:+RegisterFinalizersAtInit \
+    -XX:+UseStringDeduplication \
+    -XX:MaxGCPauseMillis=20 \
+    -XX:+AlwaysPreTouch \
+    -XX:ZUncommitDelay=5 \
+    -XX:+UseNUMA \
+    -XX:+UseLargePages \
+    -XX:+UseTransparentHugePages \
+  "
+fi
+
 case "$1" in
-  usage)
-    echo "Cassandra-Stress Server Usage: $0 start|stop|status [-h <host>]"
-    echo "Cassandra-Stress Usage: $0 [options]"
-    exit 1
+usage)
+  echo "Cassandra-Stress Server Usage: $0 start|stop|status [-h <host>]"
+  echo "Cassandra-Stress Usage: $0 [options]"
+  exit 1
   ;;
-  start)
-    echo "Starting $DESC: "
-    # shellcheck disable=SC2086,SC2068
-    "$JAVA" $JVM_OPTS \
-      -server \
-      -cp "$CLASSPATH" \
-      -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \
-      -Dcassandra.logdir="$CASSANDRA_STRESS_STORAGE_DIR/logs" \
-      -Dlogback.configurationFile="$CASSANDRA_STRESS_CONFIG/logback.xml" \
-      org.apache.cassandra.stress.StressServer \
-      $@ 1> $CASSANDRA_STRESS_STORAGE_DIR/logs/stressd.out.log 2> $CASSANDRA_STRESS_STORAGE_DIR/logs/stressd.err.log &
-    echo $! > ./stressd.pid
-    echo "done."
-  ;;
-
-  stop)
-    PID="$(cat ./stressd.pid 2> /dev/null)"
-
-    if [ "$PID" = "" ]; then
-      echo "$DESC is not running."
-    else
-      kill -9 "$PID"
-      rm ./stressd.pid
-      echo "$DESC is stopped."
-    fi
+start)
+  echo "Starting $DESC: "
+  # shellcheck disable=SC2086,SC2068
+  "$JAVA" $JVM_OPTS \
+    -server \
+    -cp "$CLASSPATH" \
+    -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \
+    -Dcassandra.logdir="$CASSANDRA_STRESS_STORAGE_DIR/logs" \
+    -Dlogback.configurationFile="$CASSANDRA_STRESS_CONFIG/logback.xml" \
+    org.apache.cassandra.stress.StressServer \
+    $@ 1>$CASSANDRA_STRESS_STORAGE_DIR/logs/stressd.out.log 2>$CASSANDRA_STRESS_STORAGE_DIR/logs/stressd.err.log &
+  echo $! >./stressd.pid
+  echo "done."
   ;;
 
-  status)
-    PID="$(cat ./stressd.pid 2> /dev/null)"
+stop)
+  PID="$(cat ./stressd.pid 2>/dev/null)"
 
-    if [ "$PID" = "" ]; then
-      echo "$DESC is not running."
-    else
-      echo "$DESC is running with pid $PID."
-    fi
+  if [ "$PID" = "" ]; then
+    echo "$DESC is not running."
+  else
+    kill -9 "$PID"
+    rm ./stressd.pid
+    echo "$DESC is stopped."
+  fi
   ;;
 
-  *)
-    # shellcheck disable=SC2086,SC2068
-    "$JAVA" $JVM_OPTS \
-      -cp $CLASSPATH \
-      -Dcassandra.config="file://$CONFIG_FILE_REALPATH" \
-      -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \
-      -Dcassandra.logdir="$CASSANDRA_STRESS_STORAGE_DIR/logs" \
-      -Dlogback.configurationFile="$CASSANDRA_STRESS_CONFIG/logback.xml" \
-        org.apache.cassandra.stress.Stress $@
+status)
+  PID="$(cat ./stressd.pid 2>/dev/null)"
+
+  if [ "$PID" = "" ]; then
+    echo "$DESC is not running."
+  else
+    echo "$DESC is running with pid $PID."
+  fi
+  ;;
+
+*)
+  # shellcheck disable=SC2086,SC2068
+  "$JAVA" $JVM_OPTS \
+    -cp $CLASSPATH \
+    -Dcassandra.config="file://$CONFIG_FILE_REALPATH" \
+    -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \
+    -Dcassandra.logdir="$CASSANDRA_STRESS_STORAGE_DIR/logs" \
+    -Dlogback.configurationFile="$CASSANDRA_STRESS_CONFIG/logback.xml" \
+    org.apache.cassandra.stress.Stress $@
   ;;
 esac
