@@ -10,7 +10,7 @@ on:
 
 jobs:
   tag:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version_tag.outputs.tag }}
     steps:
@@ -29,12 +29,53 @@ jobs:
     with:
       version: '${{ needs.tag.outputs.version }}'
     secrets:
-      REGISTRY_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       REGISTRY: ${{ secrets.REGISTRY }}
-      REGISTRY_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   build:
-    needs: ['tag', 'docker']
+    needs: ['tag']
     uses: "./.github/workflows/build.yml"
     with:
       version: '${{ needs.tag.outputs.version }}'
-      latest: true
+      java: '21'
+  release:
+    needs: ['tag', 'docker', 'build']
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: cassandra-stress-java21
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        id: release
+        with:
+          make_latest: true
+          name: "v${{ needs.tag.outputs.version }}"
+          tag_name: "v${{ needs.tag.outputs.version }}"
+          generate_release_notes: true
+          append_body: true
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            build/cassandra-stress-bin.tar.gz
+            build/cassandra-stress-bin.tar.gz.sha256
+            build/cassandra-stress-bin.tar.gz.sha512
+            build/cassandra-stress-src.tar.gz
+            build/cassandra-stress-src.tar.gz.sha256
+            build/cassandra-stress-src.tar.gz.sha512
+            build/cassandra-stress_${{ needs.tag.outputs.version }}_all.deb
+            build/cassandra-stress-${{ needs.tag.outputs.version }}-1.noarch.rpm
+      - name: "Generate release changelog"
+        uses: heinrichreimer/action-github-changelog-generator@v2.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          author: true
+          releaseUrl: ${{ steps.release.outputs.url }}
+          issues: false
+          pullRequests: true
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update CHANGELOG.md"
+          branch: master
+          commit_options: '--no-verify --signoff'
+          file_pattern: CHANGELOG.md

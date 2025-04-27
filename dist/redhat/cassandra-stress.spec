@@ -8,7 +8,7 @@ License:        Apache
 URL:            http://www.scylladb.com/
 Source0:        cassandra-stress.tar.gz
 BuildArch:      noarch
-Requires:       (jre-11-headless or temurin-11-jre) snappy
+Requires:       (temurin-21-jre or jre-21-headless or temurin-23-jre or temurin-21-jdk or temurin-23-jdk or java-21-openjdk or java-headless) snappy
 AutoReqProv:    no
 
 %description
