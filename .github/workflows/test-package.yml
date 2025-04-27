@@ -25,22 +25,23 @@ jobs:
     name: "Test ${{ inputs.os }} with Java ${{ inputs.java }}"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: cassandra-stress-java${{ inputs.java }}
-      - name: Install
-        shell: bash
-        run: |
-          if [ "${{ inputs.type }}" == "deb" ]; then
-            docker run --rm -v /tmp:/tmp -v ${{ github.workspace }}:/mnt -w /mnt ${{ inputs.os }} bash -c "apt-get update && apt-get install -y ./cassandra-stress-java${{ inputs.java }}_${{ inputs.version }}_all.deb && cassandra-stress version >> /tmp/version.log"
-          elif [ "${{ inputs.type }}" == "rpm" ]; then
-            docker run --rm -v /tmp:/tmp -v ${{ github.workspace }}:/mnt -w /mnt ${{ inputs.os }} bash -c "yum install -y ./cassandra-stress-java${{ inputs.java }}-${{ inputs.version }}-1.noarch.rpm && cassandra-stress version >> /tmp/version.log"
-          else
-            echo "Unsupported distribution type: ${{ inputs.type }}"
-            exit 1
-          fi
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: cassandra-stress-java${{ inputs.java }}
+
+      - name: Install
+        shell: bash
+        run: |
+          set -xe
+
+          ./scripts/test-binary.sh \
+            ${{ inputs.java }} \
+            ${{ inputs.os }} \
+            ${{ inputs.version }} \
+            ${{ inputs.type }} \
+            ${{ github.workspace }} || exit 1
       - name: Run Tests
         run: ./scripts/check-version.sh /tmp/version.log

@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/bin/bash
+
+set -xe
 
 . /etc/os-release
 

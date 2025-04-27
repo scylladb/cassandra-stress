@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -xe
+
 FILE="${1:-"/tmp/version.log"}"
 
 if [ ! -f "$FILE" ]; then
