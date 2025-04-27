@@ -3,73 +3,56 @@ name: "Test Cassandra-Stress"
 on:
   workflow_dispatch:
   workflow_call:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
 
 jobs:
   build:
+    strategy:
+      fail-fast: true
+      matrix:
+        java: ["21"]
     uses: "./.github/workflows/build.yml"
     with:
-      version: '1.0.0'
-      java: '21'
-  build-java17:
-    uses: "./.github/workflows/build.yml"
-    with:
-      version: '1.0.0'
-      java: '17'
+      version: "1.0.0"
+      java: "${{ matrix.java }}"
 
   test-rpm:
     needs: build
     strategy:
       fail-fast: false
       matrix:
-        os: [ 'fedora:41', 'fedora:42' ]
+        os: ["fedora:41", "fedora:42"]
+        java: ["21"]
     uses: "./.github/workflows/test-package.yml"
     with:
-      type: 'rpm'
+      type: "rpm"
       os: ${{ matrix.os }}
-      version: '1.0.0'
-      java: '21'
+      version: "1.0.0"
+      java: "${{ matrix.java }}"
   test-deb:
     needs: build
     strategy:
       fail-fast: false
       matrix:
-        os: ['ubuntu:24.04']
+        os: ["ubuntu:24.04", "debian:bookworm-slim"]
+        java: ["21"]
     uses: "./.github/workflows/test-package.yml"
     with:
-      type: 'deb'
+      type: "deb"
       os: ${{ matrix.os }}
-      version: '1.0.0'
-      java: '21'
-  test-rpm-java17:
-    needs: build-java17
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ 'fedora:41', 'fedora:42', 'rockylinux/rockylinux:9-ubi' ]
-    uses: "./.github/workflows/test-package.yml"
-    with:
-      type: 'rpm'
-      os: ${{ matrix.os }}
-      version: '1.0.0'
-      java: '17'
-  test-deb-java17:
-    needs: build-java17
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ['ubuntu:24.04', 'debian:bookworm-slim']
-    uses: "./.github/workflows/test-package.yml"
-    with:
-      type: 'deb'
-      os: ${{ matrix.os }}
-      version: '1.0.0'
-      java: '17'
+      version: "1.0.0"
+      java: "${{ matrix.java }}"
 
   build-test:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17', '21' ]
+        java: ["21"]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -77,7 +60,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: "temurin"
           java-version: ${{ matrix.java }}
       - name: Setup Ant
         uses: cedx/setup-ant@v4
@@ -88,3 +71,72 @@ jobs:
         run: ant init
       - name: Test tests
         run: ant build-test
+
+  enumerated-tests:
+    timeout-minutes: 2
+    name: "Enumerate all tests from integration-tests folder to run them independently"
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.enumerate.outputs.matrix }}
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enumerate tests
+        id: enumerate
+        shell: bash
+        run: |
+          ITEMS=""
+
+          for file in integration-tests/*; do
+            ITEMS="\"$file\",$ITEMS"
+          done
+
+          ITEMS="${ITEMS%%,}"
+          ITEMS="[$ITEMS]"
+
+          echo "matrix=$ITEMS" >> $GITHUB_OUTPUT
+
+  integration-test:
+    needs: [build, enumerated-tests]
+    timeout-minutes: 5
+    name: "Integration Test ${{ matrix.java }} c-s ${{ matrix.test }}"
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        java: ["21"]
+        test: ${{ fromJSON(needs.enumerated-tests.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download Cassandra Stress binary
+        uses: actions/download-artifact@v4
+        with:
+          name: cassandra-stress-java${{ matrix.java }}
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: ${{ matrix.java }}
+      - name: Setup Scylla
+        run: |
+          ulimit -n 65536
+          sudo sysctl -w fs.aio-max-nr=30000000
+          sudo sysctl -w fs.file-max=30000000
+
+          docker compose -f ./compose.yml up -d --wait
+          until docker logs scylla 2>&1 | grep "Starting listening for CQL clients" > /dev/null; do sleep 0.2; done
+      - name: Run tests
+        shell: bash
+        run: |
+          set -xe
+          SCYLLA_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' scylla)"
+          tar -C /opt -xzf cassandra-stress-bin-java${{ matrix.java }}.tar.gz
+          export PATH="$PATH:/opt/cassandra-stress/bin"
+
+          ./${{ matrix.test }} "$SCYLLA_IP" || exit 1
