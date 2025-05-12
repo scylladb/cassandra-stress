@@ -447,10 +447,8 @@ public class StressAction implements Runnable
                 JavaDriverClient jclient = null;
                 final ConnectionAPI clientType = settings.mode.api;
 
-                try
-                {
-                    switch (clientType)
-                    {
+                try {
+                    switch (clientType) {
                         case JAVA_DRIVER_NATIVE:
                             jclient = settings.getJavaDriverClient();
                             break;
@@ -464,17 +462,14 @@ public class StressAction implements Runnable
                         default:
                             throw new IllegalStateException();
                     }
-                }
-                finally
-                {
+                } finally {
                     // synchronize the start of all the consumer threads
                     start.countDown();
                 }
 
                 releaseConsumers.await();
 
-                while (true)
-                {
+                while (true) {
                     if (settings.errors.failFast && anyFailed.getCount() == 0) {
                         success = false;
                         break;
@@ -484,10 +479,8 @@ public class StressAction implements Runnable
                     if (op == null)
                         break;
 
-                    try
-                    {
-                        switch (clientType)
-                        {
+                    try {
+                        switch (clientType) {
                             case JAVA_DRIVER_NATIVE:
                                 op.run(jclient);
                                 break;
@@ -516,6 +509,12 @@ public class StressAction implements Runnable
                         return;
                     }
                 }
+            }
+            catch (java.lang.Error e) {
+                e.printStackTrace();
+                System.err.println(e.getMessage());
+                success = false;
+                anyFailed.countDown();
             }
             catch (Exception e)
             {
