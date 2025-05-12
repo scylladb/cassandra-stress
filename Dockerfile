@@ -52,6 +52,4 @@ RUN --mount=type=cache,target=/var/cache/apt ln -snf "/usr/share/zoneinfo/$TZ" /
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-ENTRYPOINT [ "/bin/bash", "-o", "pipefail", "-c" ]
-
-CMD ["cassandra-stress"]
+ENTRYPOINT ["cassandra-stress"]
