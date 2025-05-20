@@ -455,9 +455,8 @@
     <target name="jarjar.get" depends="init" unless="jarjar.jar.exists">
         <echo>Downloading jarjar...</echo>
         <get src="https://repo1.maven.org/maven2/org/pantsbuild/jarjar/${jarjar.version}/jarjar-${jarjar.version}.jar"
-             dest="${build.dir}/jarjar-${jarjar.version}.jar"/>
-
-        skipexisting="true"/>
+             dest="${build.dir}/jarjar-${jarjar.version}.jar"
+             skipexisting="true"/>
         <get src="https://repo1.maven.org/maven2/org/ow2/asm/asm/9.1/asm-9.1.jar"
              dest="build/asm-9.1.jar"
              usetimestamp="true"/>
