@@ -29,7 +29,6 @@ import java.util.Map;
 import com.datastax.driver.core.AuthProvider;
 import com.datastax.driver.core.PlainTextAuthProvider;
 import com.datastax.driver.core.ProtocolOptions;
-import com.datastax.driver.core.ProtocolVersion;
 import org.apache.cassandra.stress.util.ResultLogger;
 
 public class SettingsMode implements Serializable

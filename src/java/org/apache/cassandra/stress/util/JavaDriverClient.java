@@ -76,7 +76,7 @@ public class JavaDriverClient
 
     public JavaDriverClient(StressSettings settings, List<String> hosts, int port, EncryptionOptions.ClientEncryptionOptions encryptionOptions)
     {
-        this.protocolVersion = settings.mode.protocolVersion;
+        this.protocolVersion = settings.mode.protocolVersion.ToV3();
         this.hosts = hosts;
         this.port = port;
         this.username = settings.mode.username;
