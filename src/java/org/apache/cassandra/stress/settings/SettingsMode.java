@@ -64,7 +64,7 @@ public class SettingsMode implements Serializable
             } else {
                 protocolVersion = ProtocolVersion.fromInt(Integer.parseInt(opts.protocolVersion.value()));
             }
-            api = opts.mode().displayPrefix.equals("native") ? ConnectionAPI.JAVA_DRIVER_NATIVE : ConnectionAPI.THRIFT;
+            api = opts.mode().displayPrefix.equals("native") ? (opts.useDriverV4.setByUser() ? ConnectionAPI.JAVA_DRIVER4_NATIVE : ConnectionAPI.JAVA_DRIVER_NATIVE) : ConnectionAPI.THRIFT;
             style = opts.useUnPrepared.setByUser() ? ConnectionStyle.CQL :  ConnectionStyle.CQL_PREPARED;
             compression = ProtocolOptions.Compression.valueOf(opts.useCompression.value().toUpperCase()).name();
             username = opts.user.value();
@@ -163,6 +163,7 @@ public class SettingsMode implements Serializable
         final OptionSimple api = new OptionSimple("cql3", "", null, "", true);
         final OptionSimple protocolVersion = new OptionSimple("protocolVersion=", "[2-4]+", "DEFAULT", "CQL Protocol Version", false);
         final OptionSimple useUnPrepared = new OptionSimple("unprepared", "", null, "force use of unprepared statements", false);
+        final OptionSimple useDriverV4 = new OptionSimple("driverVersion4", "", null, "use v4 driver", false);
         final OptionSimple useCompression = new OptionSimple("compression=", "none|lz4|snappy", "none", "", false);
         final OptionSimple port = new OptionSimple("port=", "[0-9]+", "9046", "", false);
         final OptionSimple user = new OptionSimple("user=", ".+", null, "username", false);
@@ -176,7 +177,7 @@ public class SettingsMode implements Serializable
         public List<? extends Option> options()
         {
             return Arrays.asList(mode(), useUnPrepared, api, useCompression, port, user, password, authProvider,
-                                 maxPendingPerConnection, connectionsPerHost, protocolVersion);
+                                 maxPendingPerConnection, connectionsPerHost, protocolVersion, useDriverV4);
         }
     }
 
