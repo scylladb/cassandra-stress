@@ -59,7 +59,16 @@ public class SettingsMode implements Serializable
             } else {
                 protocolVersion = ProtocolVersion.fromInt(Integer.parseInt(opts.protocolVersion.value()));
             }
-            api = opts.mode().displayPrefix.equals("native") ? ConnectionAPI.JAVA_DRIVER_NATIVE : ConnectionAPI.THRIFT;
+            switch (opts.mode().displayPrefix) {
+                case "thrift":
+                    api = ConnectionAPI.THRIFT;
+                    break;
+                case "4x":
+                    api = ConnectionAPI.JAVA_DRIVER4_NATIVE;
+                    break;
+                default:
+                    api = ConnectionAPI.JAVA_DRIVER_NATIVE;
+            }
             style = opts.useUnPrepared.setByUser() ? ConnectionStyle.CQL :  ConnectionStyle.CQL_PREPARED;
             compression = ProtocolCompression.valueOf(opts.useCompression.value().toUpperCase());
             username = opts.user.value();
@@ -110,6 +119,15 @@ public class SettingsMode implements Serializable
     private static final class Cql3NativeOptions extends Cql3Options
     {
         final OptionSimple mode = new OptionSimple("native", "", null, "", true);
+        OptionSimple mode()
+        {
+            return mode;
+        }
+    }
+
+    private static final class Cql3NativeV4Options extends Cql3Options
+    {
+        final OptionSimple mode = new OptionSimple("4x", "", null, "", true);
         OptionSimple mode()
         {
             return mode;
@@ -202,11 +220,12 @@ public class SettingsMode implements Serializable
             Cql3NativeOptions opts = new Cql3NativeOptions();
             opts.accept("cql3");
             opts.accept("native");
+            opts.accept("4x");
             opts.accept("prepared");
             return new SettingsMode(opts);
         }
 
-        GroupedOptions options = GroupedOptions.select(params, new ThriftOptions(), new Cql3NativeOptions(), new Cql3SimpleNativeOptions());
+        GroupedOptions options = GroupedOptions.select(params, new ThriftOptions(), new Cql3NativeOptions(), new Cql3NativeV4Options(), new Cql3SimpleNativeOptions());
         if (options == null)
         {
             printHelp();
@@ -218,7 +237,7 @@ public class SettingsMode implements Serializable
 
     public static void printHelp()
     {
-        GroupedOptions.printOptions(System.out, "-mode", new ThriftOptions(), new Cql3NativeOptions(), new Cql3SimpleNativeOptions());
+        GroupedOptions.printOptions(System.out, "-mode", new ThriftOptions(), new Cql3NativeOptions(), new Cql3NativeV4Options(), new Cql3SimpleNativeOptions());
     }
 
     public static Runnable helpPrinter()

@@ -31,6 +31,8 @@ import com.google.common.util.concurrent.Uninterruptibles;
 
 import org.apache.cassandra.stress.operations.OpDistributionFactory;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
+import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.db.ConsistencyLevel;
 
@@ -162,7 +164,12 @@ public abstract class SettingsCommand implements Serializable
 
     protected void truncateTables(StressSettings settings, String ks, String ... tables)
     {
-        JavaDriverClient client = settings.getJavaDriverClient(false);
+        QueryExecutor client;
+        if (settings.mode.api == ConnectionAPI.JAVA_DRIVER4_NATIVE) {
+            client = (QueryExecutor) settings.getJavaDriverV4Client(false);
+        } else {
+            client = (QueryExecutor) settings.getJavaDriverClient(false);
+        }
         assert settings.command.truncate != SettingsCommand.TruncateWhen.NEVER;
         for (String table : tables)
         {

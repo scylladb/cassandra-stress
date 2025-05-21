@@ -307,7 +307,7 @@
         <property name="resolver-ant-tasks.initialized" value="true" />
     </target>
 
-    <target name="resolver-retrieve-build" depends="resolver-init,write-poms">
+    <target name="resolver-retrieve-build" depends="resolver-init,write-poms,java-driver-core.shade">
         <resolver:pom file="${build.dir}/cassandra-stress.pom" id="all-pom" />
         <resolver:pom file="${build.dir}/${ant.project.name}-thrift-${version}.pom" id="thrift-pom" />
         <resolver:pom file="${build.dir}/tmp-cassandra-stress-deps.pom" id="pom-deps" />
@@ -469,9 +469,16 @@
     <target name="java-driver-core.get" depends="init">
         <echo>Downloading driver4 and dependencies...</echo>
         <mkdir dir="${build.dir}/shaded"/>
+        <mkdir dir="${build.dir}/lib/jars"/>
 
-        <get src="https://repo1.maven.org/maven2/com/scylladb/java-driver-core/${base.java4DriverVersion}/java-driver-core-${base.java4DriverVersion}.jar"
-             dest="${build.dir}/shaded/java-driver-core-${base.java4DriverVersion}.jar"
+        <get src="https://repo1.maven.org/maven2/com/scylladb/java-driver-core-shaded/${base.java4DriverVersion}/java-driver-core-shaded-${base.java4DriverVersion}.jar"
+             dest="${build.dir}/shaded/java-driver-core-shaded-${base.java4DriverVersion}.jar"
+             usetimestamp="true"/>
+        <get src="https://repo1.maven.org/maven2/com/scylladb/java-driver-guava-shaded/${base.java4DriverVersion}/java-driver-guava-shaded-${base.java4DriverVersion}.jar"
+             dest="${build.dir}/shaded/java-driver-guava-shaded-${base.java4DriverVersion}.jar"
+             usetimestamp="true"/>
+        <get src="https://repo1.maven.org/maven2/com/datastax/oss/native-protocol/1.5.1/native-protocol-1.5.1.jar"
+             dest="${build.dir}/shaded/native-protocol-1.5.1.jar"
              usetimestamp="true"/>
     </target>
 
@@ -486,8 +493,30 @@
             </classpath>
             <arg value="process"/>
             <arg value="jarjar.rules"/>
-            <arg value="${build.dir}/shaded/java-driver-core-${base.java4DriverVersion}.jar"/>
-            <arg value="${build.dir}/lib/jars/java-driver-core-${base.java4DriverVersion}-shaded.jar"/>
+            <arg value="${build.dir}/shaded/java-driver-core-shaded-${base.java4DriverVersion}.jar"/>
+            <arg value="${build.dir}/lib/jars/java-driver-core-shaded-${base.java4DriverVersion}.jar"/>
+        </java>
+        <java classname="org.pantsbuild.jarjar.Main" fork="true" failonerror="true">
+            <classpath>
+                <pathelement location="${build.dir}/jarjar-${jarjar.version}.jar"/>
+                <pathelement location="build/asm-9.1.jar"/>
+                <pathelement location="build/asm-commons-9.1.jar"/>
+            </classpath>
+            <arg value="process"/>
+            <arg value="jarjar.rules"/>
+            <arg value="${build.dir}/shaded/java-driver-guava-shaded-${base.java4DriverVersion}.jar"/>
+            <arg value="${build.dir}/lib/jars/java-driver-guava-shaded-${base.java4DriverVersion}.jar"/>
+        </java>
+        <java classname="org.pantsbuild.jarjar.Main" fork="true" failonerror="true">
+            <classpath>
+                <pathelement location="${build.dir}/jarjar-${jarjar.version}.jar"/>
+                <pathelement location="build/asm-9.1.jar"/>
+                <pathelement location="build/asm-commons-9.1.jar"/>
+            </classpath>
+            <arg value="process"/>
+            <arg value="jarjar.rules"/>
+            <arg value="${build.dir}/shaded/native-protocol-1.5.1.jar"/>
+            <arg value="${build.dir}/lib/jars/native-protocol-1.5.1.jar"/>
         </java>
         <echo>Shaded JAR created: ${shaded.output}</echo>
     </target>
@@ -874,7 +903,7 @@
             <dependency groupId="com.addthis.metrics" artifactId="reporter-config3" />
             <dependency groupId="com.thinkaurelius.thrift" artifactId="thrift-server" />
             <dependency groupId="com.clearspring.analytics" artifactId="stream" />
-
+            <dependency groupId="com.typesafe" artifactId="config" version="1.4.3"/>
             <dependency groupId="ch.qos.logback" artifactId="logback-core" />
             <dependency groupId="ch.qos.logback" artifactId="logback-classic" />
 

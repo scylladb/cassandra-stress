@@ -28,6 +28,7 @@ import java.io.Serializable;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntUnaryOperator;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -54,6 +55,8 @@ import org.apache.cassandra.stress.operations.userdefined.ValidatingSchemaQuery;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.*;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
+import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.ThriftClient;
 import org.apache.cassandra.thrift.Compression;
@@ -226,7 +229,12 @@ public class StressProfile implements Serializable
     {
         if (!schemaCreated)
         {
-            JavaDriverClient client = settings.getJavaDriverClient(false);
+            QueryExecutor client;
+            if (settings.mode.api == ConnectionAPI.JAVA_DRIVER4_NATIVE) {
+                client = (QueryExecutor)settings.getJavaDriverV4Client(false);
+            } else {
+                client = (QueryExecutor)settings.getJavaDriverClient(false);
+            }
 
             if (keyspaceCql != null)
             {
@@ -234,7 +242,7 @@ public class StressProfile implements Serializable
                 {
                     client.execute(keyspaceCql, org.apache.cassandra.db.ConsistencyLevel.ONE);
                 }
-                catch (AlreadyExistsException e)
+                catch (AlreadyExistsException | shaded.com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e)
                 {
                 }
             }
@@ -247,7 +255,7 @@ public class StressProfile implements Serializable
                 {
                     client.execute(tableCql, org.apache.cassandra.db.ConsistencyLevel.ONE);
                 }
-                catch (AlreadyExistsException e)
+                catch (AlreadyExistsException | shaded.com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e)
                 {
                 }
 
@@ -264,7 +272,7 @@ public class StressProfile implements Serializable
                     {
                         client.execute(extraCql, org.apache.cassandra.db.ConsistencyLevel.ONE);
                     }
-                    catch (AlreadyExistsException e)
+                    catch (AlreadyExistsException | shaded.com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e)
                     {
                     }
                 }
@@ -280,7 +288,12 @@ public class StressProfile implements Serializable
 
     public void truncateTable(StressSettings settings)
     {
-        JavaDriverClient client = settings.getJavaDriverClient(false);
+        QueryExecutor client;
+        if (settings.mode.api == ConnectionAPI.JAVA_DRIVER4_NATIVE) {
+            client = (QueryExecutor)settings.getJavaDriverV4Client(false);
+        } else {
+            client = (QueryExecutor)settings.getJavaDriverClient(false);
+        }
         assert settings.command.truncate != SettingsCommand.TruncateWhen.NEVER;
         String cql = String.format("TRUNCATE %s.%s", keyspaceName, tableName);
         client.execute(cql, org.apache.cassandra.db.ConsistencyLevel.ONE);

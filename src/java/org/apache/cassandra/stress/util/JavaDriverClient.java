@@ -44,7 +44,7 @@ import org.apache.cassandra.security.SSLFactory;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 
-public class JavaDriverClient
+public class JavaDriverClient implements QueryExecutor
 {
 
     static
@@ -257,11 +257,11 @@ public class JavaDriverClient
         return session;
     }
 
-    public ResultSet execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
+    public void execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
     {
         SimpleStatement stmt = new SimpleStatement(query);
         stmt.setConsistencyLevel(from(consistency));
-        return getSession().execute(stmt);
+        session.execute(stmt);
     }
 
     public ResultSet execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency,
