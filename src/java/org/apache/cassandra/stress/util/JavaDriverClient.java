@@ -44,7 +44,7 @@ import org.apache.cassandra.security.SSLFactory;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 
-public class JavaDriverClient
+public class JavaDriverClient implements QueryExecutor
 {
 
     static
@@ -77,12 +77,12 @@ public class JavaDriverClient
 
     public JavaDriverClient(StressSettings settings, List<String> hosts, int port, EncryptionOptions.ClientEncryptionOptions encryptionOptions)
     {
-        this.protocolVersion = settings.mode.protocolVersion.ToV3();
+        this.protocolVersion = settings.mode.protocolVersion.ToJavaDriverV3();
         this.hosts = hosts;
         this.port = port;
         this.username = settings.mode.username;
         this.password = settings.mode.password;
-        this.authProvider = settings.mode.authProvider.ToV3();
+        this.authProvider = settings.mode.authProvider.ToJavaDriverV3();
         this.encryptionOptions = encryptionOptions;
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
         this.connectionsPerHost = settings.mode.connectionsPerHost == null ? 8 : settings.mode.connectionsPerHost;
@@ -170,7 +170,7 @@ public class JavaDriverClient
             clusterBuilder.withLoadBalancingPolicy(loadBalancingPolicy);
         }
 
-        clusterBuilder.withCompression(compression.ToV3());
+        clusterBuilder.withCompression(compression.ToJavaDriverV3());
 
         if (encryptionOptions.enabled)
         {
@@ -257,11 +257,11 @@ public class JavaDriverClient
         return session;
     }
 
-    public ResultSet execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
+    public void execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
     {
         SimpleStatement stmt = new SimpleStatement(query);
         stmt.setConsistencyLevel(from(consistency));
-        return getSession().execute(stmt);
+        session.execute(stmt);
     }
 
     public ResultSet execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency,
