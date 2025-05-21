@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import com.datastax.driver.core.ProtocolOptions;
 import org.apache.cassandra.stress.util.ResultLogger;
 
 public class SettingsMode implements Serializable
@@ -44,7 +43,7 @@ public class SettingsMode implements Serializable
     public final Integer maxPendingPerConnection;
     public final Integer connectionsPerHost;
 
-    private final String compression;
+    private final ProtocolCompression compression;
 
 
     public SettingsMode(GroupedOptions options)
@@ -62,7 +61,7 @@ public class SettingsMode implements Serializable
             }
             api = opts.mode().displayPrefix.equals("native") ? ConnectionAPI.JAVA_DRIVER_NATIVE : ConnectionAPI.THRIFT;
             style = opts.useUnPrepared.setByUser() ? ConnectionStyle.CQL :  ConnectionStyle.CQL_PREPARED;
-            compression = ProtocolOptions.Compression.valueOf(opts.useCompression.value().toUpperCase()).name();
+            compression = ProtocolCompression.valueOf(opts.useCompression.value().toUpperCase());
             username = opts.user.value();
             password = opts.password.value();
             maxPendingPerConnection = opts.maxPendingPerConnection.value().isEmpty() ? null : Integer.valueOf(opts.maxPendingPerConnection.value());
@@ -76,7 +75,7 @@ public class SettingsMode implements Serializable
             protocolVersion = ProtocolVersion.DEFAULT;
             api = ConnectionAPI.SIMPLE_NATIVE;
             style = opts.usePrepared.setByUser() ? ConnectionStyle.CQL_PREPARED : ConnectionStyle.CQL;
-            compression = ProtocolOptions.Compression.NONE.name();
+            compression = ProtocolCompression.NONE;
             username = null;
             password = null;
             authProvider = null;
@@ -90,7 +89,7 @@ public class SettingsMode implements Serializable
             cqlVersion = CqlVersion.NOCQL;
             api = opts.smart.setByUser() ? ConnectionAPI.THRIFT_SMART : ConnectionAPI.THRIFT;
             style = ConnectionStyle.THRIFT;
-            compression = ProtocolOptions.Compression.NONE.name();
+            compression = ProtocolCompression.NONE;
             username = opts.user.value();
             password = opts.password.value();
             authProvider = null;
@@ -101,9 +100,9 @@ public class SettingsMode implements Serializable
             throw new IllegalStateException();
     }
 
-    public ProtocolOptions.Compression compression()
+    public ProtocolCompression compression()
     {
-        return ProtocolOptions.Compression.valueOf(compression);
+        return compression;
     }
 
     // Option Declarations
