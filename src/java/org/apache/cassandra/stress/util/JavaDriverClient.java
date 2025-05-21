@@ -41,6 +41,7 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.security.SSLFactory;
+import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 
 public class JavaDriverClient
@@ -140,7 +141,7 @@ public class JavaDriverClient
         return stmt;
     }
 
-    public void connect(ProtocolOptions.Compression compression) throws Exception
+    public void connect(ProtocolCompression compression) throws Exception
     {
         PoolingOptions poolingOpts = new PoolingOptions()
                                      .setConnectionsPerHost(HostDistance.LOCAL, connectionsPerHost, connectionsPerHost)
@@ -169,7 +170,7 @@ public class JavaDriverClient
             clusterBuilder.withLoadBalancingPolicy(loadBalancingPolicy);
         }
 
-        clusterBuilder.withCompression(compression);
+        clusterBuilder.withCompression(compression.ToV3());
 
         if (encryptionOptions.enabled)
         {
