@@ -81,7 +81,7 @@ public class JavaDriverClient
         this.port = port;
         this.username = settings.mode.username;
         this.password = settings.mode.password;
-        this.authProvider = settings.mode.authProvider;
+        this.authProvider = settings.mode.authProvider.ToV3();
         this.encryptionOptions = encryptionOptions;
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
         this.connectionsPerHost = settings.mode.connectionsPerHost == null ? 8 : settings.mode.connectionsPerHost;

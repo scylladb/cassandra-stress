@@ -26,8 +26,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import com.datastax.driver.core.AuthProvider;
-import com.datastax.driver.core.PlainTextAuthProvider;
 import com.datastax.driver.core.ProtocolOptions;
 import org.apache.cassandra.stress.util.ResultLogger;
 
@@ -41,7 +39,6 @@ public class SettingsMode implements Serializable
 
     public final String username;
     public final String password;
-    public final String authProviderClassname;
     public final AuthProvider authProvider;
 
     public final Integer maxPendingPerConnection;
@@ -70,33 +67,7 @@ public class SettingsMode implements Serializable
             password = opts.password.value();
             maxPendingPerConnection = opts.maxPendingPerConnection.value().isEmpty() ? null : Integer.valueOf(opts.maxPendingPerConnection.value());
             connectionsPerHost = opts.connectionsPerHost.value().isEmpty() ? null : Integer.valueOf(opts.connectionsPerHost.value());
-            authProviderClassname = opts.authProvider.value();
-            if (authProviderClassname != null)
-            {
-                try
-                {
-                    Class<?> clazz = Class.forName(authProviderClassname);
-                    if (!AuthProvider.class.isAssignableFrom(clazz))
-                        throw new IllegalArgumentException(clazz + " is not a valid auth provider");
-                    // check we can instantiate it
-                    if (PlainTextAuthProvider.class.equals(clazz))
-                    {
-                        authProvider = (AuthProvider) clazz.getConstructor(String.class, String.class)
-                            .newInstance(username, password);
-                    } else
-                    {
-                        authProvider = (AuthProvider) clazz.newInstance();
-                    }
-                }
-                catch (Exception e)
-                {
-                    throw new IllegalArgumentException("Invalid auth provider class: " + opts.authProvider.value(), e);
-                }
-            }
-            else
-            {
-                authProvider = null;
-            }
+            authProvider = new AuthProvider(opts.authProvider.value(), username, password);
         }
         else if (options instanceof Cql3SimpleNativeOptions)
         {
@@ -109,7 +80,6 @@ public class SettingsMode implements Serializable
             username = null;
             password = null;
             authProvider = null;
-            authProviderClassname = null;
             maxPendingPerConnection = null;
             connectionsPerHost = null;
         }
@@ -123,7 +93,6 @@ public class SettingsMode implements Serializable
             compression = ProtocolOptions.Compression.NONE.name();
             username = opts.user.value();
             password = opts.password.value();
-            authProviderClassname = null;
             authProvider = null;
             maxPendingPerConnection = null;
             connectionsPerHost = null;
@@ -218,7 +187,7 @@ public class SettingsMode implements Serializable
         out.printf("  Protocol Version: %s%n", protocolVersion);
         out.printf("  Username: %s%n", username);
         out.printf("  Password: %s%n", (password==null?password:"*suppressed*"));
-        out.printf("  Auth Provide Class: %s%n", authProviderClassname);
+        out.printf("  Auth Provide Class: %s%n", authProvider == null ? "none" : authProvider.getClassName());
         out.printf("  Max Pending Per Connection: %d%n", maxPendingPerConnection);
         out.printf("  Connections Per Host: %d%n", connectionsPerHost);
         out.printf("  Compression: %s%n", compression);
