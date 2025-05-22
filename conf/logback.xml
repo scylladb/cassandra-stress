@@ -99,4 +99,5 @@ appender reference in the root level section below.
 
     <logger name="org.apache.cassandra" level="DEBUG"/>
     <logger name="com.thinkaurelius.thrift" level="ERROR"/>
+    <logger name="shaded.com.datastax.oss.driver.internal.core.channel.InFlightHandler" level="INFO"/>
 </configuration>
