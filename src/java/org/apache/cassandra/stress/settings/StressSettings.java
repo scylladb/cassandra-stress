@@ -25,7 +25,9 @@ import java.io.Serializable;
 import java.util.*;
 
 import com.datastax.driver.core.Metadata;
+
 import com.google.common.collect.ImmutableMap;
+
 import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.ResultLogger;
@@ -97,6 +99,7 @@ public class StressSettings implements Serializable
 
     /**
      * Thrift client connection
+     *
      * @return cassandra client connection
      */
     public synchronized ThriftClient getThriftClient()
@@ -118,6 +121,7 @@ public class StressSettings implements Serializable
 
     /**
      * Thrift client connection
+     *
      * @return cassandra client connection
      */
     private SimpleThriftClient getSimpleThriftClient()
@@ -153,7 +157,6 @@ public class StressSettings implements Serializable
 
             if (mode.username != null)
                 client.login(new AuthenticationRequest(ImmutableMap.of("username", mode.username, "password", mode.password)));
-
         }
         catch (InvalidRequestException e)
         {
@@ -218,7 +221,7 @@ public class StressSettings implements Serializable
             }
             catch (Exception e)
             {
-                numFailures +=1;
+                numFailures += 1;
                 throw new RuntimeException(e);
             }
         }
@@ -227,9 +230,13 @@ public class StressSettings implements Serializable
     public void maybeCreateKeyspaces()
     {
         if (command.type == Command.WRITE || command.type == Command.COUNTER_WRITE)
+        {
             schema.createKeySpaces(this);
+        }
         else if (command.type == Command.USER)
-            ((SettingsCommandUser) command).profile.maybeCreateSchema(this);
+        {
+            ((SettingsCommandUser) command).profiles.forEach((k, v) -> v.maybeCreateSchema(this));
+        }
     }
 
     public static StressSettings parse(String[] args)
@@ -241,7 +248,6 @@ public class StressSettings implements Serializable
         if (SettingsMisc.maybeDoSpecial(clArgs))
             return null;
         return get(clArgs);
-
     }
 
     private static String[] repairParams(String[] args)
@@ -265,15 +271,15 @@ public class StressSettings implements Serializable
     {
         if (clArgs.containsKey("-cloudconf"))
         {
-           for (String forbidden : SettingCloudConfig.FORBIDDENS)
-           {
-               if (clArgs.containsKey(forbidden))
-               {
-                   printHelp();
-                   System.out.println("Error processing command line arguments. Cannot use -cloudconf with " + forbidden.toString() + ".");
-                   System.exit(1);
-               }
-           }
+            for (String forbidden : SettingCloudConfig.FORBIDDENS)
+            {
+                if (clArgs.containsKey(forbidden))
+                {
+                    printHelp();
+                    System.out.println("Error processing command line arguments. Cannot use -cloudconf with " + forbidden.toString() + ".");
+                    System.exit(1);
+                }
+            }
         }
         SettingsCommand command = SettingsCommand.get(clArgs);
         if (command == null)
@@ -325,7 +331,7 @@ public class StressSettings implements Serializable
         final LinkedHashMap<String, String[]> r = new LinkedHashMap<>();
         String key = null;
         List<String> params = new ArrayList<>();
-        for (int i = 0 ; i < args.length ; i++)
+        for (int i = 0; i < args.length; i++)
         {
             if (i == 0 || args[i].startsWith("-"))
             {
@@ -398,10 +404,11 @@ public class StressSettings implements Serializable
         {
             out.println();
             out.println("******************** Profile ********************");
-            ((SettingsCommandUser) command).profile.printSettings(out, this);
+            out.println("******************** Profile(s) ********************");
+            ((SettingsCommandUser) command).profiles.forEach((k, v) -> v.printSettings(out, this));
         }
-        out.println();
 
+        out.println();
     }
 
     public synchronized void disconnect()
