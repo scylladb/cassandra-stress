@@ -3,7 +3,8 @@
 set -xe
 
 IP=$1
-DRIVER_TYPE=${2:-native}
+DRIVER_TYPE=${2:-3x}
+[[ "$DRIVER_TYPE" == "3x" ]] && DRIVER_TYPE=native
 
 cassandra-stress write cl=QUORUM duration=1m \
     -errors fail-fast \
