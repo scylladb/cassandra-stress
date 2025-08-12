@@ -21,17 +21,16 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.security.SSLFactory;
+import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 import shaded.com.datastax.oss.driver.api.core.AllNodesFailedException;
-import shaded.com.datastax.oss.driver.api.core.ConsistencyLevel;
 import shaded.com.datastax.oss.driver.api.core.CqlSession;
 import shaded.com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import shaded.com.datastax.oss.driver.api.core.ProtocolVersion;
 import shaded.com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import shaded.com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import shaded.com.datastax.oss.driver.api.core.cql.BoundStatementBuilder;
-import shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import shaded.com.datastax.oss.driver.api.core.cql.ResultSet;
 import shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import shaded.com.datastax.oss.driver.api.core.metadata.EndPoint;
@@ -139,7 +138,7 @@ public class JavaDriverV4Client implements QueryExecutor
             stmt = stmts.get(query);
             if (stmt != null)
                 return stmt;
-            stmt = getSession().prepare(query);
+            stmt = new PreparedStatement(getSession().prepare(query));
             stmts.put(query, stmt);
         }
         return stmt;
@@ -270,7 +269,7 @@ public class JavaDriverV4Client implements QueryExecutor
     public void execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
     {
         SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
-        builder.setConsistencyLevel(from(consistency));
+        builder.setConsistencyLevel(consistency.ToV4Value());
         session.execute(builder.build());
     }
 
@@ -278,61 +277,24 @@ public class JavaDriverV4Client implements QueryExecutor
                              org.apache.cassandra.db.ConsistencyLevel serialConsistency)
     {
         SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
-        builder.setConsistencyLevel(from(consistency));
-        builder.setSerialConsistencyLevel(from(serialConsistency));
+        builder.setConsistencyLevel(consistency.ToV4Value());
+        builder.setSerialConsistencyLevel(serialConsistency.ToV4Value());
         return getSession().execute(builder.build());
     }
 
     public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency)
     {
-        BoundStatementBuilder builder = stmt.boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
-        builder = builder.setConsistencyLevel(from(consistency));
+        BoundStatementBuilder builder = stmt.ToV4Value().boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
+        builder = builder.setConsistencyLevel(consistency.ToV4Value());
         return getSession().execute(builder.build());
     }
 
     public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency, org.apache.cassandra.db.ConsistencyLevel serialConsistency )
     {
-        BoundStatementBuilder builder = stmt.boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
-        builder = builder.setConsistencyLevel(from(consistency));
-        builder.setSerialConsistencyLevel(from(serialConsistency));
+        BoundStatementBuilder builder = stmt.ToV4Value().boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
+        builder = builder.setConsistencyLevel(consistency.ToV4Value());
+        builder.setSerialConsistencyLevel(serialConsistency.ToV4Value());
         return getSession().execute(builder.build());
-    }
-
-    /**
-     * Get ConsistencyLevel from a C* ConsistencyLevel. This exists in the Java Driver ConsistencyLevel,
-     * but it is not public.
-     *
-     * @param cl
-     * @return
-     */
-    public static ConsistencyLevel from(org.apache.cassandra.db.ConsistencyLevel cl)
-    {
-        switch (cl)
-        {
-            case ANY:
-                return ConsistencyLevel.ANY;
-            case ONE:
-                return ConsistencyLevel.ONE;
-            case TWO:
-                return ConsistencyLevel.TWO;
-            case THREE:
-                return ConsistencyLevel.THREE;
-            case QUORUM:
-                return ConsistencyLevel.QUORUM;
-            case ALL:
-                return ConsistencyLevel.ALL;
-            case LOCAL_QUORUM:
-                return ConsistencyLevel.LOCAL_QUORUM;
-            case EACH_QUORUM:
-                return ConsistencyLevel.EACH_QUORUM;
-            case LOCAL_ONE:
-                return ConsistencyLevel.LOCAL_ONE;
-            case LOCAL_SERIAL:
-                return ConsistencyLevel.LOCAL_SERIAL;
-            case SERIAL:
-                return ConsistencyLevel.SERIAL;
-        }
-        throw new AssertionError();
     }
 
     public void disconnect()

@@ -69,12 +69,12 @@ public abstract class Operation
         throw new UnsupportedOperationException();
     }
 
-    public void run(JavaDriverV4Client client) throws IOException
+    public void run(JavaDriverClient client) throws IOException
     {
         throw new UnsupportedOperationException();
     }
 
-    public void run(JavaDriverClient client) throws IOException
+    public void run(JavaDriverV4Client client) throws IOException
     {
         throw new UnsupportedOperationException();
     }

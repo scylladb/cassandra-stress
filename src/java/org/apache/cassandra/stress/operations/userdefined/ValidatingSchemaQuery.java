@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import com.datastax.driver.core.*;
+import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.core.BoundStatement;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.stress.generate.*;
 import org.apache.cassandra.stress.generate.Row;
@@ -63,18 +65,15 @@ public class ValidatingSchemaQuery extends PartitionOperation
         argumentIndex = new int[statements[0].statement.getVariables().size()];
         bindBuffer = new Object[argumentIndex.length];
         int i = 0;
-        for (ColumnDefinitions.Definition definition : statements[0].statement.getVariables())
-            argumentIndex[i++] = spec.partitionGenerator.indexOf(definition.getName());
-
-        com.datastax.driver.core.ConsistencyLevel consistencyLevel = JavaDriverClient.from(cl);
-        com.datastax.driver.core.ConsistencyLevel serialConsistencyLevel = JavaDriverClient.from(serialCl);
+        for (String columnName : statements[0].statement.getColumnNames())
+            argumentIndex[i++] = spec.partitionGenerator.indexOf(columnName);
 
         for (ValidatingStatement statement : statements)
         {
             if (statement.statement.getConsistencyLevel() == null)
-                statement.statement.setConsistencyLevel(consistencyLevel);
+                statement.statement.setConsistencyLevel(cl);
             if (statement.statement.getSerialConsistencyLevel() == null)
-                statement.statement.setSerialConsistencyLevel(serialConsistencyLevel);
+                statement.statement.setSerialConsistencyLevel(serialCl);
         }
         this.clusteringComponents = clusteringComponents;
     }
@@ -123,7 +122,7 @@ public class ValidatingSchemaQuery extends PartitionOperation
 
         public boolean run() throws Exception
         {
-            ResultSet rs = client.getSession().execute(bind(statementIndex));
+            ResultSet rs = client.getSession().execute(bind(statementIndex).ToV3Value());
             int[] valueIndex = new int[rs.getColumnDefinitions().size()];
             {
                 int i = 0;
@@ -171,7 +170,7 @@ public class ValidatingSchemaQuery extends PartitionOperation
 
         public boolean run() throws Exception
         {
-            shaded.com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bindV4(statementIndex));
+            shaded.com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bind(statementIndex).ToV4Value());
             int[] valueIndex = new int[rs.getColumnDefinitions().size()];
             {
                 int i = 0;
@@ -261,16 +260,6 @@ public class ValidatingSchemaQuery extends PartitionOperation
         return statements[statementIndex].statement.bind(bindBuffer);
     }
 
-    shaded.com.datastax.oss.driver.api.core.cql.BoundStatement bindV4(int statementIndex)
-    {
-        int pkc = bounds.left.partitionKey.length;
-        System.arraycopy(bounds.left.partitionKey, 0, bindBuffer, 0, pkc);
-        int ccc = bounds.left.row.length;
-        System.arraycopy(bounds.left.row, 0, bindBuffer, pkc, ccc);
-        System.arraycopy(bounds.right.row, 0, bindBuffer, pkc + ccc, ccc);
-        return statements[statementIndex].statementv4.bind(bindBuffer);
-    }
-
     List<ByteBuffer> thriftArgs()
     {
         List<ByteBuffer> args = new ArrayList<>();
@@ -289,6 +278,12 @@ public class ValidatingSchemaQuery extends PartitionOperation
     public void run(JavaDriverClient client) throws IOException
     {
         timeWithRetry(new JavaDriverRun(client, partitions.get(0)));
+    }
+
+    @Override
+    public void run(JavaDriverV4Client client) throws IOException
+    {
+        timeWithRetry(new JavaDriverV4Run(client, partitions.get(0)));
     }
 
     @Override
@@ -377,19 +372,16 @@ public class ValidatingSchemaQuery extends PartitionOperation
     private static class ValidatingStatement
     {
         final PreparedStatement statement;
-        final shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement statementv4;
         final Integer thriftId;
         final boolean inclusiveStart;
         final boolean inclusiveEnd;
         private ValidatingStatement(
             PreparedStatement statement,
-            shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement statementV4,
             Integer thriftId,
             boolean inclusiveStart,
             boolean inclusiveEnd)
         {
             this.statement = statement;
-            this.statementv4 = statementV4;
             this.thriftId = thriftId;
             this.inclusiveStart = inclusiveStart;
             this.inclusiveEnd = inclusiveEnd;
@@ -399,18 +391,16 @@ public class ValidatingSchemaQuery extends PartitionOperation
     private static ValidatingStatement prepare(StressSettings settings, String cql, boolean incLb, boolean incUb) {
         switch (settings.mode.api) {
             case JAVA_DRIVER4_NATIVE:
-                JavaDriverV4Client client = settings.getJavaDriverV4Client();
-                return new ValidatingStatement(null, client.prepare(cql), null, incLb, incUb);
+                return new ValidatingStatement(settings.getJavaDriverV4Client().prepare(cql), null, incLb, incUb);
             case JAVA_DRIVER_NATIVE:
             case SIMPLE_NATIVE:
-                JavaDriverClient jclient = settings.getJavaDriverClient();
-                return new ValidatingStatement(jclient.prepare(cql), null, null, incLb, incUb);
+                return new ValidatingStatement(settings.getJavaDriverClient().prepare(cql), null, incLb, incUb);
             case THRIFT:
             case THRIFT_SMART:
                 ThriftClient tclient = settings.getThriftClient();
                 try {
                     Integer thriftId = tclient.prepare_cql3_query(cql, Compression.NONE);
-                    return new ValidatingStatement(null, null, thriftId, incLb, incUb);
+                    return new ValidatingStatement(null, thriftId, incLb, incUb);
                 } catch (TException e) {
                     throw new RuntimeException(e);
                 }

@@ -19,13 +19,16 @@
 package org.apache.cassandra.stress.operations.userdefined;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import javax.naming.OperationNotSupportedException;
 
+import com.datastax.driver.core.ColumnDefinitions;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.PagingState;
 import com.datastax.driver.core.ResultSet;
@@ -43,6 +46,7 @@ import org.apache.cassandra.stress.generate.TokenRangeIterator;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ThriftClient;
 
 public class TokenRangeQuery extends Operation
@@ -92,7 +96,8 @@ public class TokenRangeQuery extends Operation
         public final TokenRange tokenRange;
         public final String query;
         public PagingState pagingState;
-        public Set<Token> partitions = new HashSet<>();
+        public ByteBuffer pagingStateV4;
+        public Set<Object> partitions = new HashSet<>();
 
         public State(TokenRange tokenRange, String query)
         {
@@ -163,7 +168,7 @@ public class TokenRangeQuery extends Operation
             for (Row row : results)
             {
                 // this call will only succeed if we've added token(partition keys) to the query
-                Token partition = row.getPartitionKeyToken();
+                Object partition = row.getPartitionKeyToken();
                 if (!state.partitions.contains(partition))
                 {
                     partitionCount += 1;
@@ -175,6 +180,73 @@ public class TokenRangeQuery extends Operation
             }
 
             if (results.isExhausted() || isWarmup)
+            { // no more pages to fetch or just warming up, ready to move on to another token range
+                currentState.set(null);
+            }
+
+            return true;
+        }
+    }
+
+    private class JavaDriverV4Run extends Runner
+    {
+        final JavaDriverV4Client client;
+        private final Pattern TOKEN_COLUMN_NAME = Pattern.compile("(system\\.)?token(.*)");
+
+        private JavaDriverV4Run(JavaDriverV4Client client)
+        {
+            this.client = client;
+        }
+
+        private shaded.com.datastax.oss.driver.api.core.metadata.token.Token getPartitionKeyToken(shaded.com.datastax.oss.driver.api.core.cql.Row row) {
+            shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinitions metadata = row.getColumnDefinitions();
+            for ( int i = 0; i < metadata.size(); i++ ) {
+                if (TOKEN_COLUMN_NAME.matcher(metadata.get(i).getName().toString()).matches()) return row.getToken(i);
+            }
+            throw new IllegalStateException(
+                "Found no column named 'token(...)'. If the column is aliased, use getToken(String).");
+        }
+
+        public boolean run() throws Exception
+        {
+            State state = currentState.get();
+            if (state == null)
+            { // start processing a new token range
+                TokenRange range = tokenRangeIterator.next();
+                if (range == null)
+                    return true; // no more token ranges to process
+
+                state = new State(range, buildQuery(range));
+                currentState.set(state);
+            }
+
+            shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder statement = new shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder(state.query);
+            statement.setFetchSize(pageSize);
+
+            if (state.pagingState != null)
+                statement.setPagingState(state.pagingStateV4);
+
+            shaded.com.datastax.oss.driver.api.core.cql.ResultSet results = client.getSession().execute(statement.build());
+            state.pagingStateV4 = results.getExecutionInfo().getPagingState();
+
+            int remaining = results.getAvailableWithoutFetching();
+            rowCount += remaining;
+
+            for (shaded.com.datastax.oss.driver.api.core.cql.Row row : results)
+            {
+                // this call will only succeed if we've added token(partition keys) to the query
+                Object partition = getPartitionKeyToken(row);
+                if (!state.partitions.contains(partition))
+                {
+                    partitionCount += 1;
+                    state.partitions.add(partition);
+                }
+
+                if (--remaining == 0)
+                    break;
+            }
+
+            if (results.isFullyFetched() || isWarmup)
             { // no more pages to fetch or just warming up, ready to move on to another token range
                 currentState.set(null);
             }

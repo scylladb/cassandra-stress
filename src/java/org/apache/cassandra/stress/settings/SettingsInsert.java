@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.datastax.driver.core.BatchStatement;
+import org.apache.cassandra.stress.core.BatchStatementType;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.RatioDistributionFactory;
 import org.apache.cassandra.stress.util.ResultLogger;
@@ -40,7 +41,7 @@ public class SettingsInsert implements Serializable
     public final DistributionFactory batchsize;
     public final RatioDistributionFactory selectRatio;
     public final RatioDistributionFactory rowPopulationRatio;
-    public final BatchStatement.Type batchType;
+    public final BatchStatementType batchType;
     public final ConsistencyLevel consistencyLevel;
     public final ConsistencyLevel serialConsistencyLevel;
 
@@ -59,7 +60,7 @@ public class SettingsInsert implements Serializable
             this.serialConsistencyLevel = ConsistencyLevel.valueOf(options.serialConsistencyLevel.value().toUpperCase());
         else
             this.serialConsistencyLevel = null;
-        this.batchType = !options.batchType.setByUser() ? null : BatchStatement.Type.valueOf(options.batchType.value());
+        this.batchType = !options.batchType.setByUser() ? null : BatchStatementType.valueOf(options.batchType.value());
     }
 
     // Option Declarations

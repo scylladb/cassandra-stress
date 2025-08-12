@@ -41,6 +41,8 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.security.SSLFactory;
+import org.apache.cassandra.stress.core.BoundStatement;
+import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 
@@ -135,7 +137,7 @@ public class JavaDriverClient implements QueryExecutor
             stmt = stmts.get(query);
             if (stmt != null)
                 return stmt;
-            stmt = getSession().prepare(query);
+            stmt = new PreparedStatement(getSession().prepare(query));
             stmts.put(query, stmt);
         }
         return stmt;
@@ -278,19 +280,19 @@ public class JavaDriverClient implements QueryExecutor
     public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency)
     {
         if (stmt.getConsistencyLevel() == null)
-            stmt.setConsistencyLevel(from(consistency));
+            stmt.setConsistencyLevel(consistency);
         BoundStatement bstmt = stmt.bind((Object[]) queryParams.toArray(new Object[queryParams.size()]));
-        return getSession().execute(bstmt);
+        return getSession().execute(bstmt.ToV3Value());
     }
 
     public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency, org.apache.cassandra.db.ConsistencyLevel serialConsistency )
     {
         if (stmt.getConsistencyLevel() == null)
-            stmt.setConsistencyLevel(from(consistency));
+            stmt.setConsistencyLevel(consistency);
         if (stmt.getSerialConsistencyLevel() == null)
-            stmt.setSerialConsistencyLevel(from(serialConsistency));
+            stmt.setSerialConsistencyLevel(serialConsistency);
         BoundStatement bstmt = stmt.bind((Object[]) queryParams.toArray(new Object[queryParams.size()]));
-        return getSession().execute(bstmt);
+        return getSession().execute(bstmt.ToV3Value());
     }
 
     /**
