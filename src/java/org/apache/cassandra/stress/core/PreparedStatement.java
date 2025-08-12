@@ -32,7 +32,8 @@ public class PreparedStatement {
 
   public List<String> getColumnNames() {
     if (stmt instanceof com.datastax.driver.core.PreparedStatement) {
-      return ToV3Value().getVariables().asList().stream().map(d -> d.getName()).collect(Collectors.toList());
+      return ToV3Value().getVariables().asList().stream().map(
+          com.datastax.driver.core.ColumnDefinitions.Definition::getName).collect(Collectors.toList());
     }
     return StreamSupport.stream(ToV4Value().getVariableDefinitions().spliterator(), false).map(d -> d.getName().toString()).collect(Collectors.toList());
   }
@@ -42,23 +43,17 @@ public class PreparedStatement {
   }
 
   public ConsistencyLevel getConsistencyLevel() {
-    if  (stmt instanceof com.datastax.driver.core.PreparedStatement) {
-      return ConsistencyLevel.valueOf(ToV3Value().getConsistencyLevel().toString());
-    }
     return consistencyLevel;
   }
 
   public void setConsistencyLevel(ConsistencyLevel level) {
+    this.consistencyLevel = level;
     if (stmt instanceof com.datastax.driver.core.PreparedStatement) {
       this.ToV3Value().setConsistencyLevel(level.ToV3Value());
     }
-    this.consistencyLevel = level;
   }
 
   public ConsistencyLevel getSerialConsistencyLevel() {
-    if  (stmt instanceof com.datastax.driver.core.PreparedStatement) {
-      return ConsistencyLevel.valueOf(ToV3Value().getSerialConsistencyLevel().toString());
-    }
     return serialConsistencyLevel;
   }
 

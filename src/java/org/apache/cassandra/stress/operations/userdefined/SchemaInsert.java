@@ -98,8 +98,12 @@ public class SchemaInsert extends SchemaStatement
                 else
                 {
                     com.datastax.driver.core.BatchStatement batch = new com.datastax.driver.core.BatchStatement(batchType.ToV3Value());
-                    batch.setConsistencyLevel(statement.getConsistencyLevel().ToV3Value());
-                    batch.setSerialConsistencyLevel(statement.getSerialConsistencyLevel().ToV3Value());
+                    if (statement.getConsistencyLevel() != null) {
+                        batch.setConsistencyLevel(statement.getConsistencyLevel().ToV3Value());
+                    }
+                    if (statement.getSerialConsistencyLevel() != null) {
+                        batch.setSerialConsistencyLevel(statement.getSerialConsistencyLevel().ToV3Value());
+                    }
                     batch.addAll(substmts);
                     stmt = batch;
                 }

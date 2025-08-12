@@ -168,6 +168,37 @@ public enum ConsistencyLevel
         throw new AssertionError();
     }
 
+    public static ConsistencyLevel FromV3Value(com.datastax.driver.core.ConsistencyLevel consistencyLevel) {
+        if (consistencyLevel == null) {
+            return null;
+        }
+        switch (consistencyLevel) {
+            case ANY:
+                return ANY;
+            case ONE:
+                return ONE;
+            case TWO:
+                return TWO;
+            case THREE:
+                return THREE;
+            case QUORUM:
+                return QUORUM;
+            case ALL:
+                return ALL;
+            case LOCAL_QUORUM:
+                return LOCAL_QUORUM;
+            case EACH_QUORUM:
+                return EACH_QUORUM;
+            case LOCAL_ONE:
+                return LOCAL_ONE;
+            case LOCAL_SERIAL:
+                return LOCAL_SERIAL;
+            case SERIAL:
+                return SERIAL;
+        }
+        throw new AssertionError();
+    }
+
     public shaded.com.datastax.oss.driver.api.core.ConsistencyLevel ToV4Value() {
         /**
          * Get ConsistencyLevel from a C* ConsistencyLevel. This exists in the Java Driver ConsistencyLevel,
@@ -201,6 +232,13 @@ public enum ConsistencyLevel
                 return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.SERIAL;
         }
         throw new AssertionError();
+    }
+
+    public static ConsistencyLevel FromV4Value(shaded.com.datastax.oss.driver.api.core.ConsistencyLevel consistencyLevel) {
+        if (consistencyLevel == null) {
+            return null;
+        }
+        return ConsistencyLevel.fromCode(consistencyLevel.getProtocolCode());
     }
 
     public boolean isDatacenterLocal()
