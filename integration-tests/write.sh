@@ -5,7 +5,7 @@ set -xe
 IP=$1
 DRIVER_TYPE=${2:-native}
 
-bin/cassandra-stress write cl=QUORUM duration=1m \
+cassandra-stress write cl=QUORUM duration=1m \
     -errors fail-fast \
     -schema 'replication(strategy=NetworkTopologyStrategy,replication_factor=1)' \
     -mode cql3 "${DRIVER_TYPE}" \
