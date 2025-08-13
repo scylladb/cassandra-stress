@@ -7,9 +7,9 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class PreparedStatement {
-  final Object stmt;
-  ConsistencyLevel consistencyLevel;
-  ConsistencyLevel serialConsistencyLevel;
+  final private Object stmt;
+  private ConsistencyLevel consistencyLevel;
+  private ConsistencyLevel serialConsistencyLevel;
 
   public PreparedStatement(com.datastax.driver.core.PreparedStatement statement) {
     stmt = statement;

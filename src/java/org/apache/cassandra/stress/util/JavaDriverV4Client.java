@@ -22,6 +22,7 @@ import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.security.SSLFactory;
 import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 import shaded.com.datastax.oss.driver.api.core.AllNodesFailedException;
@@ -53,7 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
-public class JavaDriverV4Client implements QueryExecutor
+public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, MetadataProvider
 {
 
     static
@@ -287,6 +288,10 @@ public class JavaDriverV4Client implements QueryExecutor
         BoundStatementBuilder builder = stmt.ToV4Value().boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
         builder = builder.setConsistencyLevel(consistency.ToV4Value());
         return getSession().execute(builder.build());
+    }
+
+    public TableMetadata getTableMetadata(String keyspace, String tableName) {
+        return new TableMetadata(getSession().getMetadata().getKeyspace(keyspace).flatMap( ks -> ks.getTable(tableName)).orElse(null));
     }
 
     public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency, org.apache.cassandra.db.ConsistencyLevel serialConsistency )

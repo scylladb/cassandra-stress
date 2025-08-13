@@ -43,12 +43,14 @@ import org.apache.cassandra.config.ColumnDefinition;
 import org.apache.cassandra.cql3.CQLFragmentParser;
 import org.apache.cassandra.cql3.CqlParser;
 import org.apache.cassandra.cql3.QueryProcessor;
-import org.apache.cassandra.cql3.statements.BatchStatement;
 import org.apache.cassandra.cql3.statements.CreateTableStatement;
 import org.apache.cassandra.exceptions.RequestValidationException;
 import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.cassandra.stress.core.BatchStatementType;
+import org.apache.cassandra.stress.core.ColumnMetadata;
+import org.apache.cassandra.stress.core.DataType;
 import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.generate.*;
 import org.apache.cassandra.stress.generate.values.*;
 import org.apache.cassandra.stress.operations.userdefined.TokenRangeQuery;
@@ -59,7 +61,9 @@ import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.*;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
+import org.apache.cassandra.stress.util.MetadataProvider;
 import org.apache.cassandra.stress.util.QueryExecutor;
+import org.apache.cassandra.stress.util.QueryPrepare;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.ThriftClient;
 import org.apache.cassandra.thrift.Compression;
@@ -272,27 +276,30 @@ public class StressProfile implements Serializable {
 
     private void maybeLoadSchemaInfo(StressSettings settings) {
         if (tableMetaData == null) {
-            JavaDriverClient client = settings.getJavaDriverClient();
-
+            MetadataProvider client;
+            switch (settings.mode.api){
+                case JAVA_DRIVER4_NATIVE:
+                    client = settings.getJavaDriverV4Client();
+                    break;
+                default:
+                    client = settings.getJavaDriverClient();
+            }
             synchronized (client) {
 
                 if (tableMetaData != null)
                     return;
 
-                TableMetadata metadata = client.getCluster()
-                    .getMetadata()
-                    .getKeyspace(keyspaceName)
-                    .getTable(quoteIdentifier(tableName));
+                TableMetadata metadata = client.getTableMetadata(keyspaceName, tableName);
 
                 if (metadata == null)
                     throw new RuntimeException("Unable to find table " + keyspaceName + "." + tableName);
 
                 //Fill in missing column configs
-                for (ColumnMetadata col : metadata.getColumns()) {
-                    if (columnConfigs.containsKey(col.getName()))
+                for (String colName : metadata.getColumnNames()) {
+                    if (columnConfigs.containsKey(colName))
                         continue;
 
-                    columnConfigs.put(col.getName(), new GeneratorConfig(seedStr + col.getName(), null, null, null));
+                    columnConfigs.put(colName, new GeneratorConfig(seedStr + colName, null, null, null));
                 }
 
                 tableMetaData = metadata;
@@ -343,23 +350,25 @@ public class StressProfile implements Serializable {
                 if (queryStatements == null) {
                     try {
                         ThriftClient tclient = null;
-
-                        if (settings.mode.api != ConnectionAPI.JAVA_DRIVER_NATIVE)
-                            tclient = settings.getThriftClient();
+                        QueryPrepare client;
+                        switch (settings.mode.api) {
+                            case JAVA_DRIVER_NATIVE:
+                                client = settings.getJavaDriverClient();
+                                break;
+                            case JAVA_DRIVER4_NATIVE:
+                                client = settings.getJavaDriverV4Client();
+                                break;
+                            default:
+                                client = settings.getJavaDriverClient();
+                                tclient = settings.getThriftClient();
+                        }
 
                         Map<String, PreparedStatement> stmts = new HashMap<>();
                         Map<String, Integer> tids = new HashMap<>();
                         Map<String, SchemaQuery.ArgSelect> args = new HashMap<>();
                         for (Map.Entry<String, StressYaml.QueryDef> e : queries.entrySet()) {
                             StressYaml.QueryDef query = e.getValue();
-                            PreparedStatement stmt;
-                            switch (settings.mode.api) {
-                                case JAVA_DRIVER4_NATIVE:
-                                    stmt = settings.getJavaDriverV4Client().prepare(query.cql);
-                                    break;
-                                default:
-                                    stmt = settings.getJavaDriverClient().prepare(query.cql);
-                            }
+                            PreparedStatement stmt = client.prepare(query.cql);
                             String queryName = e.getKey().toLowerCase();
 
                             if (query.consistencyLevel != null) {
@@ -516,7 +525,7 @@ public class StressProfile implements Serializable {
             boolean firstCol = true;
             boolean firstPred = true;
             for (ColumnMetadata c : tableMetaData.getColumns()) {
-                if (!isTypeSupported(c.getType()))
+                if (!c.getType().isSupported())
                     continue;
 
                 if (keyColumns.contains(c)) {
@@ -536,14 +545,14 @@ public class StressProfile implements Serializable {
 
                     switch (c.getType().getName())
                     {
-                        case SET:
-                        case LIST:
+                        case "SET":
+                        case "LIST":
                             if (c.getType().isFrozen())
                             {
                                 sb.append("?");
                                 break;
                             }
-                        case COUNTER:
+                        case "COUNTER":
                             sb.append(quoteIdentifier(c.getName())).append(" + ?");
                             break;
                         default:
@@ -560,9 +569,9 @@ public class StressProfile implements Serializable {
         {
             sb.append("INSERT INTO ").append(quoteIdentifier(tableName)).append(" (");
             StringBuilder value = new StringBuilder();
-            for (ColumnMetadata c : tableMetaData.getPrimaryKey())
+            for (String colName : tableMetaData.getPrimaryKeyNames())
             {
-                sb.append(quoteIdentifier(c.getName())).append(", ");
+                sb.append(quoteIdentifier(colName)).append(", ");
                 value.append("?, ");
             }
             sb.delete(sb.lastIndexOf(","), sb.length());
@@ -617,17 +626,21 @@ public class StressProfile implements Serializable {
                 if (insertStatement == null)
                 {
                     prepareQuery(generator, settings);
-                    JavaDriverClient client = settings.getJavaDriverClient();
-                    if (settings.mode.api != ConnectionAPI.JAVA_DRIVER_NATIVE && settings.mode.api != ConnectionAPI.JAVA_DRIVER4_NATIVE)
-                    {
-                        try
-                        {
-                            thriftInsertId = settings.getThriftClient().prepare_cql3_query(query, Compression.NONE);
-                        }
-                        catch (TException e)
-                        {
-                            throw new RuntimeException(e);
-                        }
+                    QueryPrepare client;
+                    switch (settings.mode.api) {
+                        case JAVA_DRIVER_NATIVE:
+                            client = settings.getJavaDriverClient();
+                            break;
+                        case JAVA_DRIVER4_NATIVE:
+                            client = settings.getJavaDriverV4Client();
+                            break;
+                        default:
+                            client = settings.getJavaDriverClient();
+                            try {
+                                thriftInsertId = settings.getThriftClient().prepare_cql3_query(query, Compression.NONE);
+                            } catch (TException e) {
+                                throw new RuntimeException(e);
+                            }
                     }
 
                     insertStatement = client.prepare(query);
@@ -682,22 +695,6 @@ public class StressProfile implements Serializable {
             return ConsistencyLevel.valueOf(val.toUpperCase());
 
         return defValue;
-    }
-
-    private static boolean isTypeSupported(DataType dataType) {
-        // Maps are not supported due to lack of a corresponding generator.
-        // Embedded collections are not supported for the same reason.
-        if (!dataType.isCollection())
-            return true;
-        List<com.datastax.driver.core.DataType> arguments = dataType.getTypeArguments();
-        if (arguments.size() >= 2)
-            return false;
-        for (com.datastax.driver.core.DataType argumentType : arguments) {
-            if (argumentType.isCollection()) {
-                return false;
-            }
-        }
-        return true;
     }
 
     public PartitionGenerator newGenerator(StressSettings settings)
@@ -767,10 +764,10 @@ public class StressProfile implements Serializable {
         boolean pushColumnInfo(ColumnMetadata metadata, List<ColumnInfo> targetList, boolean isCritical,
                                    List<ColumnInfo> unsupportedColumns, List<ColumnInfo> unsupportedCriticalColumns)
         {
-            ColumnInfo column = new ColumnInfo(metadata.getName(), metadata.getType().getName().toString(),
-                    metadata.getType().isCollection() ? metadata.getType().getTypeArguments().get(0).getName().toString() : "",
+            ColumnInfo column = new ColumnInfo(metadata.getName(), metadata.getType().getName().toLowerCase(),
+                    metadata.getType().getCollectionElementTypeName().toLowerCase(),
                     columnConfigs.get(metadata.getName()));
-            if (!isTypeSupported(metadata.getType())) {
+            if (!metadata.getType().isSupported()) {
                 if (isCritical) {
                     unsupportedCriticalColumns.add(column);
                 } else {

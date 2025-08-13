@@ -34,6 +34,7 @@ import org.apache.cassandra.stress.core.BoundStatement;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.stress.generate.*;
 import org.apache.cassandra.stress.generate.Row;
+import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.operations.PartitionOperation;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
@@ -317,10 +318,10 @@ public class ValidatingSchemaQuery extends PartitionOperation
         sb.append("SELECT * FROM ");
         sb.append(metadata.getName());
         sb.append(" WHERE");
-        for (ColumnMetadata pk : metadata.getPartitionKey())
+        for (String pkName : metadata.getPartitionKeyNames())
         {
             sb.append(first ? " " : " AND ");
-            sb.append(pk.getName());
+            sb.append(pkName);
             sb.append(" = ?");
             first = false;
         }
@@ -328,7 +329,9 @@ public class ValidatingSchemaQuery extends PartitionOperation
 
         factories.add(new Factory(new ValidatingStatement[] { prepare(settings, base, true, true) }, 0));
 
-        int maxDepth = metadata.getClusteringColumns().size() - 1;
+        List<String> clusteringColumnNames = metadata.getClusteringColumnNames();
+
+        int maxDepth = clusteringColumnNames.size() - 1;
         for (int depth = 0 ; depth <= maxDepth  ; depth++)
         {
             StringBuilder cc = new StringBuilder();
@@ -337,7 +340,7 @@ public class ValidatingSchemaQuery extends PartitionOperation
             for (int d = 0 ; d <= depth ; d++)
             {
                 if (d > 0) { cc.append(','); arg.append(','); }
-                cc.append(metadata.getClusteringColumns().get(d).getName());
+                cc.append(clusteringColumnNames.get(d));
                 arg.append('?');
             }
             cc.append(')'); arg.append(')');

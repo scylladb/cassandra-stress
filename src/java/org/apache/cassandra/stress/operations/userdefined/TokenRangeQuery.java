@@ -24,18 +24,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import javax.naming.OperationNotSupportedException;
 
-import com.datastax.driver.core.ColumnDefinitions;
-import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.PagingState;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.TableMetadata;
+import org.apache.cassandra.stress.core.TableMetadata;
 import com.datastax.driver.core.Token;
 import com.datastax.driver.core.TokenRange;
 import io.netty.util.concurrent.FastThreadLocal;
@@ -83,7 +80,7 @@ public class TokenRangeQuery extends Operation
         if (!columns.equals("*"))
             return columns;
 
-        return String.join(", ", tableMetadata.getColumns().stream().map(ColumnMetadata::getName).collect(Collectors.toList()));
+        return String.join(", ", tableMetadata.getColumnNames());
     }
 
     /**
@@ -259,7 +256,7 @@ public class TokenRangeQuery extends Operation
     {
         Token start = tokenRange.getStart();
         Token end = tokenRange.getEnd();
-        List<String> pkColumns = tableMetadata.getPartitionKey().stream().map(ColumnMetadata::getName).collect(Collectors.toList());
+        List<String> pkColumns = tableMetadata.getPartitionKeyNames();
         String tokenStatement = String.format("token(%s)", String.join(", ", pkColumns));
 
         StringBuilder ret = new StringBuilder();

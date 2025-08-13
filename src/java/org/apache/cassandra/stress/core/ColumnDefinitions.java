@@ -4,7 +4,7 @@ import com.datastax.driver.core.DataType;
 
 public class ColumnDefinitions {
   private final Object columnDefinitions;
-  static final DataType.Name v3DateTypeName = DataType.date().getName();
+  private static final DataType.Name v3DateTypeName = DataType.date().getName();
 
   public ColumnDefinitions(com.datastax.driver.core.ColumnDefinitions columnDefinitions) {
     this.columnDefinitions = columnDefinitions;

@@ -1,8 +1,8 @@
 package org.apache.cassandra.stress.core;
 
 public class BoundStatement {
+  final private Object stmt;
 
-  final Object stmt;
   public BoundStatement(com.datastax.driver.core.BoundStatement statement) {
     stmt = statement;
   }

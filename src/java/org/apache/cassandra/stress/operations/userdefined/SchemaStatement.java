@@ -63,8 +63,6 @@ public abstract class SchemaStatement extends PartitionOperation
     {
         assert statement != null;
 
-        com.datastax.driver.core.ColumnDefinitions v3definitions = definitions.ToV3Value();
-
         for (int i = 0 ; i < argumentIndex.length ; i++)
         {
             Object value = row.get(argumentIndex[i]);

@@ -43,10 +43,11 @@ import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.security.SSLFactory;
 import org.apache.cassandra.stress.core.BoundStatement;
 import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 
-public class JavaDriverClient implements QueryExecutor
+public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataProvider
 {
 
     static
@@ -262,7 +263,7 @@ public class JavaDriverClient implements QueryExecutor
     public void execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
     {
         SimpleStatement stmt = new SimpleStatement(query);
-        stmt.setConsistencyLevel(from(consistency));
+        stmt.setConsistencyLevel(consistency.ToV3Value());
         session.execute(stmt);
     }
 
@@ -271,9 +272,9 @@ public class JavaDriverClient implements QueryExecutor
     {
         SimpleStatement stmt = new SimpleStatement(query);
         if (consistency != null)
-            stmt.setConsistencyLevel(from(consistency));
+            stmt.setConsistencyLevel(consistency.ToV3Value());
         if (serialConsistency != null)
-            stmt.setSerialConsistencyLevel(from(serialConsistency));
+            stmt.setSerialConsistencyLevel(serialConsistency.ToV3Value());
         return getSession().execute(stmt);
     }
 
@@ -295,43 +296,6 @@ public class JavaDriverClient implements QueryExecutor
         return getSession().execute(bstmt.ToV3Value());
     }
 
-    /**
-     * Get ConsistencyLevel from a C* ConsistencyLevel. This exists in the Java Driver ConsistencyLevel,
-     * but it is not public.
-     *
-     * @param cl
-     * @return
-     */
-    public static ConsistencyLevel from(org.apache.cassandra.db.ConsistencyLevel cl)
-    {
-        switch (cl)
-        {
-            case ANY:
-                return com.datastax.driver.core.ConsistencyLevel.ANY;
-            case ONE:
-                return com.datastax.driver.core.ConsistencyLevel.ONE;
-            case TWO:
-                return com.datastax.driver.core.ConsistencyLevel.TWO;
-            case THREE:
-                return com.datastax.driver.core.ConsistencyLevel.THREE;
-            case QUORUM:
-                return com.datastax.driver.core.ConsistencyLevel.QUORUM;
-            case ALL:
-                return com.datastax.driver.core.ConsistencyLevel.ALL;
-            case LOCAL_QUORUM:
-                return com.datastax.driver.core.ConsistencyLevel.LOCAL_QUORUM;
-            case EACH_QUORUM:
-                return com.datastax.driver.core.ConsistencyLevel.EACH_QUORUM;
-            case LOCAL_ONE:
-                return com.datastax.driver.core.ConsistencyLevel.LOCAL_ONE;
-            case LOCAL_SERIAL:
-                return com.datastax.driver.core.ConsistencyLevel.LOCAL_SERIAL;
-            case SERIAL:
-                return com.datastax.driver.core.ConsistencyLevel.SERIAL;
-        }
-        throw new AssertionError();
-    }
-
     public void disconnect()
     {
         try {
@@ -341,5 +305,9 @@ public class JavaDriverClient implements QueryExecutor
                     "Failed to close connection due to the following error: %s",
                     e.toString());
         }
+    }
+
+    public TableMetadata getTableMetadata(String keyspace, String tableName) {
+        return new TableMetadata(getSession().getCluster().getMetadata().getKeyspace(keyspace).getTable(tableName));
     }
 }
