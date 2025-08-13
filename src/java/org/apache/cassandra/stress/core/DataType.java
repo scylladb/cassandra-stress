@@ -49,7 +49,11 @@ public class DataType {
   }
 
   public String getCollectionElementTypeName() {
-    if (type instanceof com.datastax.driver.core.ColumnMetadata) {
+    if (type instanceof com.datastax.driver.core.DataType) {
+      com.datastax.driver.core.DataType casted = ToV3Value();
+      if (!casted.isCollection()) {
+        return "";
+      }
       return ToV3Value().getTypeArguments().get(0).getName().name();
     }
 
@@ -73,7 +77,7 @@ public class DataType {
   public boolean isSupported() {
     // Maps are not supported due to lack of a corresponding generator.
     // Embedded collections are not supported for the same reason.
-    if  (type instanceof com.datastax.driver.core.ColumnMetadata) {
+    if  (type instanceof com.datastax.driver.core.DataType) {
       com.datastax.driver.core.DataType dataType = ToV3Value();
       if (!dataType.isCollection())
         return true;
