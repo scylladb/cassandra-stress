@@ -25,7 +25,7 @@ public class DataType {
     if (type instanceof com.datastax.driver.core.DataType) {
       return ToV3Value().getName().name();
     }
-    return ToV4Value().asCql(false, false);
+    return ToV4Value().asCql(false, false).toUpperCase();
   }
 
   public boolean isFrozen() {

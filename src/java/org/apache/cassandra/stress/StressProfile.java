@@ -524,7 +524,7 @@ public class StressProfile implements Serializable {
 
             boolean firstCol = true;
             boolean firstPred = true;
-            for (ColumnMetadata c : tableMetaData.getColumns()) {
+            for (ColumnMetadata c : allColumns) {
                 if (!c.getType().isSupported())
                     continue;
 
