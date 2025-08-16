@@ -24,11 +24,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.ColumnDefinitions;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.LocalDate;
-import com.datastax.driver.core.PreparedStatement;
+import org.apache.cassandra.stress.core.BoundStatement;
+import org.apache.cassandra.stress.core.ColumnDefinitions;
+import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.generate.Row;
 import org.apache.cassandra.stress.operations.PartitionOperation;
 import org.apache.cassandra.stress.report.Timer;
@@ -42,7 +42,8 @@ public abstract class SchemaStatement extends PartitionOperation
     final Object[] bindBuffer;
     final ColumnDefinitions definitions;
     final boolean printStatementsOnError;
-    
+    static final DataType.Name v3DateTypeName = DataType.date().getName();
+
     public SchemaStatement(Timer timer, StressSettings settings, DataSpec spec,
                            PreparedStatement statement, List<String> bindNames, Integer thriftId)
     {
@@ -65,7 +66,7 @@ public abstract class SchemaStatement extends PartitionOperation
         for (int i = 0 ; i < argumentIndex.length ; i++)
         {
             Object value = row.get(argumentIndex[i]);
-            if (definitions.getType(i).getName().equals(DataType.date().getName()))
+            if (definitions.isDateType(i))
             {
                 // the java driver only accepts com.datastax.driver.core.LocalDate for CQL type "DATE"
                 value= LocalDate.fromDaysSinceEpoch((Integer) value);
