@@ -26,9 +26,9 @@ import java.util.List;
 
 import com.google.common.base.Function;
 
-import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
+import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
 import org.apache.cassandra.stress.generate.SeedManager;
 import org.apache.cassandra.stress.report.Timer;
@@ -294,7 +294,7 @@ public abstract class CqlOperation<V> extends PredefinedOperation
     protected interface ClientWrapper
     {
         Object createPreparedStatement(String cqlQuery) throws TException;
-        <V> V execute(Object preparedStatementId, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler) throws TException;
+        <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler) throws TException;
         <V> V execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler) throws TException;
     }
 
@@ -314,11 +314,11 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         }
 
         @Override
-        public <V> V execute(Object preparedStatementId, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
+        public <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
         {
             return handler.javaDriverHandler().apply(
                     client.executePrepared(
-                            (PreparedStatement) preparedStatementId,
+                            (PreparedStatement) stmt,
                             queryParams,
                             settings.command.consistencyLevel,
                             settings.command.serialConsistencyLevel));
@@ -347,11 +347,11 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         }
 
         @Override
-        public <V> V execute(Object preparedStatementId, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
+        public <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
         {
             return handler.javaDriverV4Handler().apply(
                 client.executePrepared(
-                    (shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement) preparedStatementId,
+                    (PreparedStatement) stmt,
                     queryParams,
                     settings.command.consistencyLevel,
                     settings.command.serialConsistencyLevel));
@@ -380,11 +380,11 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         }
 
         @Override
-        public <V> V execute(Object preparedStatementId, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
+        public <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
         {
             return handler.thriftHandler().apply(
                     client.executePrepared(
-                            (byte[]) preparedStatementId,
+                            (byte[]) stmt,
                             toByteBufferParams(queryParams),
                             settings.command.consistencyLevel));
         }
@@ -415,9 +415,9 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         }
 
         @Override
-        public <V> V execute(Object preparedStatementId, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler) throws TException
+        public <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler) throws TException
         {
-            Integer id = (Integer) preparedStatementId;
+            Integer id = (Integer) stmt;
             return handler.simpleNativeHandler().apply(
                     client.execute_prepared_cql3_query(id, key, toByteBufferParams(queryParams), ThriftConversion.toThrift(settings.command.consistencyLevel))
             );

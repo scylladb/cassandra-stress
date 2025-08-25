@@ -166,9 +166,9 @@ public abstract class SettingsCommand implements Serializable
     {
         QueryExecutor client;
         if (settings.mode.api == ConnectionAPI.JAVA_DRIVER4_NATIVE) {
-            client = (QueryExecutor) settings.getJavaDriverV4Client(false);
+            client = settings.getJavaDriverV4Client(false);
         } else {
-            client = (QueryExecutor) settings.getJavaDriverClient(false);
+            client = settings.getJavaDriverClient(false);
         }
         assert settings.command.truncate != SettingsCommand.TruncateWhen.NEVER;
         for (String table : tables)

@@ -21,17 +21,18 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.security.SSLFactory;
+import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
+import org.apache.cassandra.stress.util.codecs.TimestampCodec;
 import shaded.com.datastax.oss.driver.api.core.AllNodesFailedException;
-import shaded.com.datastax.oss.driver.api.core.ConsistencyLevel;
 import shaded.com.datastax.oss.driver.api.core.CqlSession;
 import shaded.com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import shaded.com.datastax.oss.driver.api.core.ProtocolVersion;
 import shaded.com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import shaded.com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import shaded.com.datastax.oss.driver.api.core.cql.BoundStatementBuilder;
-import shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import shaded.com.datastax.oss.driver.api.core.cql.ResultSet;
 import shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
 import shaded.com.datastax.oss.driver.api.core.metadata.EndPoint;
@@ -39,7 +40,13 @@ import shaded.com.datastax.oss.driver.api.core.metadata.Metadata;
 import shaded.com.datastax.oss.driver.api.core.metadata.Node;
 import shaded.com.datastax.oss.driver.api.core.ssl.ProgrammaticSslEngineFactory;
 import shaded.com.datastax.oss.driver.api.core.ssl.SslEngineFactory;
+import shaded.com.datastax.oss.driver.api.core.type.codec.TypeCodec;
+import shaded.com.datastax.oss.driver.api.core.type.codec.TypeCodecs;
+import shaded.com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
+import shaded.com.datastax.oss.driver.api.core.type.codec.registry.MutableCodecRegistry;
 import shaded.com.datastax.oss.driver.internal.core.config.typesafe.DefaultProgrammaticDriverConfigLoaderBuilder;
+import shaded.com.datastax.oss.driver.internal.core.type.codec.registry.CodecRegistryConstants;
+import shaded.com.datastax.oss.driver.internal.core.type.codec.registry.DefaultCodecRegistry;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -47,14 +54,17 @@ import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLParameters;
 import java.io.File;
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-public class JavaDriverV4Client implements QueryExecutor
+public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, MetadataProvider
 {
 
     static
@@ -139,10 +149,27 @@ public class JavaDriverV4Client implements QueryExecutor
             stmt = stmts.get(query);
             if (stmt != null)
                 return stmt;
-            stmt = getSession().prepare(query);
+            stmt = new PreparedStatement(getSession().prepare(query));
             stmts.put(query, stmt);
         }
         return stmt;
+    }
+
+    // prepareCodecRegistry creates custom codec registry replacing some codecs types to replicate 3.x driver behavior.
+    public MutableCodecRegistry prepareCodecRegistry()
+    {
+        return new DefaultCodecRegistry(
+            "cassandraCustomCodecRegistry",
+            Arrays.stream(CodecRegistryConstants.PRIMITIVE_CODECS).map(c -> {
+              if ((c == TypeCodecs.TIMESTAMP)) {
+                // Default code converts TIMESTAMP to java.time.Instant, 3.x does it to java.time.Date
+                // So we need to replace it
+                return new TimestampCodec();
+              }
+              return c;
+            }).collect(Collectors.toList()).toArray(TypeCodec<?>[]::new)
+        ) {
+        };
     }
 
     public void connect(ProtocolCompression compression) throws Exception
@@ -225,7 +252,7 @@ public class JavaDriverV4Client implements QueryExecutor
 
         sessionBuilder.withConfigLoader(configBuilder.build());
         try {
-            session = sessionBuilder.build();
+            session = sessionBuilder.withCodecRegistry(prepareCodecRegistry()).build();
             Metadata metadata = session.getMetadata();
             System.out.printf(
                     "Connected to cluster: %s, max pending requests per connection %d, max connections per host %d%n",
@@ -270,7 +297,7 @@ public class JavaDriverV4Client implements QueryExecutor
     public void execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
     {
         SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
-        builder.setConsistencyLevel(from(consistency));
+        builder.setConsistencyLevel(consistency.ToV4Value());
         session.execute(builder.build());
     }
 
@@ -278,61 +305,28 @@ public class JavaDriverV4Client implements QueryExecutor
                              org.apache.cassandra.db.ConsistencyLevel serialConsistency)
     {
         SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
-        builder.setConsistencyLevel(from(consistency));
-        builder.setSerialConsistencyLevel(from(serialConsistency));
+        builder.setConsistencyLevel(consistency.ToV4Value());
+        builder.setSerialConsistencyLevel(serialConsistency.ToV4Value());
         return getSession().execute(builder.build());
     }
 
     public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency)
     {
-        BoundStatementBuilder builder = stmt.boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
-        builder = builder.setConsistencyLevel(from(consistency));
+        BoundStatementBuilder builder = stmt.ToV4Value().boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
+        builder = builder.setConsistencyLevel(consistency.ToV4Value());
         return getSession().execute(builder.build());
+    }
+
+    public TableMetadata getTableMetadata(String keyspace, String tableName) {
+        return new TableMetadata(getSession().getMetadata().getKeyspace(keyspace).flatMap( ks -> ks.getTable(tableName)).orElse(null));
     }
 
     public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency, org.apache.cassandra.db.ConsistencyLevel serialConsistency )
     {
-        BoundStatementBuilder builder = stmt.boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
-        builder = builder.setConsistencyLevel(from(consistency));
-        builder.setSerialConsistencyLevel(from(serialConsistency));
+        BoundStatementBuilder builder = stmt.ToV4Value().boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
+        builder = builder.setConsistencyLevel(consistency.ToV4Value());
+        builder.setSerialConsistencyLevel(serialConsistency.ToV4Value());
         return getSession().execute(builder.build());
-    }
-
-    /**
-     * Get ConsistencyLevel from a C* ConsistencyLevel. This exists in the Java Driver ConsistencyLevel,
-     * but it is not public.
-     *
-     * @param cl
-     * @return
-     */
-    public static ConsistencyLevel from(org.apache.cassandra.db.ConsistencyLevel cl)
-    {
-        switch (cl)
-        {
-            case ANY:
-                return ConsistencyLevel.ANY;
-            case ONE:
-                return ConsistencyLevel.ONE;
-            case TWO:
-                return ConsistencyLevel.TWO;
-            case THREE:
-                return ConsistencyLevel.THREE;
-            case QUORUM:
-                return ConsistencyLevel.QUORUM;
-            case ALL:
-                return ConsistencyLevel.ALL;
-            case LOCAL_QUORUM:
-                return ConsistencyLevel.LOCAL_QUORUM;
-            case EACH_QUORUM:
-                return ConsistencyLevel.EACH_QUORUM;
-            case LOCAL_ONE:
-                return ConsistencyLevel.LOCAL_ONE;
-            case LOCAL_SERIAL:
-                return ConsistencyLevel.LOCAL_SERIAL;
-            case SERIAL:
-                return ConsistencyLevel.SERIAL;
-        }
-        throw new AssertionError();
     }
 
     public void disconnect()
