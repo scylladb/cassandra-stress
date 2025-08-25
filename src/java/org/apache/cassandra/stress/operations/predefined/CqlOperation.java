@@ -36,6 +36,7 @@ import org.apache.cassandra.stress.settings.Command;
 import org.apache.cassandra.stress.settings.ConnectionStyle;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ThriftClient;
 import org.apache.cassandra.thrift.Compression;
 import org.apache.cassandra.thrift.CqlResult;
@@ -264,6 +265,12 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         run(wrap(client));
     }
 
+    @Override
+    public void run(JavaDriverV4Client client) throws IOException
+    {
+        run(wrap(client));
+    }
+
     public ClientWrapper wrap(ThriftClient client)
     {
         return new Cql3CassandraClientWrapper(client);
@@ -272,6 +279,11 @@ public abstract class CqlOperation<V> extends PredefinedOperation
     public ClientWrapper wrap(JavaDriverClient client)
     {
         return new JavaDriverWrapper(client);
+    }
+
+    public ClientWrapper wrap(JavaDriverV4Client client)
+    {
+        return new JavaDriverV4Wrapper(client);
     }
 
     public ClientWrapper wrap(SimpleClient client)
@@ -310,6 +322,39 @@ public abstract class CqlOperation<V> extends PredefinedOperation
                             queryParams,
                             settings.command.consistencyLevel,
                             settings.command.serialConsistencyLevel));
+        }
+
+        @Override
+        public Object createPreparedStatement(String cqlQuery)
+        {
+            return client.prepare(cqlQuery);
+        }
+    }
+
+    private final class JavaDriverV4Wrapper implements ClientWrapper
+    {
+        final JavaDriverV4Client client;
+        private JavaDriverV4Wrapper(JavaDriverV4Client client)
+        {
+            this.client = client;
+        }
+
+        @Override
+        public <V> V execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
+        {
+            String formattedQuery = formatCqlQuery(query, queryParams);
+            return handler.javaDriverV4Handler().apply(client.execute(formattedQuery, settings.command.consistencyLevel, settings.command.serialConsistencyLevel));
+        }
+
+        @Override
+        public <V> V execute(Object preparedStatementId, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
+        {
+            return handler.javaDriverV4Handler().apply(
+                client.executePrepared(
+                    (shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement) preparedStatementId,
+                    queryParams,
+                    settings.command.consistencyLevel,
+                    settings.command.serialConsistencyLevel));
         }
 
         @Override
@@ -388,6 +433,7 @@ public abstract class CqlOperation<V> extends PredefinedOperation
     // interface for building functions to standardise results from each client
     protected static interface ResultHandler<V>
     {
+        Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, V> javaDriverV4Handler();
         Function<ResultSet, V> javaDriverHandler();
         Function<ResultMessage, V> thriftHandler();
         Function<CqlResult, V> simpleNativeHandler();
@@ -396,6 +442,20 @@ public abstract class CqlOperation<V> extends PredefinedOperation
     protected static class RowCountHandler implements ResultHandler<Integer>
     {
         static final RowCountHandler INSTANCE = new RowCountHandler();
+
+        @Override
+        public Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, Integer> javaDriverV4Handler() {
+            return new Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, Integer>()
+            {
+                @Override
+                public Integer apply(shaded.com.datastax.oss.driver.api.core.cql.ResultSet rows)
+                {
+                    if (rows == null)
+                        return 0;
+                    return rows.all().size();
+                }
+            };
+        }
 
         @Override
         public Function<ResultSet, Integer> javaDriverHandler()
@@ -451,6 +511,31 @@ public abstract class CqlOperation<V> extends PredefinedOperation
     protected static final class RowsHandler implements ResultHandler<ByteBuffer[][]>
     {
         static final RowsHandler INSTANCE = new RowsHandler();
+
+        @Override
+        public Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, ByteBuffer[][]> javaDriverV4Handler() {
+            {
+                return new Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, ByteBuffer[][]>() {
+
+                    @Override
+                    public ByteBuffer[][] apply(shaded.com.datastax.oss.driver.api.core.cql.ResultSet result) {
+                        if (result == null)
+                            return EMPTY_BYTE_BUFFERS;
+                        List<shaded.com.datastax.oss.driver.api.core.cql.Row> rows = result.all();
+
+                        ByteBuffer[][] r = new ByteBuffer[rows.size()][];
+                        for (int i = 0; i < r.length; i++) {
+                            shaded.com.datastax.oss.driver.api.core.cql.Row row = rows.get(i);
+                            r[i] = new ByteBuffer[row.getColumnDefinitions().size()];
+                            for (int j = 0; j < row.getColumnDefinitions().size(); j++)
+                                r[i][j] = row.getByteBuffer(j);
+                        }
+                        return r;
+                    }
+                };
+            }
+        }
+
 
         @Override
         public Function<ResultSet, ByteBuffer[][]> javaDriverHandler()
@@ -531,6 +616,24 @@ public abstract class CqlOperation<V> extends PredefinedOperation
     protected static final class KeysHandler implements ResultHandler<byte[][]>
     {
         static final KeysHandler INSTANCE = new KeysHandler();
+
+        @Override
+        public Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, byte[][]> javaDriverV4Handler() {
+            return new Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, byte[][]>() {
+
+                @Override
+                public byte[][] apply(shaded.com.datastax.oss.driver.api.core.cql.ResultSet result) {
+
+                    if (result == null)
+                        return EMPTY_BYTE_ARRAYS;
+                    List<shaded.com.datastax.oss.driver.api.core.cql.Row> rows = result.all();
+                    byte[][] r = new byte[rows.size()][];
+                    for (int i = 0; i < r.length; i++)
+                        r[i] = rows.get(i).getByteBuffer(0).array();
+                    return r;
+                }
+            };
+        }
 
         @Override
         public Function<ResultSet, byte[][]> javaDriverHandler()

@@ -27,6 +27,7 @@ import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.SettingsLog;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ThriftClient;
 import org.apache.cassandra.thrift.InvalidRequestException;
 import org.apache.cassandra.transport.SimpleClient;
@@ -64,6 +65,11 @@ public abstract class Operation
     public abstract void run(ThriftClient client) throws IOException;
 
     public void run(SimpleClient client) throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    public void run(JavaDriverV4Client client) throws IOException
     {
         throw new UnsupportedOperationException();
     }

@@ -33,6 +33,7 @@ import org.apache.cassandra.stress.settings.ConnectionAPI;
 import org.apache.cassandra.stress.settings.SettingsCommand;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.ThriftClient;
 import org.apache.cassandra.transport.SimpleClient;
@@ -445,12 +446,16 @@ public class StressAction implements Runnable
                 SimpleClient sclient = null;
                 ThriftClient tclient = null;
                 JavaDriverClient jclient = null;
+                JavaDriverV4Client jv4client = null;
                 final ConnectionAPI clientType = settings.mode.api;
 
                 try {
                     switch (clientType) {
                         case JAVA_DRIVER_NATIVE:
                             jclient = settings.getJavaDriverClient();
+                            break;
+                        case JAVA_DRIVER4_NATIVE:
+                            jv4client = settings.getJavaDriverV4Client();
                             break;
                         case SIMPLE_NATIVE:
                             sclient = settings.getSimpleNativeClient();
@@ -481,6 +486,9 @@ public class StressAction implements Runnable
 
                     try {
                         switch (clientType) {
+                            case JAVA_DRIVER4_NATIVE:
+                                op.run(jv4client);
+                                break;
                             case JAVA_DRIVER_NATIVE:
                                 op.run(jclient);
                                 break;

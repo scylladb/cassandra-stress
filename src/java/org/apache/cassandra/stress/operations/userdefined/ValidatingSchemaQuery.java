@@ -36,6 +36,7 @@ import org.apache.cassandra.stress.operations.PartitionOperation;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ThriftClient;
 import org.apache.cassandra.thrift.Compression;
 import org.apache.cassandra.thrift.CqlResult;
@@ -158,6 +159,54 @@ public class ValidatingSchemaQuery extends PartitionOperation
         }
     }
 
+    private class JavaDriverV4Run extends Runner
+    {
+        final JavaDriverV4Client client;
+
+        private JavaDriverV4Run(JavaDriverV4Client client, PartitionIterator iter)
+        {
+            super(iter);
+            this.client = client;
+        }
+
+        public boolean run() throws Exception
+        {
+            shaded.com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bindV4(statementIndex));
+            int[] valueIndex = new int[rs.getColumnDefinitions().size()];
+            {
+                int i = 0;
+                for (shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinition definition : rs.getColumnDefinitions())
+                    valueIndex[i++] = spec.partitionGenerator.indexOf(definition.getName().toString());
+            }
+
+            rowCount = 0;
+            Iterator<shaded.com.datastax.oss.driver.api.core.cql.Row> results = rs.iterator();
+            if (!statements[statementIndex].inclusiveStart && iter.hasNext())
+                iter.next();
+            while (iter.hasNext())
+            {
+                Row expectedRow = iter.next();
+                if (!statements[statementIndex].inclusiveEnd && !iter.hasNext())
+                    break;
+
+                if (!results.hasNext())
+                    return false;
+
+                rowCount++;
+                shaded.com.datastax.oss.driver.api.core.cql.Row actualRow = results.next();
+                for (int i = 0 ; i < actualRow.getColumnDefinitions().size() ; i++)
+                {
+                    Object expectedValue = expectedRow.get(valueIndex[i]);
+                    Object actualValue = spec.partitionGenerator.convert(valueIndex[i], actualRow.getBytesUnsafe(i));
+                    if (!expectedValue.equals(actualValue))
+                        return false;
+                }
+            }
+            partitionCount = Math.min(1, rowCount);
+            return rs.isFullyFetched();
+        }
+    }
+
     private class ThriftRun extends Runner
     {
         final ThriftClient client;
@@ -210,6 +259,16 @@ public class ValidatingSchemaQuery extends PartitionOperation
         System.arraycopy(bounds.left.row, 0, bindBuffer, pkc, ccc);
         System.arraycopy(bounds.right.row, 0, bindBuffer, pkc + ccc, ccc);
         return statements[statementIndex].statement.bind(bindBuffer);
+    }
+
+    shaded.com.datastax.oss.driver.api.core.cql.BoundStatement bindV4(int statementIndex)
+    {
+        int pkc = bounds.left.partitionKey.length;
+        System.arraycopy(bounds.left.partitionKey, 0, bindBuffer, 0, pkc);
+        int ccc = bounds.left.row.length;
+        System.arraycopy(bounds.left.row, 0, bindBuffer, pkc, ccc);
+        System.arraycopy(bounds.right.row, 0, bindBuffer, pkc + ccc, ccc);
+        return statements[statementIndex].statementv4.bind(bindBuffer);
     }
 
     List<ByteBuffer> thriftArgs()
@@ -318,31 +377,45 @@ public class ValidatingSchemaQuery extends PartitionOperation
     private static class ValidatingStatement
     {
         final PreparedStatement statement;
+        final shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement statementv4;
         final Integer thriftId;
         final boolean inclusiveStart;
         final boolean inclusiveEnd;
-        private ValidatingStatement(PreparedStatement statement, Integer thriftId, boolean inclusiveStart, boolean inclusiveEnd)
+        private ValidatingStatement(
+            PreparedStatement statement,
+            shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement statementV4,
+            Integer thriftId,
+            boolean inclusiveStart,
+            boolean inclusiveEnd)
         {
             this.statement = statement;
+            this.statementv4 = statementV4;
             this.thriftId = thriftId;
             this.inclusiveStart = inclusiveStart;
             this.inclusiveEnd = inclusiveEnd;
         }
     }
 
-    private static ValidatingStatement prepare(StressSettings settings, String cql, boolean incLb, boolean incUb)
-    {
-        JavaDriverClient jclient = settings.getJavaDriverClient();
-        ThriftClient tclient = settings.getThriftClient();
-        PreparedStatement statement = jclient.prepare(cql);
-        try
-        {
-            Integer thriftId = tclient.prepare_cql3_query(cql, Compression.NONE);
-            return new ValidatingStatement(statement, thriftId, incLb, incUb);
-        }
-        catch (TException e)
-        {
-            throw new RuntimeException(e);
+    private static ValidatingStatement prepare(StressSettings settings, String cql, boolean incLb, boolean incUb) {
+        switch (settings.mode.api) {
+            case JAVA_DRIVER4_NATIVE:
+                JavaDriverV4Client client = settings.getJavaDriverV4Client();
+                return new ValidatingStatement(null, client.prepare(cql), null, incLb, incUb);
+            case JAVA_DRIVER_NATIVE:
+            case SIMPLE_NATIVE:
+                JavaDriverClient jclient = settings.getJavaDriverClient();
+                return new ValidatingStatement(jclient.prepare(cql), null, null, incLb, incUb);
+            case THRIFT:
+            case THRIFT_SMART:
+                ThriftClient tclient = settings.getThriftClient();
+                try {
+                    Integer thriftId = tclient.prepare_cql3_query(cql, Compression.NONE);
+                    return new ValidatingStatement(null, null, thriftId, incLb, incUb);
+                } catch (TException e) {
+                    throw new RuntimeException(e);
+                }
+            default:
+                throw new RuntimeException("Unknown client type: " + settings.mode.api);
         }
     }
 }
