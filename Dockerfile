@@ -6,7 +6,7 @@ ENV TZ="UTC"
 
 WORKDIR /app
 
-RUN --mount=type=cache,target=/var/cache/apt ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
+RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && echo "$TZ" > /etc/timezone \
     && apt update \
     && apt install -y ant
@@ -38,7 +38,7 @@ WORKDIR $CASSANDRA_STRESS_HOME
 
 COPY --from=build /app/build/dist .
 
-RUN --mount=type=cache,target=/var/cache/apt ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
+RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && echo "$TZ" > /etc/timezone \
     && apt-get update \
     && apt-get upgrade -y \
