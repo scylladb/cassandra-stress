@@ -27,6 +27,8 @@ import java.util.*;
 
 import com.datastax.driver.core.exceptions.AlreadyExistsException;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
+import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.thrift.*;
 import org.apache.cassandra.utils.ByteBufferUtil;
@@ -68,13 +70,14 @@ public class SettingsSchema implements Serializable
 
     public void createKeySpaces(StressSettings settings)
     {
-        if (settings.mode.api != ConnectionAPI.JAVA_DRIVER_NATIVE)
-        {
-            createKeySpacesThrift(settings);
-        }
-        else
-        {
-            createKeySpacesNative(settings);
+        switch (settings.mode.api) {
+            case THRIFT:
+            case THRIFT_SMART:
+                createKeySpacesThrift(settings);
+                break;
+            default:
+                createKeySpacesNative(settings);
+                break;
         }
     }
 
@@ -84,7 +87,12 @@ public class SettingsSchema implements Serializable
     public void createKeySpacesNative(StressSettings settings)
     {
 
-        JavaDriverClient client  = settings.getJavaDriverClient(false);
+        QueryExecutor client;
+        if (settings.mode.api == ConnectionAPI.JAVA_DRIVER4_NATIVE) {
+            client = (QueryExecutor) settings.getJavaDriverV4Client(false);
+        } else {
+            client = (QueryExecutor) settings.getJavaDriverClient(false);
+        }
 
         try
         {
@@ -106,7 +114,7 @@ public class SettingsSchema implements Serializable
             System.out.println(String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
             Thread.sleep(settings.node.nodes.size() * 1000L); // seconds
         }
-        catch (AlreadyExistsException e)
+        catch (AlreadyExistsException | shaded.com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e)
         {
             //Ok.
         }
