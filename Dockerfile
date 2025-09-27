@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21.0.8_9-jdk-noble AS build
+FROM eclipse-temurin:25-jdk-noble AS build
 
 ENV LD_LIBRARY_PATH="/lib/x86_64-linux-gnu:/usr/local/lib:/usr/lib:/lib:/lib64:/usr/local/lib/x86_64-linux-gnu"
 ENV DEBIAN_FRONTEND="noninteractive"
@@ -22,7 +22,7 @@ RUN --mount=type=cache,target=/root/.m2 ant realclean \
     && chmod +x build/dist/bin/cassandra-stress
 
 
-FROM eclipse-temurin:21.0.8_9-jre-noble AS production
+FROM eclipse-temurin:25-jre-noble AS production
 
 LABEL org.opencontainers.image.source="https://github.com/scylladb/cassandra-stress"
 LABEL org.opencontainers.image.title="ScyllaDB Cassandra Stress"
