@@ -140,6 +140,107 @@ public enum ConsistencyLevel
         }
     }
 
+    public com.datastax.driver.core.ConsistencyLevel ToV3Value() {
+        switch (this) {
+            case ANY:
+                return com.datastax.driver.core.ConsistencyLevel.ANY;
+            case ONE:
+                return com.datastax.driver.core.ConsistencyLevel.ONE;
+            case TWO:
+                return com.datastax.driver.core.ConsistencyLevel.TWO;
+            case THREE:
+                return com.datastax.driver.core.ConsistencyLevel.THREE;
+            case QUORUM:
+                return com.datastax.driver.core.ConsistencyLevel.QUORUM;
+            case ALL:
+                return com.datastax.driver.core.ConsistencyLevel.ALL;
+            case LOCAL_QUORUM:
+                return com.datastax.driver.core.ConsistencyLevel.LOCAL_QUORUM;
+            case EACH_QUORUM:
+                return com.datastax.driver.core.ConsistencyLevel.EACH_QUORUM;
+            case LOCAL_ONE:
+                return com.datastax.driver.core.ConsistencyLevel.LOCAL_ONE;
+            case LOCAL_SERIAL:
+                return com.datastax.driver.core.ConsistencyLevel.LOCAL_SERIAL;
+            case SERIAL:
+                return com.datastax.driver.core.ConsistencyLevel.SERIAL;
+        }
+        throw new AssertionError();
+    }
+
+    public static ConsistencyLevel FromV3Value(com.datastax.driver.core.ConsistencyLevel consistencyLevel) {
+        if (consistencyLevel == null) {
+            return null;
+        }
+        switch (consistencyLevel) {
+            case ANY:
+                return ANY;
+            case ONE:
+                return ONE;
+            case TWO:
+                return TWO;
+            case THREE:
+                return THREE;
+            case QUORUM:
+                return QUORUM;
+            case ALL:
+                return ALL;
+            case LOCAL_QUORUM:
+                return LOCAL_QUORUM;
+            case EACH_QUORUM:
+                return EACH_QUORUM;
+            case LOCAL_ONE:
+                return LOCAL_ONE;
+            case LOCAL_SERIAL:
+                return LOCAL_SERIAL;
+            case SERIAL:
+                return SERIAL;
+        }
+        throw new AssertionError();
+    }
+
+    public shaded.com.datastax.oss.driver.api.core.ConsistencyLevel ToV4Value() {
+        /**
+         * Get ConsistencyLevel from a C* ConsistencyLevel. This exists in the Java Driver ConsistencyLevel,
+         * but it is not public.
+         *
+         * @param cl
+         * @return
+         */
+        switch (this) {
+            case ANY:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.ANY;
+            case ONE:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.ONE;
+            case TWO:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.TWO;
+            case THREE:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.THREE;
+            case QUORUM:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.QUORUM;
+            case ALL:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.ALL;
+            case LOCAL_QUORUM:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.LOCAL_QUORUM;
+            case EACH_QUORUM:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.EACH_QUORUM;
+            case LOCAL_ONE:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.LOCAL_ONE;
+            case LOCAL_SERIAL:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.LOCAL_SERIAL;
+            case SERIAL:
+                return shaded.com.datastax.oss.driver.api.core.ConsistencyLevel.SERIAL;
+        }
+        throw new AssertionError();
+    }
+
+    public static ConsistencyLevel FromV4Value(shaded.com.datastax.oss.driver.api.core.ConsistencyLevel consistencyLevel) {
+        if (consistencyLevel == null) {
+            return null;
+        }
+        return ConsistencyLevel.fromCode(consistencyLevel.getProtocolCode());
+    }
+
     public boolean isDatacenterLocal()
     {
         return isDCLocal;

@@ -334,7 +334,7 @@ public class Legacy implements Serializable
 
     public static void printHelpMessage()
     {
-        System.out.println("Usage: ./bin/cassandra-stress legacy [options]\n\nOptions:");
+        System.out.println("Usage: cassandra-stress legacy [options]\n\nOptions:");
         System.out.println("THIS IS A LEGACY SUPPORT MODE");
 
         for(Object o : availableOptions.getOptions())
