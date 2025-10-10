@@ -227,25 +227,26 @@ public class StressProfile implements Serializable
         if (!schemaCreated)
         {
             JavaDriverClient client = settings.getJavaDriverClient(false);
+            ConsistencyLevel schemaConsistencyLevel = schemaConsistency(settings);
 
             if (keyspaceCql != null)
             {
                 try
                 {
-                    client.execute(keyspaceCql, org.apache.cassandra.db.ConsistencyLevel.ONE);
+                    client.execute(keyspaceCql, schemaConsistencyLevel);
                 }
                 catch (AlreadyExistsException e)
                 {
                 }
             }
 
-            client.execute("use " + keyspaceName, org.apache.cassandra.db.ConsistencyLevel.ONE);
+            client.execute("use " + keyspaceName, schemaConsistencyLevel);
 
             if (tableCql != null)
             {
                 try
                 {
-                    client.execute(tableCql, org.apache.cassandra.db.ConsistencyLevel.ONE);
+                    client.execute(tableCql, schemaConsistencyLevel);
                 }
                 catch (AlreadyExistsException e)
                 {
@@ -262,7 +263,7 @@ public class StressProfile implements Serializable
 
                     try
                     {
-                        client.execute(extraCql, org.apache.cassandra.db.ConsistencyLevel.ONE);
+                        client.execute(extraCql, schemaConsistencyLevel);
                     }
                     catch (AlreadyExistsException e)
                     {
@@ -272,10 +273,34 @@ public class StressProfile implements Serializable
                 System.out.println(String.format("Created extra schema. Sleeping %ss for propagation.", settings.node.nodes.size()));
                 Uninterruptibles.sleepUninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);
             }
-        schemaCreated = true;
+            schemaCreated = true;
         }
         maybeLoadSchemaInfo(settings);
 
+    }
+
+    private static ConsistencyLevel schemaConsistency(StressSettings settings)
+    {
+        ConsistencyLevel requested = settings.command.consistencyLevel;
+        boolean preferLocal = (requested != null && requested.isDatacenterLocal()) || settings.node.datacenter != null;
+        ConsistencyLevel quorum = preferLocal ? ConsistencyLevel.LOCAL_QUORUM : ConsistencyLevel.QUORUM;
+
+        if (requested == null)
+            return quorum;
+
+        if (requested.isSerialConsistency() || requested == ConsistencyLevel.ANY)
+            return quorum;
+
+        switch (requested)
+        {
+            case ONE:
+            case TWO:
+            case THREE:
+            case LOCAL_ONE:
+                return quorum;
+            default:
+                return requested;
+        }
     }
 
     public void truncateTable(StressSettings settings)
