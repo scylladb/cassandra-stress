@@ -23,7 +23,7 @@ on:
 jobs:
   test:
     name: "Test ${{ inputs.os }} with Java ${{ inputs.java }}"
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v5
         with:
