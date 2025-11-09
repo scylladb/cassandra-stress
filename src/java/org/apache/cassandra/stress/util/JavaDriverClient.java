@@ -32,7 +32,9 @@ import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.policies.RackAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
+import com.datastax.driver.core.policies.RoundRobinPolicy;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
+import org.apache.cassandra.stress.settings.LoadBalanceType;
 import com.datastax.driver.core.policies.TokenAwarePolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy.ReplicaOrdering;
 import com.datastax.driver.core.policies.WhiteListPolicy;
@@ -103,18 +105,16 @@ public class JavaDriverClient
     private LoadBalancingPolicy loadBalancingPolicy(StressSettings settings)
     {
         LoadBalancingPolicy ret;
-        if (settings.node.rack != null) {
-            RackAwareRoundRobinPolicy.Builder policyBuilder = RackAwareRoundRobinPolicy.builder();
-            if (settings.node.datacenter != null)
-                policyBuilder.withLocalDc(settings.node.datacenter);
-            policyBuilder = policyBuilder.withLocalRack(settings.node.rack);
-            ret = policyBuilder.build();
+        
+        // Check if loadbalance option is specified
+        if (settings.node.loadBalance != null) {
+            ret = settings.node.loadBalance.createPolicy(settings);
         } else {
-            DCAwareRoundRobinPolicy.Builder policyBuilder = DCAwareRoundRobinPolicy.builder();
-            if (settings.node.datacenter != null)
-                policyBuilder.withLocalDc(settings.node.datacenter);
-            ret = policyBuilder.build();
+            // Default behavior: use rack-aware if rack is specified, otherwise dc-aware
+            LoadBalanceType defaultStrategy = settings.node.rack != null ? LoadBalanceType.RACK_AWARE : LoadBalanceType.DC_AWARE;
+            ret = defaultStrategy.createPolicy(settings);
         }
+        
         if (settings.node.isWhiteList)
             ret = new WhiteListPolicy(ret, settings.node.resolveAll(settings.port.nativePort));
         return new TokenAwarePolicy(ret, ReplicaOrdering.RANDOM);
