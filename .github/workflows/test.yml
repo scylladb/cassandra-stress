@@ -115,7 +115,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Download Cassandra Stress binary
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: cassandra-stress-java${{ matrix.java }}
       - name: Setup Java
