@@ -217,7 +217,7 @@ public class StressProfile implements Serializable
                     throw new IllegalArgumentException("Missing name argument in column spec");
 
                 GeneratorConfig config = new GeneratorConfig(seedStr + name, clustering, size, population);
-                columnConfigs.put(name, config);
+                columnConfigs.put(name.toLowerCase(), config);
             }
         }
     }
