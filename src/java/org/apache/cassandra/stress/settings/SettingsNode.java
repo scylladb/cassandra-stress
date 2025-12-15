@@ -161,7 +161,7 @@ public class SettingsNode implements Serializable
         out.println("  Is White List: " + isWhiteList);
         out.println("  Datacenter: " + datacenter);
         out.println("  Rack: " + rack);
-        out.println("  Load Balance: " + (loadBalance != null ? loadBalance.getValue() : "auto"));
+        out.println("  Load Balance: " + (loadBalance != null ? loadBalance.toString() : "auto"));
     }
 
     public static SettingsNode get(Map<String, String[]> clArgs)

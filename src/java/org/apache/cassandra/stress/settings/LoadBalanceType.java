@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,35 +17,30 @@
  */
 package org.apache.cassandra.stress.settings;
 
-import java.util.Arrays;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.datastax.driver.core.policies.RackAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.RoundRobinPolicy;
 
-public enum LoadBalanceType
-{
-    ROUND_ROBIN("round-robin", new LoadBalanceStrategyProvidable() {
+public enum LoadBalanceType {
+    ROUND_ROBIN(new LoadBalanceStrategyProvidable() {
         @Override
-        public LoadBalancingPolicy createPolicy(StressSettings settings)
-        {
+        public LoadBalancingPolicy createPolicy(StressSettings settings) {
             return new RoundRobinPolicy();
         }
     }),
-    DC_AWARE("dc-aware", new LoadBalanceStrategyProvidable() {
+    DC_AWARE(new LoadBalanceStrategyProvidable() {
         @Override
-        public LoadBalancingPolicy createPolicy(StressSettings settings)
-        {
+        public LoadBalancingPolicy createPolicy(StressSettings settings) {
             DCAwareRoundRobinPolicy.Builder builder = DCAwareRoundRobinPolicy.builder();
             if (settings.node.datacenter != null)
                 builder.withLocalDc(settings.node.datacenter);
             return builder.build();
         }
     }),
-    RACK_AWARE("rack-aware", new LoadBalanceStrategyProvidable() {
+    RACK_AWARE(new LoadBalanceStrategyProvidable() {
         @Override
-        public LoadBalancingPolicy createPolicy(StressSettings settings)
-        {
+        public LoadBalancingPolicy createPolicy(StressSettings settings) {
             RackAwareRoundRobinPolicy.Builder builder = RackAwareRoundRobinPolicy.builder();
             if (settings.node.datacenter != null)
                 builder.withLocalDc(settings.node.datacenter);
@@ -55,33 +50,46 @@ public enum LoadBalanceType
         }
     });
 
-    private final String value;
     private final LoadBalanceStrategyProvidable strategy;
 
-    LoadBalanceType(String value, LoadBalanceStrategyProvidable strategy)
-    {
-        this.value = value;
+    LoadBalanceType(LoadBalanceStrategyProvidable strategy) {
         this.strategy = strategy;
     }
 
-    public String getValue()
-    {
-        return value;
-    }
-
-    public LoadBalancingPolicy createPolicy(StressSettings settings)
-    {
+    public LoadBalancingPolicy createPolicy(StressSettings settings) {
         return strategy.createPolicy(settings);
     }
 
-    public static LoadBalanceType fromString(String value)
-    {
-        if (value == null)
-            return null;
-            
-        return Arrays.stream(values())
-                .filter(strategy -> strategy.value.equalsIgnoreCase(value))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown load balance strategy: " + value));
+    public static LoadBalanceType fromString(String value) {
+        switch (value == null ? null : value.toLowerCase()) {
+            case null:
+                return null;
+            case "rr":
+            case "roundrobin":
+            case "round-robin":
+                return ROUND_ROBIN;
+            case "dc":
+            case "dc-aware":
+                return DC_AWARE;
+            case "rack":
+            case "rack-aware":
+                return RACK_AWARE;
+            default:
+                throw new IllegalArgumentException("Unknown load balance strategy: " + value);
+        }
+    }
+
+    @Override
+    public String toString() {
+        switch (this) {
+            case ROUND_ROBIN:
+                return "round-robin";
+            case DC_AWARE:
+                return "dc-aware";
+            case RACK_AWARE:
+                return "rack-aware";
+            default:
+                throw new java.lang.IllegalArgumentException();
+        }
     }
 }

@@ -75,9 +75,9 @@
     <property name="dist.dir" value="${build.dir}/dist" />
     <property name="tmp.dir" value="${java.io.tmpdir}" />
 
-    <property name="source.version" value="11" />
-    <property name="target.version" value="11" />
-    <property name="release.version" value="11" />
+    <property name="source.version" value="21" />
+    <property name="target.version" value="21" />
+    <property name="release.version" value="21" />
 
     <condition property="version" value="${base.version}">
         <isset property="release" />
