@@ -939,7 +939,7 @@ public class StressProfile implements Serializable
         while (iter.hasNext())
         {
             Map.Entry<String, V> e = iter.next();
-            if (!e.getKey().equalsIgnoreCase(e.getKey()))
+            if (!e.getKey().equals(e.getKey().toLowerCase()))
             {
                 reinsert.add(e);
                 iter.remove();

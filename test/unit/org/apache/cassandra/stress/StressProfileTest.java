@@ -88,10 +88,7 @@ public class StressProfileTest
     }
 
     /**
-     * Test that the lowerCase utility method behavior is documented.
-     * NOTE: Due to a bug in the method (line 942), it currently does nothing.
-     * The condition `!e.getKey().equalsIgnoreCase(e.getKey())` is always false,
-     * so no keys are ever converted. This test documents the current behavior.
+     * Test that the lowerCase utility method works correctly.
      */
     @Test
     public void testLowerCaseMapConversion() 
@@ -104,16 +101,21 @@ public class StressProfileTest
         
         StressProfile.lowerCase(testMap);
         
-        // Due to the bug, keys remain unchanged
-        assertTrue(testMap.containsKey("UpperCase"));
-        assertTrue(testMap.containsKey("ALLCAPS"));
+        // All keys should be lowercase now
+        assertTrue(testMap.containsKey("uppercase"));
+        assertTrue(testMap.containsKey("allcaps"));
         assertTrue(testMap.containsKey("lowercase"));
-        assertTrue(testMap.containsKey("MixedCase"));
+        assertTrue(testMap.containsKey("mixedcase"));
         
-        // Values are preserved
-        assertEquals("value1", testMap.get("UpperCase"));
-        assertEquals("value2", testMap.get("ALLCAPS"));
+        // Original case keys should not exist (except the one that was already lowercase)
+        assertFalse(testMap.containsKey("UpperCase"));
+        assertFalse(testMap.containsKey("ALLCAPS"));
+        assertFalse(testMap.containsKey("MixedCase"));
+        
+        // Values should be preserved
+        assertEquals("value1", testMap.get("uppercase"));
+        assertEquals("value2", testMap.get("allcaps"));
         assertEquals("value3", testMap.get("lowercase"));
-        assertEquals("value4", testMap.get("MixedCase"));
+        assertEquals("value4", testMap.get("mixedcase"));
     }
 }
