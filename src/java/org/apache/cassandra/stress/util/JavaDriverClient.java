@@ -199,11 +199,6 @@ public class JavaDriverClient
             clusterBuilder.withCredentials(username, password);
         }
 
-        if (this.cloudConfigFile != null)
-        {
-            clusterBuilder.withScyllaCloudConnectionConfig(cloudConfigFile);
-        }
-
         try {
             cluster = clusterBuilder.build();
             Metadata metadata = cluster.getMetadata();
