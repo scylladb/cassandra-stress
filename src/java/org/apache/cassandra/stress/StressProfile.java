@@ -211,7 +211,7 @@ public class StressProfile implements Serializable {
                     throw new IllegalArgumentException("Missing name argument in column spec");
 
                 GeneratorConfig config = new GeneratorConfig(seedStr + name, clustering, size, population);
-                columnConfigs.put(name, config);
+                columnConfigs.put(name.toLowerCase(), config);
             }
         }
     }
@@ -502,8 +502,8 @@ public class StressProfile implements Serializable {
         Iterator<ColumnDefinition> it = cfMetaData.allColumnsInSelectOrder();
         while (it.hasNext()) {
             ColumnDefinition c = it.next();
-            if (!columnConfigs.containsKey(c.name.toString()))
-                columnConfigs.put(c.name.toString(), new GeneratorConfig(seedStr + c.name.toString(), null, null, null));
+            if (!columnConfigs.containsKey(c.name.toString().toLowerCase()))
+                columnConfigs.put(c.name.toString().toLowerCase(), new GeneratorConfig(seedStr + c.name.toString(), null, null, null));
         }
 
         List<Generator> partitionColumns = cfMetaData.partitionKeyColumns().stream()
@@ -925,7 +925,7 @@ public class StressProfile implements Serializable {
         Iterator<Map.Entry<String, V>> iter = map.entrySet().iterator();
         while (iter.hasNext()) {
             Map.Entry<String, V> e = iter.next();
-            if (!e.getKey().equalsIgnoreCase(e.getKey())) {
+            if (!e.getKey().equals(e.getKey().toLowerCase())) {
                 reinsert.add(e);
                 iter.remove();
             }
