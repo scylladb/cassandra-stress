@@ -399,6 +399,14 @@ a revision name:
 cassandra-stress user profile=./stress-example.yaml duration=1m "ops(insert=1,latest_event=1,events=1)" -graph file=graph.html title="Awesome graph" revision="Second run"
 ```
 
+## Acknowledgments
+
+This project is derived from the [Apache Cassandra](https://cassandra.apache.org/) project, specifically the [cassandra-stress tool](https://github.com/apache/cassandra/tree/trunk/tools/stress). We are grateful to the Apache Cassandra community for their excellent work in creating and maintaining this powerful benchmarking and load testing tool. The original cassandra-stress tool has been invaluable for testing Cassandra clusters, and this fork extends that functionality to provide enhanced support for ScyllaDB while maintaining compatibility with Cassandra.
+
+For more information about the upstream project, visit:
+- [Apache Cassandra GitHub Repository](https://github.com/apache/cassandra)
+- [Apache Cassandra Website](https://cassandra.apache.org/)
+
 © 2016, The Apache Software Foundation.
 
 Apache®, Apache Cassandra®, Cassandra®, the Apache feather logo and the Apache Cassandra® Eye logo are either registered trademarks or trademarks of the Apache Software Foundation in the United States and/or other countries. No endorsement by The Apache Software Foundation is implied by the use of these marks.
