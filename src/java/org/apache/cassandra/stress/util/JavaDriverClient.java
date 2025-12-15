@@ -64,7 +64,6 @@ public class JavaDriverClient
     private Cluster cluster;
     private Session session;
     private final LoadBalancingPolicy loadBalancingPolicy;
-    private final File cloudConfigFile;
 
 
     private static final ConcurrentMap<String, PreparedStatement> stmts = new ConcurrentHashMap<>();
@@ -85,7 +84,6 @@ public class JavaDriverClient
         this.encryptionOptions = encryptionOptions;
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
         this.connectionsPerHost = settings.mode.connectionsPerHost == null ? 8 : settings.mode.connectionsPerHost;
-        this.cloudConfigFile = settings.cloudConfig.file;
 
         int maxThreadCount = 0;
         if (settings.rate.auto)
@@ -149,10 +147,7 @@ public class JavaDriverClient
 
         Cluster.Builder clusterBuilder = Cluster.builder();
 
-        if (this.cloudConfigFile == null)
-        {
-            clusterBuilder.addContactPoints(hosts.toArray(new String[0]));
-        }
+        clusterBuilder.addContactPoints(hosts.toArray(new String[0]));
 
         clusterBuilder.withPort(port)
                 .withPoolingOptions(poolingOpts)

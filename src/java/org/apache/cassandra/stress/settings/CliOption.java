@@ -39,8 +39,7 @@ public enum CliOption
     PORT("The port to connect to cassandra nodes on", SettingsPort.helpPrinter()),
     SENDTO("-send-to", "Specify a stress server to send this command to", SettingsMisc.sendToDaemonHelpPrinter()),
     GRAPH("-graph", "Graph recorded metrics", SettingsGraph.helpPrinter()),
-    TOKENRANGE("Token range settings", SettingsTokenRange.helpPrinter()),
-    CLOUDCONF("Configuration file of a serverless Scylla cluster to connect to", SettingCloudConfig.helpPrinter())
+    TOKENRANGE("Token range settings", SettingsTokenRange.helpPrinter())
     ;
 
     private static final Map<String, CliOption> LOOKUP;
