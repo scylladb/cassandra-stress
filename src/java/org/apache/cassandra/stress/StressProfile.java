@@ -217,7 +217,7 @@ public class StressProfile implements Serializable
                     throw new IllegalArgumentException("Missing name argument in column spec");
 
                 GeneratorConfig config = new GeneratorConfig(seedStr + name, clustering, size, population);
-                columnConfigs.put(name, config);
+                columnConfigs.put(name.toLowerCase(), config);
             }
         }
     }
@@ -337,10 +337,10 @@ public class StressProfile implements Serializable
                 //Fill in missing column configs
                 for (ColumnMetadata col : metadata.getColumns())
                 {
-                    if (columnConfigs.containsKey(col.getName()))
+                    if (columnConfigs.containsKey(col.getName().toLowerCase()))
                         continue;
 
-                    columnConfigs.put(col.getName(), new GeneratorConfig(seedStr + col.getName(), null, null, null));
+                    columnConfigs.put(col.getName().toLowerCase(), new GeneratorConfig(seedStr + col.getName(), null, null, null));
                 }
 
                 tableMetaData = metadata;
@@ -469,22 +469,22 @@ public class StressProfile implements Serializable
         while (it.hasNext())
         {
             ColumnDefinition c = it.next();
-            if (!columnConfigs.containsKey(c.name.toString()))
-                columnConfigs.put(c.name.toString(), new GeneratorConfig(seedStr + c.name.toString(), null, null, null));
+            if (!columnConfigs.containsKey(c.name.toString().toLowerCase()))
+                columnConfigs.put(c.name.toString().toLowerCase(), new GeneratorConfig(seedStr + c.name.toString(), null, null, null));
         }
 
         List<Generator> partitionColumns = cfMetaData.partitionKeyColumns().stream()
-                                                     .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
+                                                     .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString().toLowerCase())))
                                                      .map(c -> c.getGenerator())
                                                      .collect(Collectors.toList());
 
         List<Generator> clusteringColumns = cfMetaData.clusteringColumns().stream()
-                                                             .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
+                                                             .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString().toLowerCase())))
                                                              .map(c -> c.getGenerator())
                                                              .collect(Collectors.toList());
 
         List<Generator> regularColumns = com.google.common.collect.Lists.newArrayList(cfMetaData.partitionColumns().selectOrderIterator()).stream()
-                                                                                                             .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
+                                                                                                             .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString().toLowerCase())))
                                                                                                              .map(c -> c.getGenerator())
                                                                                                              .collect(Collectors.toList());
 
@@ -821,7 +821,7 @@ public class StressProfile implements Serializable
         {
             ColumnInfo column = new ColumnInfo(metadata.getName(), metadata.getType().getName().toString(),
                     metadata.getType().isCollection() ? metadata.getType().getTypeArguments().get(0).getName().toString() : "",
-                    columnConfigs.get(metadata.getName()));
+                    columnConfigs.get(metadata.getName().toLowerCase()));
             if (!isTypeSupported(metadata.getType())) {
                 if (isCritical) {
                     unsupportedCriticalColumns.add(column);
@@ -939,7 +939,7 @@ public class StressProfile implements Serializable
         while (iter.hasNext())
         {
             Map.Entry<String, V> e = iter.next();
-            if (!e.getKey().equalsIgnoreCase(e.getKey()))
+            if (!e.getKey().equals(e.getKey().toLowerCase()))
             {
                 reinsert.add(e);
                 iter.remove();
