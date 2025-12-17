@@ -75,11 +75,16 @@ public class SettingsCommandUser extends SettingsCommand
             File yamlFile = new File(curYamlPath);
             StressProfile profile = StressProfile.load(yamlFile.exists() ? yamlFile.toURI() : URI.create(curYamlPath));
             String specName = profile.specName;
-            if (default_profile_name == null) {default_profile_name=specName;} //first file is default
+            if (default_profile_name == null) {
+                //first file is default
+                default_profile_name=specName;
+            }
+
             if (profiles.containsKey(specName))
             {
                 throw new IllegalArgumentException("Must only specify a singe YAML file per table (including keyspace qualifier).");
             }
+
             profiles.put(specName, profile);
         }
 

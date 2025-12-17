@@ -32,10 +32,9 @@ import org.apache.cassandra.thrift.*;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.stress.StressProfile;
 
-public class SettingsSchema implements Serializable
-{
+public class SettingsSchema implements Serializable {
 
-    public static final String DEFAULT_VALIDATOR  = "BytesType";
+    public static final String DEFAULT_VALIDATOR = "BytesType";
 
     private final String replicationStrategy;
     private final Map<String, String> replicationStrategyOptions;
@@ -50,8 +49,7 @@ public class SettingsSchema implements Serializable
     private final Command cmd_type;
 
 
-    public SettingsSchema(Options options, SettingsCommand command)
-    {
+    public SettingsSchema(Options options, SettingsCommand command) {
         keyspace = switch (command) {
             case SettingsCommandUser cmd -> null; //this should never be used - StressProfile passes keyspace name directly
             default -> options.keyspace.value();
@@ -67,14 +65,10 @@ public class SettingsSchema implements Serializable
         cmd_type = command.type;
     }
 
-    public void createKeySpaces(StressSettings settings)
-    {
-        if (settings.mode.api != ConnectionAPI.JAVA_DRIVER_NATIVE)
-        {
+    public void createKeySpaces(StressSettings settings) {
+        if (settings.mode.api != ConnectionAPI.JAVA_DRIVER_NATIVE) {
             createKeySpacesThrift(settings);
-        }
-        else
-        {
+        } else {
             createKeySpacesNative(settings);
         }
     }
@@ -82,60 +76,48 @@ public class SettingsSchema implements Serializable
     /**
      * Create Keyspace with Standard and Super/Counter column families
      */
-    public void createKeySpacesNative(StressSettings settings)
-    {
+    public void createKeySpacesNative(StressSettings settings) {
 
-        JavaDriverClient client  = settings.getJavaDriverClient(false);
+        JavaDriverClient client = settings.getJavaDriverClient(false);
 
-        try
-        {
+        try {
             //Keyspace
             client.execute(createKeyspaceStatementCQL3(), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
 
-            client.execute("USE \""+keyspace+"\"", org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
+            client.execute("USE \"" + keyspace + "\"", org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
 
             //Add standard1
             client.execute(createStandard1StatementCQL3(settings), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
 
 
-            if (cmd_type == Command.COUNTER_WRITE)
-            {
+            if (cmd_type == Command.COUNTER_WRITE) {
                 //Add counter1
                 client.execute(createCounter1StatementCQL3(settings), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
             }
 
             System.out.println(String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
             Thread.sleep(settings.node.nodes.size() * 1000L); // seconds
-        }
-        catch (AlreadyExistsException e)
-        {
+        } catch (AlreadyExistsException e) {
             //Ok.
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new RuntimeException("Encountered exception creating schema", e);
         }
     }
 
-    String createKeyspaceStatementCQL3()
-    {
+    String createKeyspaceStatementCQL3() {
         StringBuilder b = new StringBuilder();
 
         //Create Keyspace
         b.append("CREATE KEYSPACE IF NOT EXISTS \"")
-         .append(keyspace)
-         .append("\" WITH replication = {'class': '")
-         .append(replicationStrategy)
-         .append("'");
+                .append(keyspace)
+                .append("\" WITH replication = {'class': '")
+                .append(replicationStrategy)
+                .append("'");
 
-        if (replicationStrategyOptions.isEmpty())
-        {
+        if (replicationStrategyOptions.isEmpty()) {
             b.append(", 'replication_factor': '1'}");
-        }
-        else
-        {
-            for(Map.Entry<String, String> entry : replicationStrategyOptions.entrySet())
-            {
+        } else {
+            for (Map.Entry<String, String> entry : replicationStrategyOptions.entrySet()) {
                 b.append(", '").append(entry.getKey()).append("' : '").append(entry.getValue()).append("'");
             }
 
@@ -145,8 +127,7 @@ public class SettingsSchema implements Serializable
         if (storage != null) {
             b.append(" AND storage = {");
             b.append("'type': '").append(storage).append("'");
-            for (Map.Entry<String, String> entry : storageOptions.entrySet())
-            {
+            for (Map.Entry<String, String> entry : storageOptions.entrySet()) {
                 b.append(", '").append(entry.getKey()).append("' : '").append(entry.getValue()).append("'");
             }
             b.append("}");
@@ -157,21 +138,17 @@ public class SettingsSchema implements Serializable
         return b.toString();
     }
 
-    String createStandard1StatementCQL3(StressSettings settings)
-    {
+    String createStandard1StatementCQL3(StressSettings settings) {
 
         StringBuilder b = new StringBuilder();
 
         b.append("CREATE TABLE IF NOT EXISTS ")
-         .append("standard1 (key blob PRIMARY KEY ");
+                .append("standard1 (key blob PRIMARY KEY ");
 
-        try
-        {
+        try {
             for (ByteBuffer name : settings.columns.names)
                 b.append("\n, \"").append(ByteBufferUtil.string(name)).append("\" blob");
-        }
-        catch (CharacterCodingException e)
-        {
+        } catch (CharacterCodingException e) {
             throw new RuntimeException(e);
         }
 
@@ -183,8 +160,7 @@ public class SettingsSchema implements Serializable
         b.append("}");
 
         //Compaction
-        if (compactionStrategy != null)
-        {
+        if (compactionStrategy != null) {
             b.append(" AND compaction = { 'class' : '").append(compactionStrategy).append("'");
 
             for (Map.Entry<String, String> entry : compactionStrategyOptions.entrySet())
@@ -198,21 +174,17 @@ public class SettingsSchema implements Serializable
         return b.toString();
     }
 
-    String createCounter1StatementCQL3(StressSettings settings)
-    {
+    String createCounter1StatementCQL3(StressSettings settings) {
 
         StringBuilder b = new StringBuilder();
 
         b.append("CREATE TABLE IF NOT EXISTS ")
-         .append("counter1 (key blob PRIMARY KEY,");
+                .append("counter1 (key blob PRIMARY KEY,");
 
-        try
-        {
+        try {
             for (ByteBuffer name : settings.columns.names)
                 b.append("\n, \"").append(ByteBufferUtil.string(name)).append("\" counter");
-        }
-        catch (CharacterCodingException e)
-        {
+        } catch (CharacterCodingException e) {
             throw new RuntimeException(e);
         }
 
@@ -224,8 +196,7 @@ public class SettingsSchema implements Serializable
         b.append("}");
 
         //Compaction
-        if (compactionStrategy != null)
-        {
+        if (compactionStrategy != null) {
             b.append(" AND compaction = { 'class' : '").append(compactionStrategy).append("'");
 
             for (Map.Entry<String, String> entry : compactionStrategyOptions.entrySet())
@@ -242,8 +213,7 @@ public class SettingsSchema implements Serializable
     /**
      * Create Keyspace with Standard and Super/Counter column families
      */
-    public void createKeySpacesThrift(StressSettings settings)
-    {
+    public void createKeySpacesThrift(StressSettings settings) {
         KsDef ksdef = new KsDef();
 
         // column family for standard columns
@@ -269,17 +239,14 @@ public class SettingsSchema implements Serializable
         ksdef.setName(keyspace);
         ksdef.setStrategy_class(replicationStrategy);
 
-        if (!replicationStrategyOptions.isEmpty())
-        {
+        if (!replicationStrategyOptions.isEmpty()) {
             ksdef.setStrategy_options(replicationStrategyOptions);
         }
 
-        if (compactionStrategy != null)
-        {
+        if (compactionStrategy != null) {
             standardCfDef.setCompaction_strategy(compactionStrategy);
             counterCfDef.setCompaction_strategy(compactionStrategy);
-            if (!compactionStrategyOptions.isEmpty())
-            {
+            if (!compactionStrategyOptions.isEmpty()) {
                 standardCfDef.setCompaction_strategy_options(compactionStrategyOptions);
                 counterCfDef.setCompaction_strategy_options(compactionStrategyOptions);
             }
@@ -289,20 +256,15 @@ public class SettingsSchema implements Serializable
 
         Cassandra.Client client = settings.getRawThriftClient(false);
 
-        try
-        {
+        try {
             client.system_add_keyspace(ksdef);
             client.set_keyspace(keyspace);
 
             System.out.println(String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
             Thread.sleep(settings.node.nodes.size() * 1000L); // seconds
-        }
-        catch (InvalidRequestException e)
-        {
+        } catch (InvalidRequestException e) {
             System.err.println("Unable to create stress keyspace: " + e.getWhy());
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             System.err.println("!!!! " + e.getMessage());
         }
     }
@@ -310,8 +272,7 @@ public class SettingsSchema implements Serializable
 
     // Option Declarations
 
-    private static final class Options extends GroupedOptions
-    {
+    private static final class Options extends GroupedOptions {
         final OptionReplication replication = new OptionReplication();
         final OptionStorage storage = new OptionStorage();
         final OptionCompaction compaction = new OptionCompaction();
@@ -319,15 +280,13 @@ public class SettingsSchema implements Serializable
         final OptionSimple compression = new OptionSimple("compression=", ".*", null, "Specify the compression to use for sstable, default:no compression", false);
 
         @Override
-        public List<? extends Option> options()
-        {
+        public List<? extends Option> options() {
             return Arrays.asList(replication, storage, keyspace, compaction, compression);
         }
     }
 
     // CLI Utility Methods
-    public void printSettings(ResultLogger out)
-    {
+    public void printSettings(ResultLogger out) {
         out.println("  Keyspace: " + keyspace);
         out.println("  Replication Strategy: " + replicationStrategy);
         out.println("  Replication Strategy Options: " + replicationStrategyOptions);
@@ -339,8 +298,7 @@ public class SettingsSchema implements Serializable
     }
 
 
-    public static SettingsSchema get(Map<String, String[]> clArgs, SettingsCommand command)
-    {
+    public static SettingsSchema get(Map<String, String[]> clArgs, SettingsCommand command) {
         String[] params = clArgs.remove("-schema");
         if (params == null)
             return new SettingsSchema(new Options(), command);
@@ -349,8 +307,7 @@ public class SettingsSchema implements Serializable
             throw new IllegalArgumentException("-schema can only be provided with predefined operations insert, read, etc.; the 'user' command requires a schema yaml instead");
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
-        if (options == null)
-        {
+        if (options == null) {
             printHelp();
             System.out.println("Invalid -schema options provided, see output for valid options");
             System.exit(1);
@@ -358,18 +315,14 @@ public class SettingsSchema implements Serializable
         return new SettingsSchema((Options) options, command);
     }
 
-    public static void printHelp()
-    {
+    public static void printHelp() {
         GroupedOptions.printOptions(System.out, "-schema", new Options());
     }
 
-    public static Runnable helpPrinter()
-    {
-        return new Runnable()
-        {
+    public static Runnable helpPrinter() {
+        return new Runnable() {
             @Override
-            public void run()
-            {
+            public void run() {
                 printHelp();
             }
         };

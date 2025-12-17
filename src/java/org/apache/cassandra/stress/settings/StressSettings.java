@@ -276,7 +276,7 @@ public class StressSettings implements Serializable
                 if (clArgs.containsKey(forbidden))
                 {
                     printHelp();
-                    System.out.println("Error processing command line arguments. Cannot use -cloudconf with " + forbidden.toString() + ".");
+                    System.out.println("Error processing command line arguments. Cannot use -cloudconf with " + forbidden + ".");
                     System.exit(1);
                 }
             }
