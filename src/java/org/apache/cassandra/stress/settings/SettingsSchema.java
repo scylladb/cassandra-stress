@@ -30,6 +30,7 @@ import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.thrift.*;
 import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.cassandra.stress.StressProfile;
 
 public class SettingsSchema implements Serializable
 {
@@ -51,10 +52,10 @@ public class SettingsSchema implements Serializable
 
     public SettingsSchema(Options options, SettingsCommand command)
     {
-        if (command instanceof SettingsCommandUser)
-            keyspace = ((SettingsCommandUser) command).profile.keyspaceName;
-        else
-            keyspace = options.keyspace.value();
+        keyspace = switch (command) {
+            case SettingsCommandUser cmd -> null; //this should never be used - StressProfile passes keyspace name directly
+            default -> options.keyspace.value();
+        };
 
         replicationStrategy = options.replication.getStrategy();
         replicationStrategyOptions = options.replication.getOptions();
