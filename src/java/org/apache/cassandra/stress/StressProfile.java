@@ -74,7 +74,9 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 import org.yaml.snakeyaml.error.YAMLException;
 
-public class StressProfile implements Serializable {
+public class StressProfile implements Serializable
+{
+    public String specName;
     private String keyspaceCql;
     private String tableCql;
     private List<String> extraSchemaDefinitions;
@@ -156,6 +158,12 @@ public class StressProfile implements Serializable {
         queries = yaml.queries;
         tokenRangeQueries = yaml.token_range_queries;
         insert = yaml.insert;
+        specName = yaml.specname;
+        if (specName == null)
+        {
+            specName = keyspaceName + "." + tableName;
+        }
+
 
         extraSchemaDefinitions = yaml.extra_definitions;
 
@@ -219,19 +227,21 @@ public class StressProfile implements Serializable {
                 client = settings.getJavaDriverClient(false);
             }
 
+            ConsistencyLevel schemaConsistencyLevel = schemaConsistency(settings);
+
             if (keyspaceCql != null) {
                 try {
-                    client.execute(keyspaceCql, org.apache.cassandra.db.ConsistencyLevel.ONE);
+                    client.execute(keyspaceCql, schemaConsistencyLevel);
                 } catch (AlreadyExistsException |
                          shaded.com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e) {
                 }
             }
 
-            client.execute("use " + keyspaceName, org.apache.cassandra.db.ConsistencyLevel.ONE);
+            client.execute("use " + keyspaceName, schemaConsistencyLevel);
 
             if (tableCql != null) {
                 try {
-                    client.execute(tableCql, org.apache.cassandra.db.ConsistencyLevel.ONE);
+                    client.execute(tableCql, schemaConsistencyLevel);
                 } catch (AlreadyExistsException |
                          shaded.com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e) {
                 }
@@ -244,7 +254,7 @@ public class StressProfile implements Serializable {
                 for (String extraCql : extraSchemaDefinitions) {
 
                     try {
-                        client.execute(extraCql, org.apache.cassandra.db.ConsistencyLevel.ONE);
+                        client.execute(extraCql, schemaConsistencyLevel);
                     } catch (AlreadyExistsException |
                              shaded.com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e) {
                     }
@@ -256,7 +266,30 @@ public class StressProfile implements Serializable {
             schemaCreated = true;
         }
         maybeLoadSchemaInfo(settings);
+    }
 
+    private static ConsistencyLevel schemaConsistency(StressSettings settings)
+    {
+        ConsistencyLevel requested = settings.command.consistencyLevel;
+        boolean preferLocal = (requested != null && requested.isDatacenterLocal()) || settings.node.datacenter != null;
+        ConsistencyLevel quorum = preferLocal ? ConsistencyLevel.LOCAL_QUORUM : ConsistencyLevel.QUORUM;
+
+        if (requested == null)
+            return quorum;
+
+        if (requested.isSerialConsistency() || requested == ConsistencyLevel.ANY)
+            return quorum;
+
+        switch (requested)
+        {
+            case ONE:
+            case TWO:
+            case THREE:
+            case LOCAL_ONE:
+                return quorum;
+            default:
+                return requested;
+        }
     }
 
     public void truncateTable(StressSettings settings) {
@@ -729,22 +762,27 @@ public class StressProfile implements Serializable {
                 pushColumnInfo(metadata, partitionKeys, true, unsupportedColumns, unsupportedCriticalColumns);
             for (ColumnMetadata metadata : tableMetaData.getClusteringColumns())
                 pushColumnInfo(metadata, clusteringColumns, true, unsupportedColumns, unsupportedCriticalColumns);
-            for (ColumnMetadata metadata : tableMetaData.getColumns()) {
+            for (ColumnMetadata metadata : tableMetaData.getColumns())
+            {
                 if (!keyColumns.contains(metadata))
                     pushColumnInfo(metadata, valueColumns, !(settings.errors.skipUnsupportedColumns), unsupportedColumns, unsupportedCriticalColumns);
             }
-            if (unsupportedColumns.size() > 0) {
-                for (ColumnInfo column : unsupportedColumns) {
+            if (unsupportedColumns.size() > 0)
+            {
+                for (ColumnInfo column : unsupportedColumns)
+                {
                     System.err.printf("WARNING: Table '%s' has column '%s' of unsupported type\n",
-                            tableName, column.name);
+                                      tableName, column.name);
                 }
             }
-            if (unsupportedCriticalColumns.size() > 0) {
-                for (ColumnInfo column : unsupportedCriticalColumns) {
+            if (unsupportedCriticalColumns.size() > 0)
+            {
+                for (ColumnInfo column : unsupportedCriticalColumns)
+                {
                     System.err.printf("ERROR: Table '%s' has column '%s' of unsupported type\n",
-                            tableName, column.name);
+                                      tableName, column.name);
                 }
-                assert false: "Can't continue due to the errors";
+                assert false : "Can't continue due to the errors";
             }
         }
 
@@ -762,7 +800,7 @@ public class StressProfile implements Serializable {
         }
 
         boolean pushColumnInfo(ColumnMetadata metadata, List<ColumnInfo> targetList, boolean isCritical,
-                                   List<ColumnInfo> unsupportedColumns, List<ColumnInfo> unsupportedCriticalColumns)
+                               List<ColumnInfo> unsupportedColumns, List<ColumnInfo> unsupportedCriticalColumns)
         {
             ColumnInfo column = new ColumnInfo(metadata.getName(), metadata.getType().getName().toLowerCase(),
                     metadata.getType().getCollectionElementTypeName().toLowerCase(),
@@ -846,7 +884,7 @@ public class StressProfile implements Serializable {
                 case "LIST":
                     return new Lists(name, getGenerator(name, collectionType, null, config), config);
                 default:
-                    throw new UnsupportedOperationException("Because of this name: "+name+" if you removed it from the yaml and are still seeing this, make sure to drop table");
+                    throw new UnsupportedOperationException("Because of this name: " + name + " if you removed it from the yaml and are still seeing this, make sure to drop table");
             }
         }
     }
@@ -862,7 +900,7 @@ public class StressProfile implements Serializable {
             InputStream yamlStream = file.toURL().openStream();
 
             if (yamlStream.available() == 0)
-                throw new IOException("Unable to load yaml file from: "+file);
+                throw new IOException("Unable to load yaml file from: " + file);
 
             StressYaml profileYaml = yaml.loadAs(yamlStream, StressYaml.class);
 
@@ -897,6 +935,6 @@ public class StressProfile implements Serializable {
     /* Quote a identifier if it contains uppercase letters */
     private static String quoteIdentifier(String identifier)
     {
-        return lowercaseAlphanumeric.matcher(identifier).matches() ? identifier : '\"'+identifier+ '\"';
+        return lowercaseAlphanumeric.matcher(identifier).matches() ? identifier : '\"' + identifier + '\"';
     }
 }

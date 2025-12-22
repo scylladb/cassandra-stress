@@ -84,7 +84,6 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
     private final EncryptionOptions.ClientEncryptionOptions encryptionOptions;
     private CqlSession session;
     private final JavaDriverV4ConfigBuilder loadBalancingPolicy;
-    private final File cloudConfigFile;
 
 
     private static final ConcurrentMap<String, PreparedStatement> stmts = new ConcurrentHashMap<>();
@@ -105,7 +104,6 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         this.encryptionOptions = encryptionOptions;
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
         this.connectionsPerHost = settings.mode.connectionsPerHost == null ? 8 : settings.mode.connectionsPerHost;
-        this.cloudConfigFile = settings.cloudConfig.file;
 
         int maxThreadCount = 0;
         if (settings.rate.auto)
@@ -189,16 +187,13 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
                 DefaultDriverOption.CONNECTION_MAX_REQUESTS, maxPendingPerConnection);
         }
 
-        if (this.cloudConfigFile == null)
-        {
-            sessionBuilder.addContactPoints(hosts.stream().map((h) -> {
-                String[] chunks = h.split(":", 2);
-                if (chunks.length == 2) {
-                    return new InetSocketAddress(chunks[0], Integer.parseInt(chunks[1]));
-                }
-                return new InetSocketAddress(chunks[0], this.port);
-            }).collect(Collectors.toList()));
-        }
+        sessionBuilder.addContactPoints(hosts.stream().map((h) -> {
+            String[] chunks = h.split(":", 2);
+            if (chunks.length == 2) {
+                return new InetSocketAddress(chunks[0], Integer.parseInt(chunks[1]));
+            }
+            return new InetSocketAddress(chunks[0], this.port);
+        }).collect(Collectors.toList()));
 
         if (loadBalancingPolicy != null)
         {
@@ -243,11 +238,6 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         else if (username != null)
         {
             sessionBuilder.withCredentials(username, password);
-        }
-
-        if (this.cloudConfigFile != null)
-        {
-            throw new RuntimeException("Option -cloudconf is not supported on driver 4.x");
         }
 
         sessionBuilder.withConfigLoader(configBuilder.build());

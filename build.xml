@@ -35,7 +35,7 @@
 
     <!-- default version and SCM information -->
     <property name="base.version" value="3.12.0" />
-    <property name="base.javaDriverVersion" value="3.11.5.8" />
+    <property name="base.javaDriverVersion" value="3.11.5.11" />
     <property name="base.java4DriverVersion" value="4.19.0.1" />
     <property name="lib.override.com.scylladb.scylla-driver-core" value="" />
     <property name="scm.connection" value="scm:https://gitbox.apache.org/repos/asf/cassandra.git" />
@@ -79,9 +79,9 @@
     <property name="jarjar.version" value="1.7.2"/>
     <available file="${build.dir}/jarjar-${jarjar.version}.jar" property="jarjar.exists"/>
 
-    <property name="source.version" value="11" />
-    <property name="target.version" value="11" />
-    <property name="release.version" value="11" />
+    <property name="source.version" value="21" />
+    <property name="target.version" value="21" />
+    <property name="release.version" value="21" />
 
     <condition property="version" value="${base.version}">
         <isset property="release" />

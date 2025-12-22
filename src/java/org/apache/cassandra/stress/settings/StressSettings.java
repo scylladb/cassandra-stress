@@ -25,7 +25,9 @@ import java.io.Serializable;
 import java.util.*;
 
 import com.datastax.driver.core.Metadata;
+
 import com.google.common.collect.ImmutableMap;
+
 import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.util.JavaDriverClient;
@@ -58,7 +60,6 @@ public class StressSettings implements Serializable
     public final String sendToDaemon;
     public final SettingsGraph graph;
     public final SettingsTokenRange tokenRange;
-    public final SettingCloudConfig cloudConfig;
 
     public StressSettings(SettingsCommand command,
                           SettingsRate rate,
@@ -74,8 +75,7 @@ public class StressSettings implements Serializable
                           SettingsPort port,
                           String sendToDaemon,
                           SettingsGraph graph,
-                          SettingsTokenRange tokenRange,
-                          SettingCloudConfig cloudConfig)
+                          SettingsTokenRange tokenRange)
     {
         this.command = command;
         this.rate = rate;
@@ -92,13 +92,13 @@ public class StressSettings implements Serializable
         this.sendToDaemon = sendToDaemon;
         this.graph = graph;
         this.tokenRange = tokenRange;
-        this.cloudConfig = cloudConfig;
     }
 
     private SmartThriftClient tclient;
 
     /**
      * Thrift client connection
+     *
      * @return cassandra client connection
      */
     public synchronized ThriftClient getThriftClient()
@@ -120,6 +120,7 @@ public class StressSettings implements Serializable
 
     /**
      * Thrift client connection
+     *
      * @return cassandra client connection
      */
     private SimpleThriftClient getSimpleThriftClient()
@@ -155,7 +156,6 @@ public class StressSettings implements Serializable
 
             if (mode.username != null)
                 client.login(new AuthenticationRequest(ImmutableMap.of("username", mode.username, "password", mode.password)));
-
         }
         catch (InvalidRequestException e)
         {
@@ -220,7 +220,7 @@ public class StressSettings implements Serializable
             }
             catch (Exception e)
             {
-                numFailures +=1;
+                numFailures += 1;
                 throw new RuntimeException(e);
             }
         }
@@ -267,9 +267,13 @@ public class StressSettings implements Serializable
     public void maybeCreateKeyspaces()
     {
         if (command.type == Command.WRITE || command.type == Command.COUNTER_WRITE)
+        {
             schema.createKeySpaces(this);
+        }
         else if (command.type == Command.USER)
-            ((SettingsCommandUser) command).profile.maybeCreateSchema(this);
+        {
+            ((SettingsCommandUser) command).profiles.forEach((k, v) -> v.maybeCreateSchema(this));
+        }
     }
 
     public static StressSettings parse(String[] args)
@@ -281,7 +285,6 @@ public class StressSettings implements Serializable
         if (SettingsMisc.maybeDoSpecial(clArgs))
             return null;
         return get(clArgs);
-
     }
 
     private static String[] repairParams(String[] args)
@@ -303,18 +306,6 @@ public class StressSettings implements Serializable
 
     public static StressSettings get(Map<String, String[]> clArgs)
     {
-        if (clArgs.containsKey("-cloudconf"))
-        {
-           for (String forbidden : SettingCloudConfig.FORBIDDENS)
-           {
-               if (clArgs.containsKey(forbidden))
-               {
-                   printHelp();
-                   System.out.println("Error processing command line arguments. Cannot use -cloudconf with " + forbidden.toString() + ".");
-                   System.exit(1);
-               }
-           }
-        }
         SettingsCommand command = SettingsCommand.get(clArgs);
         if (command == null)
             throw new IllegalArgumentException("No command specified");
@@ -332,7 +323,6 @@ public class StressSettings implements Serializable
         SettingsSchema schema = SettingsSchema.get(clArgs, command);
         SettingsTransport transport = SettingsTransport.get(clArgs);
         SettingsGraph graph = SettingsGraph.get(clArgs, command);
-        SettingCloudConfig cloudConfig = SettingCloudConfig.get(clArgs);
         if (!clArgs.isEmpty())
         {
             printHelp();
@@ -350,7 +340,7 @@ public class StressSettings implements Serializable
             System.exit(1);
         }
 
-        return new StressSettings(command, rate, generate, insert, columns, errors, log, mode, node, schema, transport, port, sendToDaemon, graph, tokenRange, cloudConfig);
+        return new StressSettings(command, rate, generate, insert, columns, errors, log, mode, node, schema, transport, port, sendToDaemon, graph, tokenRange);
     }
 
     private static Map<String, String[]> parseMap(String[] args)
@@ -365,7 +355,7 @@ public class StressSettings implements Serializable
         final LinkedHashMap<String, String[]> r = new LinkedHashMap<>();
         String key = null;
         List<String> params = new ArrayList<>();
-        for (int i = 0 ; i < args.length ; i++)
+        for (int i = 0; i < args.length; i++)
         {
             if (i == 0 || args[i].startsWith("-"))
             {
@@ -430,18 +420,17 @@ public class StressSettings implements Serializable
         graph.printSettings(out);
         out.println("TokenRange:");
         tokenRange.printSettings(out);
-        out.println("CloudConf:");
-        cloudConfig.printSettings(out);
 
 
         if (command.type == Command.USER)
         {
             out.println();
             out.println("******************** Profile ********************");
-            ((SettingsCommandUser) command).profile.printSettings(out, this);
+            out.println("******************** Profile(s) ********************");
+            ((SettingsCommandUser) command).profiles.forEach((k, v) -> v.printSettings(out, this));
         }
-        out.println();
 
+        out.println();
     }
 
     public synchronized void disconnect()

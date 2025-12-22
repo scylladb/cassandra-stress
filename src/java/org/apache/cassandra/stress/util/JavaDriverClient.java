@@ -17,7 +17,6 @@
  */
 package org.apache.cassandra.stress.util;
 
-import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +31,9 @@ import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.policies.RackAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
+import com.datastax.driver.core.policies.RoundRobinPolicy;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
+import org.apache.cassandra.stress.settings.LoadBalanceType;
 import com.datastax.driver.core.policies.TokenAwarePolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy.ReplicaOrdering;
 import com.datastax.driver.core.policies.WhiteListPolicy;
@@ -68,7 +69,6 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
     private Cluster cluster;
     private Session session;
     private final LoadBalancingPolicy loadBalancingPolicy;
-    private final File cloudConfigFile;
 
 
     private static final ConcurrentMap<String, PreparedStatement> stmts = new ConcurrentHashMap<>();
@@ -89,7 +89,6 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
         this.encryptionOptions = encryptionOptions;
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
         this.connectionsPerHost = settings.mode.connectionsPerHost == null ? 8 : settings.mode.connectionsPerHost;
-        this.cloudConfigFile = settings.cloudConfig.file;
 
         int maxThreadCount = 0;
         if (settings.rate.auto)
@@ -106,26 +105,20 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
 
     private LoadBalancingPolicy loadBalancingPolicy(StressSettings settings)
     {
-        LoadBalancingPolicy ret = null;
-        ReplicaOrdering replicaOrdering = null;
-
-        if (settings.node.rack != null) {
-            RackAwareRoundRobinPolicy.Builder policyBuilder = RackAwareRoundRobinPolicy.builder();
-            if (settings.node.datacenter != null)
-                policyBuilder.withLocalDc(settings.node.datacenter);
-            policyBuilder = policyBuilder.withLocalRack(settings.node.rack);
-            ret = policyBuilder.build();
-            replicaOrdering = ReplicaOrdering.NEUTRAL;
+        LoadBalancingPolicy ret;
+        
+        // Check if loadbalance option is specified
+        if (settings.node.loadBalance != null) {
+            ret = settings.node.loadBalance.createPolicy(settings);
         } else {
-            DCAwareRoundRobinPolicy.Builder policyBuilder = DCAwareRoundRobinPolicy.builder();
-            if (settings.node.datacenter != null)
-                policyBuilder.withLocalDc(settings.node.datacenter);
-            ret = policyBuilder.build();
-            replicaOrdering = ReplicaOrdering.RANDOM;
+            // Default behavior: use rack-aware if rack is specified, otherwise dc-aware
+            LoadBalanceType defaultStrategy = settings.node.rack != null ? LoadBalanceType.RACK_AWARE : LoadBalanceType.DC_AWARE;
+            ret = defaultStrategy.createPolicy(settings);
         }
+        
         if (settings.node.isWhiteList)
             ret = new WhiteListPolicy(ret, settings.node.resolveAll(settings.port.nativePort));
-        return new TokenAwarePolicy(ret, replicaOrdering);
+        return new TokenAwarePolicy(ret, ReplicaOrdering.RANDOM);
     }
 
     public PreparedStatement prepare(String query)
@@ -157,10 +150,7 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
 
         Cluster.Builder clusterBuilder = Cluster.builder();
 
-        if (this.cloudConfigFile == null)
-        {
-            clusterBuilder.addContactPoints(hosts.toArray(new String[0]));
-        }
+        clusterBuilder.addContactPoints(hosts.toArray(new String[0]));
 
         clusterBuilder.withPort(port)
                 .withPoolingOptions(poolingOpts)
@@ -205,11 +195,6 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
         else if (username != null)
         {
             clusterBuilder.withCredentials(username, password);
-        }
-
-        if (this.cloudConfigFile != null)
-        {
-            clusterBuilder.withScyllaCloudConnectionConfig(cloudConfigFile);
         }
 
         try {

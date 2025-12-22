@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21.0.8_9-jdk-noble AS build
+FROM eclipse-temurin:21.0.9_10-jdk-noble AS build
 
 ENV LD_LIBRARY_PATH="/lib/x86_64-linux-gnu:/usr/local/lib:/usr/lib:/lib:/lib64:/usr/local/lib/x86_64-linux-gnu"
 ENV DEBIAN_FRONTEND="noninteractive"
@@ -6,7 +6,7 @@ ENV TZ="UTC"
 
 WORKDIR /app
 
-RUN --mount=type=cache,target=/var/cache/apt ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
+RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && echo "$TZ" > /etc/timezone \
     && apt update \
     && apt install -y ant
@@ -22,7 +22,7 @@ RUN --mount=type=cache,target=/root/.m2 ant realclean \
     && chmod +x build/dist/bin/cassandra-stress
 
 
-FROM eclipse-temurin:21.0.8_9-jre-noble AS production
+FROM eclipse-temurin:21.0.9_10-jre-noble AS production
 
 LABEL org.opencontainers.image.source="https://github.com/scylladb/cassandra-stress"
 LABEL org.opencontainers.image.title="ScyllaDB Cassandra Stress"
@@ -38,7 +38,7 @@ WORKDIR $CASSANDRA_STRESS_HOME
 
 COPY --from=build /app/build/dist .
 
-RUN --mount=type=cache,target=/var/cache/apt ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
+RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && echo "$TZ" > /etc/timezone \
     && apt-get update \
     && apt-get upgrade -y \

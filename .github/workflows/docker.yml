@@ -55,7 +55,7 @@ jobs:
       BUILDX_GIT_INFO: 1
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Set up QEMU
