@@ -188,20 +188,26 @@ public class TokenRangeQuery extends Operation
     private class JavaDriverV4Run extends Runner
     {
         final JavaDriverV4Client client;
-        private final Pattern TOKEN_COLUMN_NAME = Pattern.compile("(system\\.)?token(.*)");
+        // v4 exposes the token(...) column name as something like "system.token(pk)" or "token(pk)".
+        // Match case-insensitively and allow optional "system." prefix.
+        private final Pattern TOKEN_COLUMN_NAME = Pattern.compile("(?i)(?:system\\.)?token\\(.*\\)");
 
         private JavaDriverV4Run(JavaDriverV4Client client)
         {
             this.client = client;
         }
 
-        private shaded.com.datastax.oss.driver.api.core.metadata.token.Token getPartitionKeyToken(shaded.com.datastax.oss.driver.api.core.cql.Row row) {
+        private shaded.com.datastax.oss.driver.api.core.metadata.token.Token getPartitionKeyToken(shaded.com.datastax.oss.driver.api.core.cql.Row row)
+        {
             shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinitions metadata = row.getColumnDefinitions();
-            for ( int i = 0; i < metadata.size(); i++ ) {
-                if (TOKEN_COLUMN_NAME.matcher(metadata.get(i).getName().toString()).matches()) return row.getToken(i);
+            for (int i = 0; i < metadata.size(); i++)
+            {
+                String colName = metadata.get(i).getName().asInternal();
+                if (TOKEN_COLUMN_NAME.matcher(colName).matches())
+                    return row.getToken(i);
             }
-            throw new IllegalStateException(
-                "Found no column named 'token(...)'. If the column is aliased, use getToken(String).");
+            throw new IllegalStateException("Unable to locate token(...) column in result set. " +
+                                            "This query must project token(partition_key) without aliasing.");
         }
 
         public boolean run() throws Exception
@@ -220,7 +226,7 @@ public class TokenRangeQuery extends Operation
             shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder statement = new shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder(state.query);
             statement.setFetchSize(pageSize);
 
-            if (state.pagingState != null)
+            if (state.pagingStateV4 != null)
                 statement.setPagingState(state.pagingStateV4);
 
             shaded.com.datastax.oss.driver.api.core.cql.ResultSet results = client.getSession().execute(statement.build());
@@ -308,6 +314,12 @@ public class TokenRangeQuery extends Operation
     public void run(JavaDriverClient client) throws IOException
     {
         timeWithRetry(new JavaDriverRun(client));
+    }
+
+    @Override
+    public void run(JavaDriverV4Client client) throws IOException
+    {
+        timeWithRetry(new JavaDriverV4Run(client));
     }
 
     @Override

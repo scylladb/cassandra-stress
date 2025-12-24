@@ -111,10 +111,6 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         else
             maxThreadCount = settings.rate.threadCount;
 
-        //Always allow enough pending requests so every thread can have a request pending
-        //See https://issues.apache.org/jira/browse/CASSANDRA-7217
-        int requestsPerConnection = (maxThreadCount / connectionsPerHost) + connectionsPerHost;
-
         maxPendingPerConnection = settings.mode.maxPendingPerConnection;
     }
 
@@ -188,7 +184,7 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
 
         try
         {
-            connectInternal(compression, true);
+            connectInternal(compression);
         }
         catch (IllegalStateException e)
         {
@@ -201,19 +197,19 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
                     throw e;
 
                 // Now create a proper session using the discovered DC.
-                connectInternal(compression, false, discoveredDc);
+                connectInternal(compression, discoveredDc);
                 return;
             }
             throw e;
         }
     }
 
-    private void connectInternal(ProtocolCompression compression, boolean allowMissingDc) throws Exception
+    private void connectInternal(ProtocolCompression compression) throws Exception
     {
-        connectInternal(compression, allowMissingDc, null);
+        connectInternal(compression, null);
     }
 
-    private void connectInternal(ProtocolCompression compression, boolean allowMissingDc, String overrideLocalDc) throws Exception
+    private void connectInternal(ProtocolCompression compression, String overrideLocalDc) throws Exception
     {
         ProgrammaticDriverConfigLoaderBuilder configBuilder = new DefaultProgrammaticDriverConfigLoaderBuilder();
         CqlSessionBuilder sessionBuilder = CqlSession.builder();
