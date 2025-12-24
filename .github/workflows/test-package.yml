@@ -1,4 +1,6 @@
 name: "Test Distribution"
+permissions:
+  contents: read
 
 on:
   workflow_call:
