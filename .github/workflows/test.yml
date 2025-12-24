@@ -101,12 +101,13 @@ jobs:
   integration-test:
     needs: [build, enumerated-tests]
     timeout-minutes: 5
-    name: "Integration Test ${{ matrix.java }} c-s ${{ matrix.test }}"
+    name: "Integration Test ${{ matrix.java }} c-s ${{ matrix.test }} Java Driver - ${{ matrix.driver-type }}"
     strategy:
       fail-fast: false
       max-parallel: 2
       matrix:
         java: ["21"]
+        driver-type: ["3x", "4x"]
         test: ${{ fromJSON(needs.enumerated-tests.outputs.matrix) }}
     runs-on: ubuntu-24.04
     steps:
@@ -139,4 +140,4 @@ jobs:
           tar -C /opt -xzf cassandra-stress-bin-java${{ matrix.java }}.tar.gz
           export PATH="$PATH:/opt/cassandra-stress/bin"
 
-          ./${{ matrix.test }} "$SCYLLA_IP" || exit 1
+          ./${{ matrix.test }} "$SCYLLA_IP" ${{ matrix.driver-type }} || exit 1

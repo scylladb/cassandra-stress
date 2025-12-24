@@ -29,7 +29,9 @@ import com.datastax.driver.core.Metadata;
 import com.google.common.collect.ImmutableMap;
 
 import org.apache.cassandra.config.EncryptionOptions;
+import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.SimpleThriftClient;
 import org.apache.cassandra.stress.util.SmartThriftClient;
@@ -175,7 +177,8 @@ public class StressSettings implements Serializable
             String currentNode = node.randomNode();
             SimpleClient client = new SimpleClient(currentNode, port.nativePort);
             client.connect(false);
-            client.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.db.ConsistencyLevel.ONE);
+            if (schema.keyspace != null)
+                client.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.db.ConsistencyLevel.ONE);
             return client;
         }
         catch (Exception e)
@@ -211,7 +214,7 @@ public class StressSettings implements Serializable
                 EncryptionOptions.ClientEncryptionOptions encOptions = transport.getEncryptionOptions();
                 JavaDriverClient c = new JavaDriverClient(this, node.nodes, port.nativePort, encOptions);
                 c.connect(mode.compression());
-                if (setKeyspace)
+                if (setKeyspace && schema.keyspace != null)
                     c.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.db.ConsistencyLevel.ONE);
 
                 return client = c;
@@ -219,6 +222,44 @@ public class StressSettings implements Serializable
             catch (Exception e)
             {
                 numFailures += 1;
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private static volatile JavaDriverV4Client v4Client;
+
+    public JavaDriverV4Client getJavaDriverV4Client()
+    {
+        return getJavaDriverV4Client(true);
+    }
+
+    public JavaDriverV4Client getJavaDriverV4Client(boolean setKeyspace)
+    {
+        if (v4Client != null)
+            return v4Client;
+
+        synchronized (this)
+        {
+            if (numFailures >= MAX_NUM_FAILURES)
+                throw new RuntimeException("Failed to create client too many times");
+
+            try
+            {
+                if (v4Client != null)
+                    return v4Client;
+
+                EncryptionOptions.ClientEncryptionOptions encOptions = transport.getEncryptionOptions();
+                JavaDriverV4Client c = new JavaDriverV4Client(this, node.nodes, port.nativePort, encOptions);
+                c.connect(mode.compression());
+                if (setKeyspace && schema.keyspace != null)
+                    c.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.db.ConsistencyLevel.ONE);
+
+                return v4Client = c;
+            }
+            catch (Exception e)
+            {
+                numFailures +=1;
                 throw new RuntimeException(e);
             }
         }

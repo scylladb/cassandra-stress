@@ -42,9 +42,13 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.cassandra.config.EncryptionOptions;
 import org.apache.cassandra.security.SSLFactory;
+import org.apache.cassandra.stress.core.BoundStatement;
+import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.core.TableMetadata;
+import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 
-public class JavaDriverClient
+public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataProvider
 {
 
     static
@@ -76,12 +80,12 @@ public class JavaDriverClient
 
     public JavaDriverClient(StressSettings settings, List<String> hosts, int port, EncryptionOptions.ClientEncryptionOptions encryptionOptions)
     {
-        this.protocolVersion = settings.mode.protocolVersion;
+        this.protocolVersion = settings.mode.protocolVersion.ToJavaDriverV3();
         this.hosts = hosts;
         this.port = port;
         this.username = settings.mode.username;
         this.password = settings.mode.password;
-        this.authProvider = settings.mode.authProvider;
+        this.authProvider = settings.mode.authProvider.ToJavaDriverV3();
         this.encryptionOptions = encryptionOptions;
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
         this.connectionsPerHost = settings.mode.connectionsPerHost == null ? 8 : settings.mode.connectionsPerHost;
@@ -127,13 +131,13 @@ public class JavaDriverClient
             stmt = stmts.get(query);
             if (stmt != null)
                 return stmt;
-            stmt = getSession().prepare(query);
+            stmt = new PreparedStatement(getSession().prepare(query));
             stmts.put(query, stmt);
         }
         return stmt;
     }
 
-    public void connect(ProtocolOptions.Compression compression) throws Exception
+    public void connect(ProtocolCompression compression) throws Exception
     {
         PoolingOptions poolingOpts = new PoolingOptions()
                                      .setConnectionsPerHost(HostDistance.LOCAL, connectionsPerHost, connectionsPerHost)
@@ -159,7 +163,7 @@ public class JavaDriverClient
             clusterBuilder.withLoadBalancingPolicy(loadBalancingPolicy);
         }
 
-        clusterBuilder.withCompression(compression);
+        clusterBuilder.withCompression(compression.ToJavaDriverV3());
 
         if (encryptionOptions.enabled)
         {
@@ -241,11 +245,11 @@ public class JavaDriverClient
         return session;
     }
 
-    public ResultSet execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
+    public void execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
     {
         SimpleStatement stmt = new SimpleStatement(query);
-        stmt.setConsistencyLevel(from(consistency));
-        return getSession().execute(stmt);
+        stmt.setConsistencyLevel(consistency.ToV3Value());
+        session.execute(stmt);
     }
 
     public ResultSet execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency,
@@ -253,65 +257,28 @@ public class JavaDriverClient
     {
         SimpleStatement stmt = new SimpleStatement(query);
         if (consistency != null)
-            stmt.setConsistencyLevel(from(consistency));
+            stmt.setConsistencyLevel(consistency.ToV3Value());
         if (serialConsistency != null)
-            stmt.setSerialConsistencyLevel(from(serialConsistency));
+            stmt.setSerialConsistencyLevel(serialConsistency.ToV3Value());
         return getSession().execute(stmt);
     }
 
     public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency)
     {
         if (stmt.getConsistencyLevel() == null)
-            stmt.setConsistencyLevel(from(consistency));
+            stmt.setConsistencyLevel(consistency);
         BoundStatement bstmt = stmt.bind((Object[]) queryParams.toArray(new Object[queryParams.size()]));
-        return getSession().execute(bstmt);
+        return getSession().execute(bstmt.ToV3Value());
     }
 
     public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency, org.apache.cassandra.db.ConsistencyLevel serialConsistency )
     {
         if (stmt.getConsistencyLevel() == null)
-            stmt.setConsistencyLevel(from(consistency));
+            stmt.setConsistencyLevel(consistency);
         if (stmt.getSerialConsistencyLevel() == null)
-            stmt.setSerialConsistencyLevel(from(serialConsistency));
+            stmt.setSerialConsistencyLevel(serialConsistency);
         BoundStatement bstmt = stmt.bind((Object[]) queryParams.toArray(new Object[queryParams.size()]));
-        return getSession().execute(bstmt);
-    }
-
-    /**
-     * Get ConsistencyLevel from a C* ConsistencyLevel. This exists in the Java Driver ConsistencyLevel,
-     * but it is not public.
-     *
-     * @param cl
-     * @return
-     */
-    public static ConsistencyLevel from(org.apache.cassandra.db.ConsistencyLevel cl)
-    {
-        switch (cl)
-        {
-            case ANY:
-                return com.datastax.driver.core.ConsistencyLevel.ANY;
-            case ONE:
-                return com.datastax.driver.core.ConsistencyLevel.ONE;
-            case TWO:
-                return com.datastax.driver.core.ConsistencyLevel.TWO;
-            case THREE:
-                return com.datastax.driver.core.ConsistencyLevel.THREE;
-            case QUORUM:
-                return com.datastax.driver.core.ConsistencyLevel.QUORUM;
-            case ALL:
-                return com.datastax.driver.core.ConsistencyLevel.ALL;
-            case LOCAL_QUORUM:
-                return com.datastax.driver.core.ConsistencyLevel.LOCAL_QUORUM;
-            case EACH_QUORUM:
-                return com.datastax.driver.core.ConsistencyLevel.EACH_QUORUM;
-            case LOCAL_ONE:
-                return com.datastax.driver.core.ConsistencyLevel.LOCAL_ONE;
-            case LOCAL_SERIAL:
-                return com.datastax.driver.core.ConsistencyLevel.LOCAL_SERIAL;
-            case SERIAL:
-                return com.datastax.driver.core.ConsistencyLevel.SERIAL;
-        }
-        throw new AssertionError();
+        return getSession().execute(bstmt.ToV3Value());
     }
 
     public void disconnect()
@@ -323,5 +290,9 @@ public class JavaDriverClient
                     "Failed to close connection due to the following error: %s",
                     e.toString());
         }
+    }
+
+    public TableMetadata getTableMetadata(String keyspace, String tableName) {
+        return new TableMetadata(getSession().getCluster().getMetadata().getKeyspace(keyspace).getTable(tableName));
     }
 }
