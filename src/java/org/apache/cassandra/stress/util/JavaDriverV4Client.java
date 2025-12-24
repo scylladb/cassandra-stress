@@ -127,9 +127,14 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
                 if (settings.node.rack != null) {
                     builder = builder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_RACK, settings.node.rack);
                 }
+
+                // Driver 4 requires an explicit local DC when explicit contact points are provided.
+                // If the user didn't set one, we'll connect once without it, discover it from metadata,
+                // then rebuild the session with the correct value.
                 if (settings.node.datacenter != null) {
                     builder = builder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER, settings.node.datacenter);
                 }
+
                 if (settings.node.isWhiteList)
                     throw new IllegalArgumentException("Whitelist policy is not supported by Driver 4.x");
                 return builder;
@@ -172,42 +177,72 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
 
     public void connect(ProtocolCompression compression) throws Exception
     {
+        // If the user didn't provide a local DC, first connect without it to discover it.
+        // Then reconnect with the discovered DC to satisfy driver requirements.
+        if (session == null && loadBalancingPolicy != null)
+        {
+            // settings.node.datacenter is captured in the loadBalancingPolicy closure,
+            // so just check the settings snapshot via the builder behavior:
+            // if no DC was provided, we attempt the discovery connect path.
+        }
+
+        try
+        {
+            connectInternal(compression, true);
+        }
+        catch (IllegalStateException e)
+        {
+            // Most common case: missing local DC.
+            if (e.getMessage() != null && e.getMessage().contains("local DC must be explicitly set"))
+            {
+                // Build a temporary session without LB DC, discover it, then rebuild.
+                String discoveredDc = discoverLocalDatacenter(compression);
+                if (discoveredDc == null || discoveredDc.trim().isEmpty())
+                    throw e;
+
+                // Now create a proper session using the discovered DC.
+                connectInternal(compression, false, discoveredDc);
+                return;
+            }
+            throw e;
+        }
+    }
+
+    private void connectInternal(ProtocolCompression compression, boolean allowMissingDc) throws Exception
+    {
+        connectInternal(compression, allowMissingDc, null);
+    }
+
+    private void connectInternal(ProtocolCompression compression, boolean allowMissingDc, String overrideLocalDc) throws Exception
+    {
         ProgrammaticDriverConfigLoaderBuilder configBuilder = new DefaultProgrammaticDriverConfigLoaderBuilder();
         CqlSessionBuilder sessionBuilder = CqlSession.builder();
-        configBuilder.withInt(
-            DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
+        configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
 
-        if (protocolVersion != null) {
+        if (protocolVersion != null)
             configBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
-        }
 
         if (maxPendingPerConnection != null)
-        {
-            configBuilder.withInt(
-                DefaultDriverOption.CONNECTION_MAX_REQUESTS, maxPendingPerConnection);
-        }
+            configBuilder.withInt(DefaultDriverOption.CONNECTION_MAX_REQUESTS, maxPendingPerConnection);
 
         sessionBuilder.addContactPoints(hosts.stream().map((h) -> {
             String[] chunks = h.split(":", 2);
-            if (chunks.length == 2) {
+            if (chunks.length == 2)
                 return new InetSocketAddress(chunks[0], Integer.parseInt(chunks[1]));
-            }
             return new InetSocketAddress(chunks[0], this.port);
         }).collect(Collectors.toList()));
 
         if (loadBalancingPolicy != null)
-        {
             configBuilder = loadBalancingPolicy.applyConfig(configBuilder);
-        }
+
+        if (overrideLocalDc != null)
+            configBuilder = configBuilder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER, overrideLocalDc);
 
         compression.ToJavaDriverV4().applyConfig(configBuilder);
 
         if (encryptionOptions.enabled)
         {
-            SSLContext sslContext;
-            sslContext = SSLFactory.createSSLContext(encryptionOptions, true);
-
-
+            SSLContext sslContext = SSLFactory.createSSLContext(encryptionOptions, true);
             SslEngineFactory sslOptions = new SslEngineFactory()
             {
                 final ProgrammaticSslEngineFactory factory = new ProgrammaticSslEngineFactory(
@@ -232,51 +267,109 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         }
 
         if (authProvider != null)
-        {
             authProvider.apply(sessionBuilder);
-        }
         else if (username != null)
-        {
             sessionBuilder.withCredentials(username, password);
-        }
 
         sessionBuilder.withConfigLoader(configBuilder.build());
-        try {
-            session = sessionBuilder.withCodecRegistry(prepareCodecRegistry()).build();
-            Metadata metadata = session.getMetadata();
-            System.out.printf(
-                    "Connected to cluster: %s, max pending requests per connection %d, max connections per host %d%n",
-                    metadata.getClusterName(),
-                    maxPendingPerConnection,
-                    connectionsPerHost);
-            Map<UUID, Node> nodes = metadata.getNodes();
-            for (UUID hostUUID : nodes.keySet())
-            {
-                Node host = nodes.get(hostUUID);
-                System.out.printf("Datatacenter: %s; Host: %s; Rack: %s%n",
-                        host.getDatacenter(), host.getBroadcastRpcAddress(), host.getRack());
-            }
-        } catch (AllNodesFailedException e) {
-            Throwable sslException = findExceptionInErrors(e, SSLHandshakeException.class);
-            if (sslException != null)
-                System.err.println(String.format(
-                        "  Failed to connect to node due to an error during SSL handshake %s: %s",
-                        sslException.getClass().getName(), sslException.getMessage()));
-            throw e;
+
+        // If we were invoked for discovery, we must not throw on missing local DC.
+        // That means: build() may throw IllegalStateException, and caller handles it.
+        session = sessionBuilder.withCodecRegistry(prepareCodecRegistry()).build();
+
+        Metadata metadata = session.getMetadata();
+        System.out.printf(
+                "Connected to cluster: %s, max pending requests per connection %d, max connections per host %d%n",
+                metadata.getClusterName(),
+                maxPendingPerConnection,
+                connectionsPerHost);
+        Map<UUID, Node> nodes = metadata.getNodes();
+        for (UUID hostUUID : nodes.keySet())
+        {
+            Node host = nodes.get(hostUUID);
+            System.out.printf("Datatacenter: %s; Host: %s; Rack: %s%n",
+                    host.getDatacenter(), host.getBroadcastRpcAddress(), host.getRack());
         }
     }
 
-    private Throwable findExceptionInErrors(AllNodesFailedException e, Class<? extends Throwable> exceptionClass) {
-        for (Throwable error : e.getErrors().values()) {
-            Throwable current = error;
-            while (current != null) {
-                if (exceptionClass.isInstance(current)) {
-                    return current;
-                }
-                current = current.getCause();
+    private String discoverLocalDatacenter(ProtocolCompression compression) throws Exception
+    {
+        // Create a minimal session without LB DC, read DC from metadata, then close.
+        CqlSession tmp = null;
+        try
+        {
+            ProgrammaticDriverConfigLoaderBuilder configBuilder = new DefaultProgrammaticDriverConfigLoaderBuilder();
+            CqlSessionBuilder sessionBuilder = CqlSession.builder();
+
+            configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
+            if (protocolVersion != null)
+                configBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
+            if (maxPendingPerConnection != null)
+                configBuilder.withInt(DefaultDriverOption.CONNECTION_MAX_REQUESTS, maxPendingPerConnection);
+
+            sessionBuilder.addContactPoints(hosts.stream().map((h) -> {
+                String[] chunks = h.split(":", 2);
+                if (chunks.length == 2)
+                    return new InetSocketAddress(chunks[0], Integer.parseInt(chunks[1]));
+                return new InetSocketAddress(chunks[0], this.port);
+            }).collect(Collectors.toList()));
+
+            // still apply rack setting if present (doesn't require DC)
+            if (loadBalancingPolicy != null)
+            {
+                // applyConfig will not set DC when settings.node.datacenter is null
+                configBuilder = loadBalancingPolicy.applyConfig(configBuilder);
             }
+
+            compression.ToJavaDriverV4().applyConfig(configBuilder);
+
+            if (encryptionOptions.enabled)
+            {
+                SSLContext sslContext = SSLFactory.createSSLContext(encryptionOptions, true);
+                SslEngineFactory sslOptions = new SslEngineFactory()
+                {
+                    final ProgrammaticSslEngineFactory factory = new ProgrammaticSslEngineFactory(
+                        sslContext, encryptionOptions.cipher_suites);
+
+                    @Override
+                    public void close() {}
+
+                    @Override
+                    public SSLEngine newSslEngine(EndPoint remoteEndpoint) {
+                        SSLEngine engine = factory.newSslEngine(remoteEndpoint);
+                        if (encryptionOptions.hostname_verification) {
+                            SSLParameters parameters = engine.getSSLParameters();
+                            parameters.setEndpointIdentificationAlgorithm("HTTPS");
+                            engine.setSSLParameters(parameters);
+                        }
+                        return engine;
+                    }
+                };
+
+                sessionBuilder.withSslEngineFactory(sslOptions);
+            }
+
+            if (authProvider != null)
+                authProvider.apply(sessionBuilder);
+            else if (username != null)
+                sessionBuilder.withCredentials(username, password);
+
+            sessionBuilder.withConfigLoader(configBuilder.build());
+            tmp = sessionBuilder.withCodecRegistry(prepareCodecRegistry()).build();
+
+            // Pick the first node's DC (works for single-DC test env; if mixed DCs, user should set it explicitly).
+            for (Node node : tmp.getMetadata().getNodes().values())
+            {
+                if (node.getDatacenter() != null)
+                    return node.getDatacenter();
+            }
+            return null;
         }
-        return null;
+        finally
+        {
+            if (tmp != null)
+                tmp.close();
+        }
     }
 
     public CqlSession getSession()

@@ -101,7 +101,7 @@ jobs:
   integration-test:
     needs: [build, enumerated-tests]
     timeout-minutes: 5
-    name: "Integration Test ${{ matrix.java }} c-s ${{ matrix.test }}"
+    name: "Integration Test ${{ matrix.java }} c-s ${{ matrix.test }} Java Driver - ${{ matrix.driver-type }}"
     strategy:
       fail-fast: false
       max-parallel: 2

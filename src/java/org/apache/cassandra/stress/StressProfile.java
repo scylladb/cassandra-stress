@@ -343,7 +343,10 @@ public class StressProfile implements Serializable
     public Set<TokenRange> maybeLoadTokenRanges(StressSettings settings) {
         maybeLoadSchemaInfo(settings); // ensure table metadata is available
 
-        JavaDriverClient client = settings.getJavaDriverClient();
+        // Token range iterators and token range queries currently depend on the v3 driver TokenRange types.
+        // Even when running with the v4 client, we use a v3 client here purely for ring metadata.
+        // In USER/profile mode SettingsSchema.keyspace can be null, so make sure we don't try to set it.
+        JavaDriverClient client = settings.getJavaDriverClient(false);
         synchronized (client) {
             if (tokenRanges != null)
                 return tokenRanges;
