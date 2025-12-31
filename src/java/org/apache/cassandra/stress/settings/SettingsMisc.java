@@ -205,7 +205,7 @@ class SettingsMisc implements Serializable
     static Runnable helpHelpPrinter()
     {
         return () -> {
-            System.out.println("Usage: ./bin/cassandra-stress help <command|option>");
+            System.out.println("Usage: cassandra-stress help <command|option>");
             System.out.println("Commands:");
             for (Command cmd : Command.values())
                 System.out.println("    " + cmd.names.toString().replaceAll("\\[|\\]", ""));

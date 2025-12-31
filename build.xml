@@ -36,6 +36,7 @@
     <!-- default version and SCM information -->
     <property name="base.version" value="3.12.0" />
     <property name="base.javaDriverVersion" value="3.11.5.11" />
+    <property name="base.java4DriverVersion" value="4.19.0.1" />
     <property name="lib.override.com.scylladb.scylla-driver-core" value="" />
     <property name="scm.connection" value="scm:https://gitbox.apache.org/repos/asf/cassandra.git" />
     <property name="scm.developerConnection"
@@ -74,6 +75,9 @@
     <property name="test.compression_algo" value="LZ4" />
     <property name="dist.dir" value="${build.dir}/dist" />
     <property name="tmp.dir" value="${java.io.tmpdir}" />
+
+    <property name="jarjar.version" value="1.7.2"/>
+    <available file="${build.dir}/jarjar-${jarjar.version}.jar" property="jarjar.exists"/>
 
     <property name="source.version" value="21" />
     <property name="target.version" value="21" />
@@ -303,7 +307,7 @@
         <property name="resolver-ant-tasks.initialized" value="true" />
     </target>
 
-    <target name="resolver-retrieve-build" depends="resolver-init,write-poms">
+    <target name="resolver-retrieve-build" depends="resolver-init,write-poms,java-driver-core.shade">
         <resolver:pom file="${build.dir}/cassandra-stress.pom" id="all-pom" />
         <resolver:pom file="${build.dir}/${ant.project.name}-thrift-${version}.pom" id="thrift-pom" />
         <resolver:pom file="${build.dir}/tmp-cassandra-stress-deps.pom" id="pom-deps" />
@@ -446,6 +450,75 @@
         description="Initialize Maven ANT Tasks">
         <typedef uri="antlib:org.apache.maven.artifact.ant" classpathref="maven-ant-tasks.classpath" />
         <property name="maven-ant-tasks.initialized" value="true" />
+    </target>
+
+    <target name="jarjar.get" depends="init" unless="jarjar.exists">
+        <echo>Downloading jarjar...</echo>
+        <get src="https://repo1.maven.org/maven2/org/pantsbuild/jarjar/${jarjar.version}/jarjar-${jarjar.version}.jar"
+             dest="${build.dir}/jarjar-${jarjar.version}.jar"
+             skipexisting="true"/>
+        <get src="https://repo1.maven.org/maven2/org/ow2/asm/asm/9.1/asm-9.1.jar"
+             dest="build/asm-9.1.jar"
+             usetimestamp="true"/>
+        <get src="https://repo1.maven.org/maven2/org/ow2/asm/asm-commons/9.1/asm-commons-9.1.jar"
+             dest="build/asm-commons-9.1.jar"
+             usetimestamp="true"/>
+    </target>
+
+    <!-- Download driver4 dependencies using Maven -->
+    <target name="java-driver-core.get" depends="init">
+        <echo>Downloading driver4 and dependencies...</echo>
+        <mkdir dir="${build.dir}/shaded"/>
+        <mkdir dir="${build.dir}/lib/jars"/>
+
+        <get src="https://repo1.maven.org/maven2/com/scylladb/java-driver-core-shaded/${base.java4DriverVersion}/java-driver-core-shaded-${base.java4DriverVersion}.jar"
+             dest="${build.dir}/shaded/java-driver-core-shaded-${base.java4DriverVersion}.jar"
+             usetimestamp="true"/>
+        <get src="https://repo1.maven.org/maven2/com/scylladb/java-driver-guava-shaded/${base.java4DriverVersion}/java-driver-guava-shaded-${base.java4DriverVersion}.jar"
+             dest="${build.dir}/shaded/java-driver-guava-shaded-${base.java4DriverVersion}.jar"
+             usetimestamp="true"/>
+        <get src="https://repo1.maven.org/maven2/com/datastax/oss/native-protocol/1.5.1/native-protocol-1.5.1.jar"
+             dest="${build.dir}/shaded/native-protocol-1.5.1.jar"
+             usetimestamp="true"/>
+    </target>
+
+    <!-- Merge 4.x driver and shade it -->
+    <target name="java-driver-core.shade" depends="jarjar.get,java-driver-core.get">
+        <mkdir dir="${build.dir}/lib/jars"/>
+        <java classname="org.pantsbuild.jarjar.Main" fork="true" failonerror="true">
+            <classpath>
+                <pathelement location="${build.dir}/jarjar-${jarjar.version}.jar"/>
+                <pathelement location="build/asm-9.1.jar"/>
+                <pathelement location="build/asm-commons-9.1.jar"/>
+            </classpath>
+            <arg value="process"/>
+            <arg value="jarjar.rules"/>
+            <arg value="${build.dir}/shaded/java-driver-core-shaded-${base.java4DriverVersion}.jar"/>
+            <arg value="${build.dir}/lib/jars/java-driver-core-shaded-${base.java4DriverVersion}.jar"/>
+        </java>
+        <java classname="org.pantsbuild.jarjar.Main" fork="true" failonerror="true">
+            <classpath>
+                <pathelement location="${build.dir}/jarjar-${jarjar.version}.jar"/>
+                <pathelement location="build/asm-9.1.jar"/>
+                <pathelement location="build/asm-commons-9.1.jar"/>
+            </classpath>
+            <arg value="process"/>
+            <arg value="jarjar.rules"/>
+            <arg value="${build.dir}/shaded/java-driver-guava-shaded-${base.java4DriverVersion}.jar"/>
+            <arg value="${build.dir}/lib/jars/java-driver-guava-shaded-${base.java4DriverVersion}.jar"/>
+        </java>
+        <java classname="org.pantsbuild.jarjar.Main" fork="true" failonerror="true">
+            <classpath>
+                <pathelement location="${build.dir}/jarjar-${jarjar.version}.jar"/>
+                <pathelement location="build/asm-9.1.jar"/>
+                <pathelement location="build/asm-commons-9.1.jar"/>
+            </classpath>
+            <arg value="process"/>
+            <arg value="jarjar.rules"/>
+            <arg value="${build.dir}/shaded/native-protocol-1.5.1.jar"/>
+            <arg value="${build.dir}/lib/jars/native-protocol-1.5.1.jar"/>
+        </java>
+        <echo>Shaded JAR created: ${shaded.output}</echo>
     </target>
 
     <target name="scylla-driver-core.override.install" if="scylla-driver-core.override.want"
@@ -624,6 +697,9 @@
                 <dependency groupId="io.netty" artifactId="netty-all" version="4.1.100.Final" />
                 <dependency groupId="com.google.code.findbugs" artifactId="jsr305" version="2.0.2"
                     scope="provided" />
+                <dependency groupId="com.scylladb" artifactId="java-driver-core"
+                            version="${base.java4DriverVersion}"
+                            classifier="shaded" />
                 <dependency groupId="com.clearspring.analytics" artifactId="stream" version="2.5.2">
                     <exclusion groupId="it.unimi.dsi" artifactId="fastutil" />
                 </dependency>
@@ -827,7 +903,7 @@
             <dependency groupId="com.addthis.metrics" artifactId="reporter-config3" />
             <dependency groupId="com.thinkaurelius.thrift" artifactId="thrift-server" />
             <dependency groupId="com.clearspring.analytics" artifactId="stream" />
-
+            <dependency groupId="com.typesafe" artifactId="config" version="1.4.3"/>
             <dependency groupId="ch.qos.logback" artifactId="logback-core" />
             <dependency groupId="ch.qos.logback" artifactId="logback-classic" />
 

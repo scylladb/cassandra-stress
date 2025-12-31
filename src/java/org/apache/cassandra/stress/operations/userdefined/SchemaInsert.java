@@ -26,31 +26,30 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.datastax.driver.core.BatchStatement;
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.ColumnDefinitions;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.Statement;
 import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.io.sstable.StressCQLSSTableWriter;
 import org.apache.cassandra.stress.WorkManager;
+import org.apache.cassandra.stress.core.BatchStatementType;
+import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.generate.*;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ThriftClient;
 import org.apache.cassandra.thrift.ThriftConversion;
+import shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement;
 
 public class SchemaInsert extends SchemaStatement
 {
 
     private final String tableSchema;
     private final String insertStatement;
-    private final BatchStatement.Type batchType;
+    private final BatchStatementType batchType;
 
-    public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, Distribution batchSize, RatioDistribution useRatio, RatioDistribution rowPopulation, Integer thriftId, PreparedStatement statement, BatchStatement.Type batchType)
+    public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, Distribution batchSize, RatioDistribution useRatio, RatioDistribution rowPopulation, Integer thriftId, PreparedStatement statement, BatchStatementType batchType)
     {
-        super(timer, settings, new DataSpec(generator, seedManager, batchSize, useRatio, rowPopulation), statement, statement.getVariables().asList().stream().map(ColumnDefinitions.Definition::getName).collect(Collectors.toList()), thriftId);
+        super(timer, settings, new DataSpec(generator, seedManager, batchSize, useRatio, rowPopulation), statement, statement.getColumnNames(), thriftId);
         this.batchType = batchType;
         this.insertStatement = null;
         this.tableSchema = null;
@@ -62,7 +61,7 @@ public class SchemaInsert extends SchemaStatement
     public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, RatioDistribution useRatio, RatioDistribution rowPopulation, Integer thriftId, String statement, String tableSchema)
     {
         super(timer, settings, new DataSpec(generator, seedManager, new DistributionFixed(1), useRatio, rowPopulation), null, generator.getColumnNames(), thriftId);
-        this.batchType = BatchStatement.Type.UNLOGGED;
+        this.batchType = BatchStatementType.UNLOGGED;
         this.insertStatement = statement;
         this.tableSchema = tableSchema;
     }
@@ -78,31 +77,79 @@ public class SchemaInsert extends SchemaStatement
 
         public boolean run() throws Exception
         {
-            List<BoundStatement> stmts = new ArrayList<>();
+            List<com.datastax.driver.core.BoundStatement> stmts = new ArrayList<>();
             partitionCount = partitions.size();
 
             for (PartitionIterator iterator : partitions)
                 while (iterator.hasNext())
-                    stmts.add(bindRow(iterator.next()));
+                    stmts.add(bindRow(iterator.next()).ToV3Value());
 
             rowCount += stmts.size();
 
             // 65535 is max number of stmts per batch, so if we have more, we need to manually batch them
             for (int j = 0; j < stmts.size(); j += 65535)
             {
-                List<BoundStatement> substmts = stmts.subList(j, Math.min(j + stmts.size(), j + 65535));
-                Statement stmt;
-                if (stmts.size() == 1)
+                List<com.datastax.driver.core.BoundStatement> substmts = stmts.subList(j, Math.min(j + stmts.size(), j + 65535));
+                com.datastax.driver.core.Statement stmt;
+                if (substmts.size() == 1)
                 {
                     stmt = substmts.get(0);
                 }
                 else
                 {
-                    BatchStatement batch = new BatchStatement(batchType);
-                    batch.setConsistencyLevel(statement.getConsistencyLevel());
-                    batch.setSerialConsistencyLevel(statement.getSerialConsistencyLevel());
+                    com.datastax.driver.core.BatchStatement batch = new com.datastax.driver.core.BatchStatement(batchType.ToV3Value());
+                    if (statement.getConsistencyLevel() != null) {
+                        batch.setConsistencyLevel(statement.getConsistencyLevel().ToV3Value());
+                    }
+                    if (statement.getSerialConsistencyLevel() != null) {
+                        batch.setSerialConsistencyLevel(statement.getSerialConsistencyLevel().ToV3Value());
+                    }
                     batch.addAll(substmts);
                     stmt = batch;
+                }
+
+                client.getSession().execute(stmt);
+            }
+            return true;
+        }
+    }
+
+    private class JavaDriverV4Run extends Runner
+    {
+        final JavaDriverV4Client client;
+
+        private JavaDriverV4Run(JavaDriverV4Client client)
+        {
+            this.client = client;
+        }
+
+        public boolean run() throws Exception
+        {
+            List<shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement<?>> stmts = new ArrayList<>();
+            partitionCount = partitions.size();
+
+            for (PartitionIterator iterator : partitions)
+                while (iterator.hasNext())
+                    stmts.add(bindRow(iterator.next()).ToV4Value());
+
+            rowCount += stmts.size();
+
+            // 65535 is max number of stmts per batch, so if we have more, we need to manually batch them
+            for (int j = 0; j < stmts.size(); j += 65535)
+            {
+                List<? extends shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement<?>> substmts = stmts.subList(j, Math.min(j + stmts.size(), j + 65535));
+                shaded.com.datastax.oss.driver.api.core.cql.Statement stmt;
+                if (substmts.size() == 1)
+                {
+                    stmt = substmts.get(0);
+                }
+                else
+                {
+                    shaded.com.datastax.oss.driver.api.core.cql.BatchStatementBuilder batch = new shaded.com.datastax.oss.driver.api.core.cql.BatchStatementBuilder(batchType.ToV4Value());
+                    batch.setConsistencyLevel(statement.getConsistencyLevel().ToV4Value());
+                    batch.setSerialConsistencyLevel(statement.getSerialConsistencyLevel().ToV4Value());
+                    batch.addStatements((Iterable<BatchableStatement<?>>) substmts);
+                    stmt = batch.build();
                 }
 
                 client.getSession().execute(stmt);
@@ -163,6 +210,12 @@ public class SchemaInsert extends SchemaStatement
     public void run(JavaDriverClient client) throws IOException
     {
         timeWithRetry(new JavaDriverRun(client));
+    }
+
+    @Override
+    public void run(JavaDriverV4Client client) throws IOException
+    {
+        timeWithRetry(new JavaDriverV4Run(client));
     }
 
     public boolean isWrite()

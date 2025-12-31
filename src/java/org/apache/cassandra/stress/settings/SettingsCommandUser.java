@@ -141,7 +141,7 @@ public class SettingsCommandUser extends SettingsCommand
                 if (profile.tokenRangeQueries.containsKey(sub_key))
                     return Collections.singletonList(profile.getBulkReadQueries(sub_key, timer, settings, tokenRangeIterator, isWarmup));
 
-                return Collections.singletonList(profile.getQuery(sub_key, timer, generator, seeds, settings, isWarmup));
+                return Collections.singletonList(profile.getQuery(sub_key, timer, generator, seeds, settings));
             }
         };
     }

@@ -29,13 +29,17 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import com.datastax.driver.core.*;
+import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.core.BoundStatement;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.stress.generate.*;
 import org.apache.cassandra.stress.generate.Row;
+import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.operations.PartitionOperation;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ThriftClient;
 import org.apache.cassandra.thrift.Compression;
 import org.apache.cassandra.thrift.CqlResult;
@@ -62,18 +66,15 @@ public class ValidatingSchemaQuery extends PartitionOperation
         argumentIndex = new int[statements[0].statement.getVariables().size()];
         bindBuffer = new Object[argumentIndex.length];
         int i = 0;
-        for (ColumnDefinitions.Definition definition : statements[0].statement.getVariables())
-            argumentIndex[i++] = spec.partitionGenerator.indexOf(definition.getName());
-
-        com.datastax.driver.core.ConsistencyLevel consistencyLevel = JavaDriverClient.from(cl);
-        com.datastax.driver.core.ConsistencyLevel serialConsistencyLevel = JavaDriverClient.from(serialCl);
+        for (String columnName : statements[0].statement.getColumnNames())
+            argumentIndex[i++] = spec.partitionGenerator.indexOf(columnName);
 
         for (ValidatingStatement statement : statements)
         {
             if (statement.statement.getConsistencyLevel() == null)
-                statement.statement.setConsistencyLevel(consistencyLevel);
+                statement.statement.setConsistencyLevel(cl);
             if (statement.statement.getSerialConsistencyLevel() == null)
-                statement.statement.setSerialConsistencyLevel(serialConsistencyLevel);
+                statement.statement.setSerialConsistencyLevel(serialCl);
         }
         this.clusteringComponents = clusteringComponents;
     }
@@ -122,7 +123,7 @@ public class ValidatingSchemaQuery extends PartitionOperation
 
         public boolean run() throws Exception
         {
-            ResultSet rs = client.getSession().execute(bind(statementIndex));
+            ResultSet rs = client.getSession().execute(bind(statementIndex).ToV3Value());
             int[] valueIndex = new int[rs.getColumnDefinitions().size()];
             {
                 int i = 0;
@@ -155,6 +156,54 @@ public class ValidatingSchemaQuery extends PartitionOperation
             }
             partitionCount = Math.min(1, rowCount);
             return rs.isExhausted();
+        }
+    }
+
+    private class JavaDriverV4Run extends Runner
+    {
+        final JavaDriverV4Client client;
+
+        private JavaDriverV4Run(JavaDriverV4Client client, PartitionIterator iter)
+        {
+            super(iter);
+            this.client = client;
+        }
+
+        public boolean run() throws Exception
+        {
+            shaded.com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bind(statementIndex).ToV4Value());
+            int[] valueIndex = new int[rs.getColumnDefinitions().size()];
+            {
+                int i = 0;
+                for (shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinition definition : rs.getColumnDefinitions())
+                    valueIndex[i++] = spec.partitionGenerator.indexOf(definition.getName().toString());
+            }
+
+            rowCount = 0;
+            Iterator<shaded.com.datastax.oss.driver.api.core.cql.Row> results = rs.iterator();
+            if (!statements[statementIndex].inclusiveStart && iter.hasNext())
+                iter.next();
+            while (iter.hasNext())
+            {
+                Row expectedRow = iter.next();
+                if (!statements[statementIndex].inclusiveEnd && !iter.hasNext())
+                    break;
+
+                if (!results.hasNext())
+                    return false;
+
+                rowCount++;
+                shaded.com.datastax.oss.driver.api.core.cql.Row actualRow = results.next();
+                for (int i = 0 ; i < actualRow.getColumnDefinitions().size() ; i++)
+                {
+                    Object expectedValue = expectedRow.get(valueIndex[i]);
+                    Object actualValue = spec.partitionGenerator.convert(valueIndex[i], actualRow.getBytesUnsafe(i));
+                    if (!expectedValue.equals(actualValue))
+                        return false;
+                }
+            }
+            partitionCount = Math.min(1, rowCount);
+            return rs.isFullyFetched();
         }
     }
 
@@ -233,6 +282,12 @@ public class ValidatingSchemaQuery extends PartitionOperation
     }
 
     @Override
+    public void run(JavaDriverV4Client client) throws IOException
+    {
+        timeWithRetry(new JavaDriverV4Run(client, partitions.get(0)));
+    }
+
+    @Override
     public void run(ThriftClient client) throws IOException
     {
         timeWithRetry(new ThriftRun(client, partitions.get(0)));
@@ -263,10 +318,10 @@ public class ValidatingSchemaQuery extends PartitionOperation
         sb.append("SELECT * FROM ");
         sb.append(metadata.getName());
         sb.append(" WHERE");
-        for (ColumnMetadata pk : metadata.getPartitionKey())
+        for (String pkName : metadata.getPartitionKeyNames())
         {
             sb.append(first ? " " : " AND ");
-            sb.append(pk.getName());
+            sb.append(pkName);
             sb.append(" = ?");
             first = false;
         }
@@ -274,7 +329,9 @@ public class ValidatingSchemaQuery extends PartitionOperation
 
         factories.add(new Factory(new ValidatingStatement[] { prepare(settings, base, true, true) }, 0));
 
-        int maxDepth = metadata.getClusteringColumns().size() - 1;
+        List<String> clusteringColumnNames = metadata.getClusteringColumnNames();
+
+        int maxDepth = clusteringColumnNames.size() - 1;
         for (int depth = 0 ; depth <= maxDepth  ; depth++)
         {
             StringBuilder cc = new StringBuilder();
@@ -283,7 +340,7 @@ public class ValidatingSchemaQuery extends PartitionOperation
             for (int d = 0 ; d <= depth ; d++)
             {
                 if (d > 0) { cc.append(','); arg.append(','); }
-                cc.append(metadata.getClusteringColumns().get(d).getName());
+                cc.append(clusteringColumnNames.get(d));
                 arg.append('?');
             }
             cc.append(')'); arg.append(')');
@@ -321,7 +378,11 @@ public class ValidatingSchemaQuery extends PartitionOperation
         final Integer thriftId;
         final boolean inclusiveStart;
         final boolean inclusiveEnd;
-        private ValidatingStatement(PreparedStatement statement, Integer thriftId, boolean inclusiveStart, boolean inclusiveEnd)
+        private ValidatingStatement(
+            PreparedStatement statement,
+            Integer thriftId,
+            boolean inclusiveStart,
+            boolean inclusiveEnd)
         {
             this.statement = statement;
             this.thriftId = thriftId;
@@ -330,19 +391,24 @@ public class ValidatingSchemaQuery extends PartitionOperation
         }
     }
 
-    private static ValidatingStatement prepare(StressSettings settings, String cql, boolean incLb, boolean incUb)
-    {
-        JavaDriverClient jclient = settings.getJavaDriverClient();
-        ThriftClient tclient = settings.getThriftClient();
-        PreparedStatement statement = jclient.prepare(cql);
-        try
-        {
-            Integer thriftId = tclient.prepare_cql3_query(cql, Compression.NONE);
-            return new ValidatingStatement(statement, thriftId, incLb, incUb);
-        }
-        catch (TException e)
-        {
-            throw new RuntimeException(e);
+    private static ValidatingStatement prepare(StressSettings settings, String cql, boolean incLb, boolean incUb) {
+        switch (settings.mode.api) {
+            case JAVA_DRIVER4_NATIVE:
+                return new ValidatingStatement(settings.getJavaDriverV4Client().prepare(cql), null, incLb, incUb);
+            case JAVA_DRIVER_NATIVE:
+            case SIMPLE_NATIVE:
+                return new ValidatingStatement(settings.getJavaDriverClient().prepare(cql), null, incLb, incUb);
+            case THRIFT:
+            case THRIFT_SMART:
+                ThriftClient tclient = settings.getThriftClient();
+                try {
+                    Integer thriftId = tclient.prepare_cql3_query(cql, Compression.NONE);
+                    return new ValidatingStatement(null, thriftId, incLb, incUb);
+                } catch (TException e) {
+                    throw new RuntimeException(e);
+                }
+            default:
+                throw new RuntimeException("Unknown client type: " + settings.mode.api);
         }
     }
 }

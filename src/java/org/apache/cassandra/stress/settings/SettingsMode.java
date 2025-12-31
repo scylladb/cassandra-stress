@@ -26,10 +26,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import com.datastax.driver.core.AuthProvider;
-import com.datastax.driver.core.PlainTextAuthProvider;
-import com.datastax.driver.core.ProtocolOptions;
-import com.datastax.driver.core.ProtocolVersion;
 import org.apache.cassandra.stress.util.ResultLogger;
 
 public class SettingsMode implements Serializable
@@ -42,13 +38,12 @@ public class SettingsMode implements Serializable
 
     public final String username;
     public final String password;
-    public final String authProviderClassname;
     public final AuthProvider authProvider;
 
     public final Integer maxPendingPerConnection;
     public final Integer connectionsPerHost;
 
-    private final String compression;
+    private final ProtocolCompression compression;
 
 
     public SettingsMode(GroupedOptions options)
@@ -64,40 +59,23 @@ public class SettingsMode implements Serializable
             } else {
                 protocolVersion = ProtocolVersion.fromInt(Integer.parseInt(opts.protocolVersion.value()));
             }
-            api = opts.mode().displayPrefix.equals("native") ? ConnectionAPI.JAVA_DRIVER_NATIVE : ConnectionAPI.THRIFT;
+            switch (opts.mode().displayPrefix) {
+                case "thrift":
+                    api = ConnectionAPI.THRIFT;
+                    break;
+                case "4x":
+                    api = ConnectionAPI.JAVA_DRIVER4_NATIVE;
+                    break;
+                default:
+                    api = ConnectionAPI.JAVA_DRIVER_NATIVE;
+            }
             style = opts.useUnPrepared.setByUser() ? ConnectionStyle.CQL :  ConnectionStyle.CQL_PREPARED;
-            compression = ProtocolOptions.Compression.valueOf(opts.useCompression.value().toUpperCase()).name();
+            compression = ProtocolCompression.valueOf(opts.useCompression.value().toUpperCase());
             username = opts.user.value();
             password = opts.password.value();
             maxPendingPerConnection = opts.maxPendingPerConnection.value().isEmpty() ? null : Integer.valueOf(opts.maxPendingPerConnection.value());
             connectionsPerHost = opts.connectionsPerHost.value().isEmpty() ? null : Integer.valueOf(opts.connectionsPerHost.value());
-            authProviderClassname = opts.authProvider.value();
-            if (authProviderClassname != null)
-            {
-                try
-                {
-                    Class<?> clazz = Class.forName(authProviderClassname);
-                    if (!AuthProvider.class.isAssignableFrom(clazz))
-                        throw new IllegalArgumentException(clazz + " is not a valid auth provider");
-                    // check we can instantiate it
-                    if (PlainTextAuthProvider.class.equals(clazz))
-                    {
-                        authProvider = (AuthProvider) clazz.getConstructor(String.class, String.class)
-                            .newInstance(username, password);
-                    } else
-                    {
-                        authProvider = (AuthProvider) clazz.newInstance();
-                    }
-                }
-                catch (Exception e)
-                {
-                    throw new IllegalArgumentException("Invalid auth provider class: " + opts.authProvider.value(), e);
-                }
-            }
-            else
-            {
-                authProvider = null;
-            }
+            authProvider = new AuthProvider(opts.authProvider.value(), username, password);
         }
         else if (options instanceof Cql3SimpleNativeOptions)
         {
@@ -106,11 +84,10 @@ public class SettingsMode implements Serializable
             protocolVersion = ProtocolVersion.DEFAULT;
             api = ConnectionAPI.SIMPLE_NATIVE;
             style = opts.usePrepared.setByUser() ? ConnectionStyle.CQL_PREPARED : ConnectionStyle.CQL;
-            compression = ProtocolOptions.Compression.NONE.name();
+            compression = ProtocolCompression.NONE;
             username = null;
             password = null;
             authProvider = null;
-            authProviderClassname = null;
             maxPendingPerConnection = null;
             connectionsPerHost = null;
         }
@@ -121,10 +98,9 @@ public class SettingsMode implements Serializable
             cqlVersion = CqlVersion.NOCQL;
             api = opts.smart.setByUser() ? ConnectionAPI.THRIFT_SMART : ConnectionAPI.THRIFT;
             style = ConnectionStyle.THRIFT;
-            compression = ProtocolOptions.Compression.NONE.name();
+            compression = ProtocolCompression.NONE;
             username = opts.user.value();
             password = opts.password.value();
-            authProviderClassname = null;
             authProvider = null;
             maxPendingPerConnection = null;
             connectionsPerHost = null;
@@ -133,9 +109,9 @@ public class SettingsMode implements Serializable
             throw new IllegalStateException();
     }
 
-    public ProtocolOptions.Compression compression()
+    public ProtocolCompression compression()
     {
-        return ProtocolOptions.Compression.valueOf(compression);
+        return compression;
     }
 
     // Option Declarations
@@ -143,6 +119,15 @@ public class SettingsMode implements Serializable
     private static final class Cql3NativeOptions extends Cql3Options
     {
         final OptionSimple mode = new OptionSimple("native", "", null, "", true);
+        OptionSimple mode()
+        {
+            return mode;
+        }
+    }
+
+    private static final class Cql3NativeV4Options extends Cql3Options
+    {
+        final OptionSimple mode = new OptionSimple("4x", "", null, "", true);
         OptionSimple mode()
         {
             return mode;
@@ -219,7 +204,7 @@ public class SettingsMode implements Serializable
         out.printf("  Protocol Version: %s%n", protocolVersion);
         out.printf("  Username: %s%n", username);
         out.printf("  Password: %s%n", (password==null?password:"*suppressed*"));
-        out.printf("  Auth Provide Class: %s%n", authProviderClassname);
+        out.printf("  Auth Provide Class: %s%n", authProvider == null ? "none" : authProvider.getClassName());
         out.printf("  Max Pending Per Connection: %d%n", maxPendingPerConnection);
         out.printf("  Connections Per Host: %d%n", connectionsPerHost);
         out.printf("  Compression: %s%n", compression);
@@ -235,11 +220,12 @@ public class SettingsMode implements Serializable
             Cql3NativeOptions opts = new Cql3NativeOptions();
             opts.accept("cql3");
             opts.accept("native");
+            opts.accept("4x");
             opts.accept("prepared");
             return new SettingsMode(opts);
         }
 
-        GroupedOptions options = GroupedOptions.select(params, new ThriftOptions(), new Cql3NativeOptions(), new Cql3SimpleNativeOptions());
+        GroupedOptions options = GroupedOptions.select(params, new ThriftOptions(), new Cql3NativeOptions(), new Cql3NativeV4Options(), new Cql3SimpleNativeOptions());
         if (options == null)
         {
             printHelp();
@@ -251,7 +237,7 @@ public class SettingsMode implements Serializable
 
     public static void printHelp()
     {
-        GroupedOptions.printOptions(System.out, "-mode", new ThriftOptions(), new Cql3NativeOptions(), new Cql3SimpleNativeOptions());
+        GroupedOptions.printOptions(System.out, "-mode", new ThriftOptions(), new Cql3NativeOptions(), new Cql3NativeV4Options(), new Cql3SimpleNativeOptions());
     }
 
     public static Runnable helpPrinter()

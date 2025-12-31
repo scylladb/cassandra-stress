@@ -27,14 +27,17 @@ import java.util.*;
 
 import com.datastax.driver.core.exceptions.AlreadyExistsException;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
+import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.thrift.*;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.stress.StressProfile;
 
-public class SettingsSchema implements Serializable {
+public class SettingsSchema implements Serializable
+{
 
-    public static final String DEFAULT_VALIDATOR = "BytesType";
+    public static final String DEFAULT_VALIDATOR  = "BytesType";
 
     private final String replicationStrategy;
     private final Map<String, String> replicationStrategyOptions;
@@ -65,46 +68,64 @@ public class SettingsSchema implements Serializable {
         cmd_type = command.type;
     }
 
-    public void createKeySpaces(StressSettings settings) {
-        if (settings.mode.api != ConnectionAPI.JAVA_DRIVER_NATIVE) {
-            createKeySpacesThrift(settings);
-        } else {
-            createKeySpacesNative(settings);
+    public void createKeySpaces(StressSettings settings)
+    {
+        switch (settings.mode.api) {
+            case THRIFT:
+            case THRIFT_SMART:
+                createKeySpacesThrift(settings);
+                break;
+            default:
+                createKeySpacesNative(settings);
+                break;
         }
     }
 
     /**
      * Create Keyspace with Standard and Super/Counter column families
      */
-    public void createKeySpacesNative(StressSettings settings) {
+    public void createKeySpacesNative(StressSettings settings)
+    {
 
-        JavaDriverClient client = settings.getJavaDriverClient(false);
+        QueryExecutor client;
+        if (settings.mode.api == ConnectionAPI.JAVA_DRIVER4_NATIVE) {
+            client = (QueryExecutor) settings.getJavaDriverV4Client(false);
+        } else {
+            client = (QueryExecutor) settings.getJavaDriverClient(false);
+        }
 
-        try {
+        try
+        {
             //Keyspace
             client.execute(createKeyspaceStatementCQL3(), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
 
-            client.execute("USE \"" + keyspace + "\"", org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
+            client.execute("USE \""+keyspace+"\"", org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
 
             //Add standard1
             client.execute(createStandard1StatementCQL3(settings), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
 
 
-            if (cmd_type == Command.COUNTER_WRITE) {
+            if (cmd_type == Command.COUNTER_WRITE)
+            {
                 //Add counter1
                 client.execute(createCounter1StatementCQL3(settings), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
             }
 
             System.out.println(String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
             Thread.sleep(settings.node.nodes.size() * 1000L); // seconds
-        } catch (AlreadyExistsException e) {
+        }
+        catch (AlreadyExistsException | shaded.com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e)
+        {
             //Ok.
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             throw new RuntimeException("Encountered exception creating schema", e);
         }
     }
 
-    String createKeyspaceStatementCQL3() {
+    String createKeyspaceStatementCQL3()
+    {
         StringBuilder b = new StringBuilder();
 
         //Create Keyspace

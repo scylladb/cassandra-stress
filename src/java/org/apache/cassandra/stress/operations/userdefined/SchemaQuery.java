@@ -28,14 +28,15 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import org.apache.cassandra.db.ConsistencyLevel;
+import org.apache.cassandra.stress.core.BoundStatement;
+import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.generate.*;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ThriftClient;
 import org.apache.cassandra.thrift.CqlResult;
 import org.apache.cassandra.thrift.ThriftConversion;
@@ -54,8 +55,10 @@ public class SchemaQuery extends SchemaStatement
 
     public SchemaQuery(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, Integer thriftId, PreparedStatement statement, ArgSelect argSelect)
     {
-        super(timer, settings, new DataSpec(generator, seedManager, new DistributionFixed(1), settings.insert.rowPopulationRatio.get(), argSelect == ArgSelect.MULTIROW ? statement.getVariables().size() : 1), statement,
-              statement.getVariables().asList().stream().map(d -> d.getName()).collect(Collectors.toList()), thriftId);
+        super(timer,
+            settings,
+            new DataSpec(generator, seedManager, new DistributionFixed(1), settings.insert.rowPopulationRatio.get(), argSelect == ArgSelect.MULTIROW ? statement.getVariables().size() : 1),
+            statement, statement.getColumnNames(), thriftId);
         this.argSelect = argSelect;
         randomBuffer = new Object[argumentIndex.length][argumentIndex.length];
     }
@@ -71,7 +74,25 @@ public class SchemaQuery extends SchemaStatement
 
         public boolean run() throws Exception
         {
-            ResultSet rs = client.getSession().execute(bindArgs());
+            ResultSet rs = client.getSession().execute(bindArgs().ToV3Value());
+            rowCount = rs.all().size();
+            partitionCount = Math.min(1, rowCount);
+            return true;
+        }
+    }
+
+    private class JavaDriverV4Run extends Runner
+    {
+        final JavaDriverV4Client client;
+
+        private JavaDriverV4Run(JavaDriverV4Client client)
+        {
+            this.client = client;
+        }
+
+        public boolean run() throws Exception
+        {
+            shaded.com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bindArgs().ToV4Value());
             rowCount = rs.all().size();
             partitionCount = Math.min(1, rowCount);
             return true;
@@ -156,6 +177,12 @@ public class SchemaQuery extends SchemaStatement
     public void run(JavaDriverClient client) throws IOException
     {
         timeWithRetry(new JavaDriverRun(client));
+    }
+
+    @Override
+    public void run(JavaDriverV4Client client) throws IOException
+    {
+        timeWithRetry(new JavaDriverV4Run(client));
     }
 
     @Override
