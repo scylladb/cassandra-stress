@@ -87,7 +87,7 @@ wget https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cass
 wget https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz.sha256
 ```
 
-**Verify the download using \`sha256sum\`:**
+**Verify the download using `sha256sum`:**
 
 ``` shell
 sha256sum -c cassandra-stress-3.17.0-bin.tar.gz.sha256
