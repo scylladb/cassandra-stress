@@ -56,7 +56,7 @@ docker pull scylladb/cassandra-stress:3.17.0
 docker run --rm scylladb/cassandra-stress:3.17.0 <commands>
 ```
 
-#### Performance Penatly
+#### Performance Penalty
 
 When running in a Docker container, you might experience a performance penalty due to the containerization overhead. To mitigate this, you can use the `--network=host` option to run the container in the host network namespace. This option allows the container to share the host's network stack, which can improve performance.
 `--security-opt seccomp=unconfined` allow unrestricted system calls inside the container mainly `ioctl`, `iopl` and `clone`.
