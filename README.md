@@ -73,14 +73,14 @@ releases.
 **Prerequisite**: Ensure that Java Runtime Environment (JRE) version 11
 or newer is installed on your system.
 
-**Using \`curl\`:**
+**Using `curl`:**
 
 ``` shell
 curl -LO https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz
 curl -LO https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz.sha256
 ```
 
-**Using \`wget\`:**
+**Using `wget`:**
 
 ``` shell
 wget https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz
