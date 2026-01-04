@@ -17,7 +17,7 @@ import shaded.com.datastax.oss.driver.internal.core.util.Strings;
 import shaded.com.datastax.oss.driver.shaded.netty.util.concurrent.FastThreadLocal;
 
 public class TimestampCodec implements TypeCodec<Date> {
-  private static GenericType<Date> DATE_TYPE = GenericType.of(Date.class);
+  private static final GenericType<Date> DATE_TYPE = GenericType.of(Date.class);
 
   private static final String[] DATE_STRING_PATTERNS = new String[]{"yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm:ss.SSS", "yyyy-MM-dd'T'HH:mmX", "yyyy-MM-dd'T'HH:mmXX", "yyyy-MM-dd'T'HH:mmXXX", "yyyy-MM-dd'T'HH:mm:ssX", "yyyy-MM-dd'T'HH:mm:ssXX", "yyyy-MM-dd'T'HH:mm:ssXXX", "yyyy-MM-dd'T'HH:mm:ss.SSSX", "yyyy-MM-dd'T'HH:mm:ss.SSSXX", "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", "yyyy-MM-dd'T'HH:mm z", "yyyy-MM-dd'T'HH:mm:ss z", "yyyy-MM-dd'T'HH:mm:ss.SSS z", "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm:ss.SSS", "yyyy-MM-dd HH:mmX", "yyyy-MM-dd HH:mmXX", "yyyy-MM-dd HH:mmXXX", "yyyy-MM-dd HH:mm:ssX", "yyyy-MM-dd HH:mm:ssXX", "yyyy-MM-dd HH:mm:ssXXX", "yyyy-MM-dd HH:mm:ss.SSSX", "yyyy-MM-dd HH:mm:ss.SSSXX", "yyyy-MM-dd HH:mm:ss.SSSXXX", "yyyy-MM-dd HH:mm z", "yyyy-MM-dd HH:mm:ss z", "yyyy-MM-dd HH:mm:ss.SSS z", "yyyy-MM-dd", "yyyy-MM-ddX", "yyyy-MM-ddXX", "yyyy-MM-ddXXX", "yyyy-MM-dd z"};
   private final FastThreadLocal<SimpleDateFormat> parser;
