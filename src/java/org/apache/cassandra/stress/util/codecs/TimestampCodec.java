@@ -91,7 +91,6 @@ public class TimestampCodec implements TypeCodec<Date> {
         SimpleDateFormat parser = (SimpleDateFormat)this.parser.get();
         TimeZone timeZone = parser.getTimeZone();
         ParsePosition pos = new ParsePosition(0);
-        parser.setTimeZone(timeZone);
 
         for(String pattern : DATE_STRING_PATTERNS) {
           parser.applyPattern(pattern);
