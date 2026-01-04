@@ -38,9 +38,9 @@ public class TimestampCodec implements TypeCodec<Date> {
     };
     this.formatter = new FastThreadLocal<SimpleDateFormat>() {
       protected SimpleDateFormat initialValue() {
-        SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-        parser.setTimeZone(TimeZone.getTimeZone(defaultZoneId));
-        return parser;
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+        formatter.setTimeZone(TimeZone.getTimeZone(defaultZoneId));
+        return formatter;
       }
     };
   }
