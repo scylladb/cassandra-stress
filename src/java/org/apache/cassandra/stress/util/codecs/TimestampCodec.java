@@ -82,7 +82,7 @@ public class TimestampCodec implements TypeCodec<Date> {
       if (Strings.isLongLiteral(unquoted)) {
         try {
           return new Date(Long.parseLong(unquoted));
-        } catch (NumberFormatException var15) {
+        } catch (NumberFormatException e) {
           throw new IllegalArgumentException(String.format("Cannot parse timestamp value from \"%s\"", value));
         }
       } else if (!Strings.isQuoted(value)) {
