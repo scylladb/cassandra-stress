@@ -148,6 +148,7 @@ class SettingsMisc implements Serializable
         Map<String, String> translatedStrings = Stream.of(new String[][] {
             {"CassandraVersion", "Version: "},
             {"JavaDriverVersion", "scylla-java-driver: "},
+            {"Java4DriverVersion", "scylla-java-driver-4x: "},
         }).collect(Collectors.toMap(data -> data[0], data->data[1]));
 
         StringBuilder versionInfo = new StringBuilder();
