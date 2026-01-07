@@ -1028,6 +1028,7 @@
         <propertyfile file="${version.properties.dir}/version.properties">
             <entry key="CassandraVersion" value="${version}" />
             <entry key="JavaDriverVersion" value="${base.javaDriverVersion}" />
+            <entry key="Java4DriverVersion" value="${base.java4DriverVersion}" />
         </propertyfile>
     </target>
 
