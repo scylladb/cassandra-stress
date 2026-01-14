@@ -215,6 +215,10 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         CqlSessionBuilder sessionBuilder = CqlSession.builder();
         configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
 
+        // Set request timeout to 12 seconds to match driver 3.x behavior
+        // Driver 4.x defaults to 2 seconds which is too short for schema operations
+        configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofSeconds(12));
+
         if (protocolVersion != null)
             configBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
 
@@ -298,6 +302,10 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
             CqlSessionBuilder sessionBuilder = CqlSession.builder();
 
             configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
+
+            // Set request timeout to 12 seconds to match driver 3.x behavior
+            configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofSeconds(12));
+
             if (protocolVersion != null)
                 configBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
             if (maxPendingPerConnection != null)
