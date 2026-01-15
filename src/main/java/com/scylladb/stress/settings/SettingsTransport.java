@@ -1,0 +1,107 @@
+package com.scylladb.stress.settings;
+/*
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+ */
+
+
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import com.scylladb.utils.EncryptionOptions;
+import com.scylladb.stress.util.ResultLogger;
+
+public class SettingsTransport implements Serializable {
+    private final TOptions options;
+
+    public SettingsTransport(TOptions options) {
+        this.options = options;
+    }
+
+    public EncryptionOptions.ClientEncryptionOptions getEncryptionOptions() {
+        EncryptionOptions.ClientEncryptionOptions encOptions = new EncryptionOptions.ClientEncryptionOptions();
+        if (options.trustStore.present()) {
+            encOptions.enabled = true;
+            encOptions.truststore = options.trustStore.value();
+            encOptions.truststore_password = options.trustStorePw.value();
+            if (options.keyStore.present()) {
+                encOptions.keystore = options.keyStore.value();
+                encOptions.keystore_password = options.keyStorePw.value();
+            } else {
+                // mandatory for SSLFactory.createSSLContext(), see CASSANDRA-9325
+                encOptions.keystore = encOptions.truststore;
+                encOptions.keystore_password = encOptions.truststore_password;
+            }
+            encOptions.algorithm = options.alg.value();
+            encOptions.protocol = options.protocol.value();
+            encOptions.cipher_suites = options.ciphers.value().split(",");
+            encOptions.hostname_verification = Boolean.parseBoolean(options.hostnameVerification.value());
+        }
+        return encOptions;
+    }
+
+    // Option Declarations
+
+    static class TOptions extends GroupedOptions implements Serializable {
+        final OptionSimple trustStore = new OptionSimple("truststore=", ".*", null, "SSL: full path to truststore", false);
+        final OptionSimple trustStorePw = new OptionSimple("truststore-password=", ".*", null, "SSL: truststore password", false);
+        final OptionSimple keyStore = new OptionSimple("keystore=", ".*", null, "SSL: full path to keystore", false);
+        final OptionSimple keyStorePw = new OptionSimple("keystore-password=", ".*", null, "SSL: keystore password", false);
+        final OptionSimple protocol = new OptionSimple("ssl-protocol=", ".*", "TLS", "SSL: connection protocol to use", false);
+        final OptionSimple alg = new OptionSimple("ssl-alg=", ".*", "SunX509", "SSL: algorithm", false);
+        final OptionSimple storeType = new OptionSimple("store-type=", ".*", "JKS", "SSL: keystore format", false);
+        final OptionSimple ciphers = new OptionSimple("ssl-ciphers=", ".*", "TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_256_CBC_SHA", "SSL: comma delimited list of encryption suites to use", false);
+        final OptionSimple hostnameVerification = new OptionSimple("hostname-verification=", ".*", "false", "SSL: enable hostname verification in Java Driver", false);
+
+        @Override
+        public List<? extends Option> options() {
+            return Arrays.asList(trustStore, trustStorePw, keyStore, keyStorePw, protocol, alg, storeType, ciphers, hostnameVerification);
+        }
+    }
+
+    // CLI Utility Methods
+    public void printSettings(ResultLogger out) {
+        out.println("  " + options.getOptionAsString());
+    }
+
+    public static SettingsTransport get(Map<String, String[]> clArgs) {
+        String[] params = clArgs.remove("-transport");
+        if (params == null)
+            return new SettingsTransport(new TOptions());
+
+        GroupedOptions options = GroupedOptions.select(params, new TOptions());
+        if (options == null) {
+            printHelp();
+            System.out.println("Invalid -transport options provided, see output for valid options");
+            System.exit(1);
+        }
+        return new SettingsTransport((TOptions) options);
+    }
+
+    public static void printHelp() {
+        GroupedOptions.printOptions(System.out, "-transport", new TOptions());
+    }
+
+    public static Runnable helpPrinter() {
+        return SettingsTransport::printHelp;
+    }
+
+}

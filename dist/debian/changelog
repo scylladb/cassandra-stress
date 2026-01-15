@@ -1,5 +1,0 @@
-cassandra-stress (%version) stable; urgency=low
-
-  * Build DEB and RPM Packages
-
- -- Dusan Malusev <dusan.malusev@scylladb.com>  Mon, 09 Jan 2025 11:15:49 +0000
