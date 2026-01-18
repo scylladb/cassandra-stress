@@ -148,6 +148,7 @@ class SettingsMisc implements Serializable
         Map<String, String> translatedStrings = Stream.of(new String[][] {
             {"CassandraVersion", "Version: "},
             {"JavaDriverVersion", "scylla-java-driver: "},
+            {"Java4DriverVersion", "scylla-java-driver-4x: "},
         }).collect(Collectors.toMap(data -> data[0], data->data[1]));
 
         StringBuilder versionInfo = new StringBuilder();
@@ -205,7 +206,7 @@ class SettingsMisc implements Serializable
     static Runnable helpHelpPrinter()
     {
         return () -> {
-            System.out.println("Usage: ./bin/cassandra-stress help <command|option>");
+            System.out.println("Usage: cassandra-stress help <command|option>");
             System.out.println("Commands:");
             for (Command cmd : Command.values())
                 System.out.println("    " + cmd.names.toString().replaceAll("\\[|\\]", ""));

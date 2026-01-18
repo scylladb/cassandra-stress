@@ -19,20 +19,20 @@
 package org.apache.cassandra.stress.operations.userdefined;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 import javax.naming.OperationNotSupportedException;
 
-import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.PagingState;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.TableMetadata;
+import org.apache.cassandra.stress.core.TableMetadata;
 import com.datastax.driver.core.Token;
 import com.datastax.driver.core.TokenRange;
 import io.netty.util.concurrent.FastThreadLocal;
@@ -43,6 +43,7 @@ import org.apache.cassandra.stress.generate.TokenRangeIterator;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ThriftClient;
 
 public class TokenRangeQuery extends Operation
@@ -79,7 +80,7 @@ public class TokenRangeQuery extends Operation
         if (!columns.equals("*"))
             return columns;
 
-        return String.join(", ", tableMetadata.getColumns().stream().map(ColumnMetadata::getName).collect(Collectors.toList()));
+        return String.join(", ", tableMetadata.getColumnNames());
     }
 
     /**
@@ -92,7 +93,8 @@ public class TokenRangeQuery extends Operation
         public final TokenRange tokenRange;
         public final String query;
         public PagingState pagingState;
-        public Set<Token> partitions = new HashSet<>();
+        public ByteBuffer pagingStateV4;
+        public Set<Object> partitions = new HashSet<>();
 
         public State(TokenRange tokenRange, String query)
         {
@@ -163,7 +165,7 @@ public class TokenRangeQuery extends Operation
             for (Row row : results)
             {
                 // this call will only succeed if we've added token(partition keys) to the query
-                Token partition = row.getPartitionKeyToken();
+                Object partition = row.getPartitionKeyToken();
                 if (!state.partitions.contains(partition))
                 {
                     partitionCount += 1;
@@ -183,11 +185,84 @@ public class TokenRangeQuery extends Operation
         }
     }
 
+    private class JavaDriverV4Run extends Runner
+    {
+        final JavaDriverV4Client client;
+        // v4 exposes the token(...) column name as something like "system.token(pk)" or "token(pk)".
+        // Match case-insensitively and allow optional "system." prefix.
+        private final Pattern TOKEN_COLUMN_NAME = Pattern.compile("(?i)(?:system\\.)?token\\(.*\\)");
+
+        private JavaDriverV4Run(JavaDriverV4Client client)
+        {
+            this.client = client;
+        }
+
+        private shaded.com.datastax.oss.driver.api.core.metadata.token.Token getPartitionKeyToken(shaded.com.datastax.oss.driver.api.core.cql.Row row)
+        {
+            shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinitions metadata = row.getColumnDefinitions();
+            for (int i = 0; i < metadata.size(); i++)
+            {
+                String colName = metadata.get(i).getName().asInternal();
+                if (TOKEN_COLUMN_NAME.matcher(colName).matches())
+                    return row.getToken(i);
+            }
+            throw new IllegalStateException("Unable to locate token(...) column in result set. " +
+                                            "This query must project token(partition_key) without aliasing.");
+        }
+
+        public boolean run() throws Exception
+        {
+            State state = currentState.get();
+            if (state == null)
+            { // start processing a new token range
+                TokenRange range = tokenRangeIterator.next();
+                if (range == null)
+                    return true; // no more token ranges to process
+
+                state = new State(range, buildQuery(range));
+                currentState.set(state);
+            }
+
+            shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder statement = new shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder(state.query);
+            statement.setFetchSize(pageSize);
+
+            if (state.pagingStateV4 != null)
+                statement.setPagingState(state.pagingStateV4);
+
+            shaded.com.datastax.oss.driver.api.core.cql.ResultSet results = client.getSession().execute(statement.build());
+            state.pagingStateV4 = results.getExecutionInfo().getPagingState();
+
+            int remaining = results.getAvailableWithoutFetching();
+            rowCount += remaining;
+
+            for (shaded.com.datastax.oss.driver.api.core.cql.Row row : results)
+            {
+                // this call will only succeed if we've added token(partition keys) to the query
+                Object partition = getPartitionKeyToken(row);
+                if (!state.partitions.contains(partition))
+                {
+                    partitionCount += 1;
+                    state.partitions.add(partition);
+                }
+
+                if (--remaining == 0)
+                    break;
+            }
+
+            if (results.isFullyFetched() || isWarmup)
+            { // no more pages to fetch or just warming up, ready to move on to another token range
+                currentState.set(null);
+            }
+
+            return true;
+        }
+    }
+
     private String buildQuery(TokenRange tokenRange)
     {
         Token start = tokenRange.getStart();
         Token end = tokenRange.getEnd();
-        List<String> pkColumns = tableMetadata.getPartitionKey().stream().map(ColumnMetadata::getName).collect(Collectors.toList());
+        List<String> pkColumns = tableMetadata.getPartitionKeyNames();
         String tokenStatement = String.format("token(%s)", String.join(", ", pkColumns));
 
         StringBuilder ret = new StringBuilder();
@@ -239,6 +314,12 @@ public class TokenRangeQuery extends Operation
     public void run(JavaDriverClient client) throws IOException
     {
         timeWithRetry(new JavaDriverRun(client));
+    }
+
+    @Override
+    public void run(JavaDriverV4Client client) throws IOException
+    {
+        timeWithRetry(new JavaDriverV4Run(client));
     }
 
     @Override

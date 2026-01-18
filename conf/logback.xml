@@ -99,4 +99,9 @@ appender reference in the root level section below.
 
     <logger name="org.apache.cassandra" level="DEBUG"/>
     <logger name="com.thinkaurelius.thrift" level="ERROR"/>
+    <!--
+        Java 4.x throws warning whenever you create DefaultBatchStatement from statements with non-default consistency levels
+        It is cheaper to ignore them, instead of reconstructing whole statement list
+    -->
+    <logger name="com.datastax.driver.core.DefaultBatchStatement" level="ERROR"/>
 </configuration>

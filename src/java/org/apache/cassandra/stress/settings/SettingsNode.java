@@ -29,6 +29,7 @@ import java.util.*;
 
 import com.datastax.driver.core.Host;
 import org.apache.cassandra.stress.util.ResultLogger;
+import shaded.com.datastax.oss.driver.api.core.metadata.Node;
 
 public class SettingsNode implements Serializable
 {
@@ -36,6 +37,7 @@ public class SettingsNode implements Serializable
     public final boolean isWhiteList;
     public final String datacenter;
     public final String rack;
+    public final LoadBalanceType loadBalance;
 
     public SettingsNode(Options options)
     {
@@ -69,6 +71,7 @@ public class SettingsNode implements Serializable
         isWhiteList = options.whitelist.setByUser();
         datacenter = options.datacenter.value();
         rack = options.rack.value();
+        loadBalance = LoadBalanceType.fromString(options.loadBalance.value());
     }
 
     public Set<String> resolveAllPermitted(StressSettings settings)
@@ -76,6 +79,10 @@ public class SettingsNode implements Serializable
         Set<String> r = new HashSet<>();
         switch (settings.mode.api)
         {
+            case JAVA_DRIVER4_NATIVE:
+                for (Node host : settings.getJavaDriverV4Client().getSession().getMetadata().getNodes().values())
+                    r.add(host.getBroadcastRpcAddress().get().getHostName());
+                break;
             case THRIFT_SMART:
             case JAVA_DRIVER_NATIVE:
                 if (!isWhiteList)
@@ -143,11 +150,12 @@ public class SettingsNode implements Serializable
         final OptionSimple whitelist = new OptionSimple("whitelist", "", null, "Limit communications to the provided nodes", false);
         final OptionSimple file = new OptionSimple("file=", ".*", null, "Node file (one per line)", false);
         final OptionSimple list = new OptionSimple("", "[^=,]+(,[^=,]+)*", "localhost", "comma delimited list of nodes", false);
+        final OptionSimple loadBalance = new OptionSimple("loadbalance=", ".*", null, "Load balancing strategy: round-robin, dc-aware, or rack-aware", false);
 
         @Override
         public List<? extends Option> options()
         {
-            return Arrays.asList(datacenter, rack, whitelist, file, list);
+            return Arrays.asList(datacenter, rack, whitelist, file, loadBalance, list);
         }
     }
 
@@ -158,6 +166,7 @@ public class SettingsNode implements Serializable
         out.println("  Is White List: " + isWhiteList);
         out.println("  Datacenter: " + datacenter);
         out.println("  Rack: " + rack);
+        out.println("  Load Balance: " + (loadBalance != null ? loadBalance.toString() : "auto"));
     }
 
     public static SettingsNode get(Map<String, String[]> clArgs)
