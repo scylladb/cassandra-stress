@@ -211,7 +211,7 @@ public class StressProfile implements Serializable {
                     throw new IllegalArgumentException("Missing name argument in column spec");
 
                 GeneratorConfig config = new GeneratorConfig(seedStr + name, clustering, size, population);
-                columnConfigs.put(name, config);
+                columnConfigs.put(name.toLowerCase(), config);
             }
         }
     }
@@ -325,10 +325,10 @@ public class StressProfile implements Serializable {
 
                 //Fill in missing column configs
                 for (String colName : metadata.getColumnNames()) {
-                    if (columnConfigs.containsKey(colName))
+                    if (columnConfigs.containsKey(colName.toLowerCase()))
                         continue;
 
-                    columnConfigs.put(colName, new GeneratorConfig(seedStr + colName, null, null, null));
+                    columnConfigs.put(colName.toLowerCase(), new GeneratorConfig(seedStr + colName, null, null, null));
                 }
 
                 tableMetaData = metadata;
@@ -502,22 +502,22 @@ public class StressProfile implements Serializable {
         Iterator<ColumnDefinition> it = cfMetaData.allColumnsInSelectOrder();
         while (it.hasNext()) {
             ColumnDefinition c = it.next();
-            if (!columnConfigs.containsKey(c.name.toString()))
-                columnConfigs.put(c.name.toString(), new GeneratorConfig(seedStr + c.name.toString(), null, null, null));
+            if (!columnConfigs.containsKey(c.name.toString().toLowerCase()))
+                columnConfigs.put(c.name.toString().toLowerCase(), new GeneratorConfig(seedStr + c.name.toString(), null, null, null));
         }
 
         List<Generator> partitionColumns = cfMetaData.partitionKeyColumns().stream()
-                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
+                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString().toLowerCase())))
                 .map(c -> c.getGenerator())
                 .collect(Collectors.toList());
 
         List<Generator> clusteringColumns = cfMetaData.clusteringColumns().stream()
-                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
+                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString().toLowerCase())))
                 .map(c -> c.getGenerator())
                 .collect(Collectors.toList());
 
         List<Generator> regularColumns = com.google.common.collect.Lists.newArrayList(cfMetaData.partitionColumns().selectOrderIterator()).stream()
-                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
+                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString().toLowerCase())))
                 .map(c -> c.getGenerator())
                 .collect(Collectors.toList());
 
@@ -818,7 +818,7 @@ public class StressProfile implements Serializable {
                                List<ColumnInfo> unsupportedColumns, List<ColumnInfo> unsupportedCriticalColumns) {
             ColumnInfo column = new ColumnInfo(metadata.getName(), metadata.getType().getName().toLowerCase(),
                     metadata.getType().getCollectionElementTypeName().toLowerCase(),
-                    columnConfigs.get(metadata.getName()));
+                    columnConfigs.get(metadata.getName().toLowerCase()));
             if (!metadata.getType().isSupported()) {
                 if (isCritical) {
                     unsupportedCriticalColumns.add(column);
@@ -925,7 +925,7 @@ public class StressProfile implements Serializable {
         Iterator<Map.Entry<String, V>> iter = map.entrySet().iterator();
         while (iter.hasNext()) {
             Map.Entry<String, V> e = iter.next();
-            if (!e.getKey().equalsIgnoreCase(e.getKey())) {
+            if (!e.getKey().equals(e.getKey().toLowerCase())) {
                 reinsert.add(e);
                 iter.remove();
             }
