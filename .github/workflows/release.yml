@@ -45,6 +45,9 @@ jobs:
     needs: ['tag', 'docker', 'build']
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v7
         with:
           name: cassandra-stress-java21
@@ -68,3 +71,18 @@ jobs:
             cassandra-stress-src-java21.tar.gz.sha512
             cassandra-stress-java21_${{ needs.tag.outputs.version }}_all.deb
             cassandra-stress-java21-${{ needs.tag.outputs.version }}-1.noarch.rpm
+      - name: "Build Changelog"
+        id: build_changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          configuration: ".github/changelog-config.json"
+          outputFile: CHANGELOG.md
+          ignorePreReleases: false
+      - name: "Commit Changelog"
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: update CHANGELOG.md for v${{ needs.tag.outputs.version }}"
+          branch: master
+          commit_options: '--no-verify --signoff'
+          file_pattern: CHANGELOG.md
