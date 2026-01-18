@@ -21,10 +21,10 @@
     "ignore"
   ],
   "sort": "ASC",
-  "template": "#{{CHANGELOG}}#{{UNCATEGORIZED}}",
+  "template": "#{{CHANGELOG}}\n\n#{{UNCATEGORIZED}}",
   "pr_template": "- #{{TITLE}} by @#{{AUTHOR}} in ##{{NUMBER}}",
   "empty_template": "- No changes",
-  "category_template": "### #{{TITLE}}\n\n#{{BODY}}\n",
+  "category_template": "## #{{TITLE}}\n\n#{{BODY}}\n",
   "label_extractor": [
     {
       "pattern": "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\\(.+\\))?!?:",

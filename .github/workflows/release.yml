@@ -83,6 +83,6 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs: update CHANGELOG.md for v${{ needs.tag.outputs.version }}"
-          branch: master
+          branch: ${{ github.event.repository.default_branch }}
           commit_options: '--no-verify --signoff'
           file_pattern: CHANGELOG.md
