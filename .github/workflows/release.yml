@@ -68,17 +68,3 @@ jobs:
             cassandra-stress-src-java21.tar.gz.sha512
             cassandra-stress-java21_${{ needs.tag.outputs.version }}_all.deb
             cassandra-stress-java21-${{ needs.tag.outputs.version }}-1.noarch.rpm
-      - name: "Generate release changelog"
-        uses: heinrichreimer/action-github-changelog-generator@v2.4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          author: true
-          releaseUrl: ${{ steps.release.outputs.url }}
-          issues: false
-          pullRequests: true
-      - uses: stefanzweifel/git-auto-commit-action@v7
-        with:
-          commit_message: "Update CHANGELOG.md"
-          branch: master
-          commit_options: '--no-verify --signoff'
-          file_pattern: CHANGELOG.md
