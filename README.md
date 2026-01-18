@@ -56,10 +56,10 @@ docker pull scylladb/cassandra-stress:3.17.0
 docker run --rm scylladb/cassandra-stress:3.17.0 <commands>
 ```
 
-#### Performance Penatly
+#### Performance Penalty
 
 When running in a Docker container, you might experience a performance penalty due to the containerization overhead. To mitigate this, you can use the `--network=host` option to run the container in the host network namespace. This option allows the container to share the host's network stack, which can improve performance.
-`--security-opt seccomp=unconfined` allow unrestricted system calls inside the container maily `ioctl`, `iopl` and `clone`.
+`--security-opt seccomp=unconfined` allow unrestricted system calls inside the container mainly `ioctl`, `iopl` and `clone`.
 
 ``` shell
 docker run --rm --network=host --security-opt seccomp=unconfined scylladb/cassandra-stress <commands>
@@ -73,21 +73,21 @@ releases.
 **Prerequisite**: Ensure that Java Runtime Environment (JRE) version 11
 or newer is installed on your system.
 
-**Using \`curl\`:**
+**Using `curl`:**
 
 ``` shell
 curl -LO https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz
 curl -LO https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz.sha256
 ```
 
-**Using \`wget\`:**
+**Using `wget`:**
 
 ``` shell
 wget https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz
 wget https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz.sha256
 ```
 
-**Verify the download using \`sha256sum\`:**
+**Verify the download using `sha256sum`:**
 
 ``` shell
 sha256sum -c cassandra-stress-3.17.0-bin.tar.gz.sha256
