@@ -21,9 +21,10 @@
     "ignore"
   ],
   "sort": "ASC",
-  "template": "#{{CHANGELOG}}\n\n<details>\n<summary>Uncategorized</summary>\n\n#{{UNCATEGORIZED}}\n</details>",
+  "template": "#{{CHANGELOG}}#{{UNCATEGORIZED}}",
   "pr_template": "- #{{TITLE}} by @#{{AUTHOR}} in ##{{NUMBER}}",
-  "empty_template": "- no changes",
+  "empty_template": "- No changes",
+  "category_template": "### #{{TITLE}}\n\n#{{BODY}}\n",
   "label_extractor": [
     {
       "pattern": "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\\(.+\\))?!?:",

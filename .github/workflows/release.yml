@@ -80,7 +80,7 @@ jobs:
           outputFile: CHANGELOG.md
           ignorePreReleases: false
       - name: "Commit Changelog"
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs: update CHANGELOG.md for v${{ needs.tag.outputs.version }}"
           branch: master
