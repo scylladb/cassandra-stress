@@ -79,8 +79,8 @@ public class SettingsNode implements Serializable
             try
             {
                 int value = Integer.parseInt(options.usedHostsPerRemoteDc.value());
-                if (value < 0)
-                    throw new IllegalArgumentException("remote-dc must be a positive integer");
+                if (value <= 0)
+                    throw new IllegalArgumentException("remote-dc must be a positive integer greater than zero");
                 usedHostsPerRemoteDc = value;
             }
             catch (NumberFormatException e)
