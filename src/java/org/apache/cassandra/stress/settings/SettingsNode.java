@@ -38,6 +38,7 @@ public class SettingsNode implements Serializable
     public final String datacenter;
     public final String rack;
     public final LoadBalanceType loadBalance;
+    public final Integer usedHostsPerRemoteDc;
 
     public SettingsNode(Options options)
     {
@@ -72,6 +73,9 @@ public class SettingsNode implements Serializable
         datacenter = options.datacenter.value();
         rack = options.rack.value();
         loadBalance = LoadBalanceType.fromString(options.loadBalance.value());
+        usedHostsPerRemoteDc = options.usedHostsPerRemoteDc.setByUser() 
+            ? Integer.parseInt(options.usedHostsPerRemoteDc.value()) 
+            : null;
     }
 
     public Set<String> resolveAllPermitted(StressSettings settings)
@@ -151,11 +155,12 @@ public class SettingsNode implements Serializable
         final OptionSimple file = new OptionSimple("file=", ".*", null, "Node file (one per line)", false);
         final OptionSimple list = new OptionSimple("", "[^=,]+(,[^=,]+)*", "localhost", "comma delimited list of nodes", false);
         final OptionSimple loadBalance = new OptionSimple("loadbalance=", ".*", null, "Load balancing strategy: round-robin, dc-aware, or rack-aware", false);
+        final OptionSimple usedHostsPerRemoteDc = new OptionSimple("remote-dc=", "[0-9]+", null, "Number of hosts from remote DCs to use for failover (used with dc-aware load balancing)", false);
 
         @Override
         public List<? extends Option> options()
         {
-            return Arrays.asList(datacenter, rack, whitelist, file, loadBalance, list);
+            return Arrays.asList(datacenter, rack, whitelist, file, loadBalance, usedHostsPerRemoteDc, list);
         }
     }
 
@@ -167,6 +172,7 @@ public class SettingsNode implements Serializable
         out.println("  Datacenter: " + datacenter);
         out.println("  Rack: " + rack);
         out.println("  Load Balance: " + (loadBalance != null ? loadBalance.toString() : "auto"));
+        out.println("  Remote DC Hosts: " + (usedHostsPerRemoteDc != null ? usedHostsPerRemoteDc : "disabled"));
     }
 
     public static SettingsNode get(Map<String, String[]> clArgs)
