@@ -62,4 +62,23 @@ public class SettingsNodeTest
         assertNotNull("usedHostsPerRemoteDc should not be null", settings.usedHostsPerRemoteDc);
         assertEquals("usedHostsPerRemoteDc should be 3", Integer.valueOf(3), settings.usedHostsPerRemoteDc);
     }
+    
+    @Test
+    public void testRemoteDcRejectsZero()
+    {
+        // The regex pattern [1-9][0-9]* rejects zero and leading zeros
+        Map<String, String[]> clArgs = new HashMap<>();
+        clArgs.put("-node", new String[]{"remote-dc=0"});
+        
+        // This should fail during option parsing before SettingsNode is created
+        try
+        {
+            SettingsNode.get(clArgs);
+            fail("Should have rejected remote-dc=0");
+        }
+        catch (Exception e)
+        {
+            // Expected - option parsing should fail
+        }
+    }
 }

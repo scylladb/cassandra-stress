@@ -73,9 +73,25 @@ public class SettingsNode implements Serializable
         datacenter = options.datacenter.value();
         rack = options.rack.value();
         loadBalance = LoadBalanceType.fromString(options.loadBalance.value());
-        usedHostsPerRemoteDc = options.usedHostsPerRemoteDc.setByUser() 
-            ? Integer.parseInt(options.usedHostsPerRemoteDc.value()) 
-            : null;
+        
+        if (options.usedHostsPerRemoteDc.setByUser())
+        {
+            try
+            {
+                int value = Integer.parseInt(options.usedHostsPerRemoteDc.value());
+                if (value < 0)
+                    throw new IllegalArgumentException("remote-dc must be a positive integer");
+                usedHostsPerRemoteDc = value;
+            }
+            catch (NumberFormatException e)
+            {
+                throw new IllegalArgumentException("remote-dc must be a valid integer: " + options.usedHostsPerRemoteDc.value(), e);
+            }
+        }
+        else
+        {
+            usedHostsPerRemoteDc = null;
+        }
     }
 
     public Set<String> resolveAllPermitted(StressSettings settings)
@@ -155,7 +171,7 @@ public class SettingsNode implements Serializable
         final OptionSimple file = new OptionSimple("file=", ".*", null, "Node file (one per line)", false);
         final OptionSimple list = new OptionSimple("", "[^=,]+(,[^=,]+)*", "localhost", "comma delimited list of nodes", false);
         final OptionSimple loadBalance = new OptionSimple("loadbalance=", ".*", null, "Load balancing strategy: round-robin, dc-aware, or rack-aware", false);
-        final OptionSimple usedHostsPerRemoteDc = new OptionSimple("remote-dc=", "[0-9]+", null, "Number of hosts from remote DCs to use for failover (used with dc-aware load balancing)", false);
+        final OptionSimple usedHostsPerRemoteDc = new OptionSimple("remote-dc=", "[1-9][0-9]*", null, "Number of hosts from remote DCs to use for failover (used with dc-aware load balancing)", false);
 
         @Override
         public List<? extends Option> options()
