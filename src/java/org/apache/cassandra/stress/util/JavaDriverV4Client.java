@@ -79,6 +79,7 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
     public final JavaDriverV4SessionBuilder authProvider;
     public final Integer maxPendingPerConnection;
     public final int connectionsPerHost;
+    public final int requestTimeout;
 
     private final ProtocolVersion protocolVersion;
     private final EncryptionOptions.ClientEncryptionOptions encryptionOptions;
@@ -104,6 +105,7 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         this.encryptionOptions = encryptionOptions;
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
         this.connectionsPerHost = settings.mode.connectionsPerHost == null ? 8 : settings.mode.connectionsPerHost;
+        this.requestTimeout = settings.mode.requestTimeout == null ? 12000 : settings.mode.requestTimeout;
 
         int maxThreadCount = 0;
         if (settings.rate.auto)
@@ -215,9 +217,9 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         CqlSessionBuilder sessionBuilder = CqlSession.builder();
         configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
 
-        // Set request timeout to 12 seconds to match driver 3.x behavior
-        // Driver 4.x defaults to 2 seconds which is too short for schema operations
-        configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofSeconds(12));
+        // Set request timeout. Default is 12 seconds to match driver 3.x behavior and allow schema operations.
+        // Driver 4.x defaults to 2 seconds which is too short for schema operations.
+        configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofMillis(requestTimeout));
 
         if (protocolVersion != null)
             configBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
@@ -303,8 +305,8 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
 
             configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
 
-            // Set request timeout to 12 seconds to match driver 3.x behavior
-            configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofSeconds(12));
+            // Set request timeout. Default is 12 seconds to match driver 3.x behavior and allow schema operations.
+            configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofMillis(requestTimeout));
 
             if (protocolVersion != null)
                 configBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
