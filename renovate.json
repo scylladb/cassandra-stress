@@ -20,8 +20,8 @@
     {
       "customType": "regex",
       "datasourceTemplate": "maven",
-      "fileMatch": [
-        "(^|/)build\\.xml$"
+      "managerFilePatterns": [
+        "/(^|/)build\\.xml$/"
       ],
       "depNameTemplate": "com.scylladb:scylla-driver-core",
       "matchStrings": [
