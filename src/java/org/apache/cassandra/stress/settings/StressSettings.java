@@ -92,6 +92,9 @@ public class StressSettings implements Serializable
         this.sendToDaemon = sendToDaemon;
         this.graph = graph;
         this.tokenRange = tokenRange;
+
+        if (!node.clientRoutes.isEmpty() && mode.api != ConnectionAPI.JAVA_DRIVER4_NATIVE)
+            throw new IllegalArgumentException("client-routes requires driver 4.x mode (use -mode cql3 4x)");
     }
 
     private SmartThriftClient tclient;

@@ -39,6 +39,25 @@ public class SettingsNode implements Serializable
     public final String rack;
     public final LoadBalanceType loadBalance;
     public final Integer usedHostsPerRemoteDc;
+    public final List<ClientRouteEntry> clientRoutes;
+
+    public static class ClientRouteEntry implements Serializable
+    {
+        public final String connectionId;
+        public final String connectionAddr;
+
+        public ClientRouteEntry(String connectionId, String connectionAddr)
+        {
+            this.connectionId = connectionId;
+            this.connectionAddr = connectionAddr;
+        }
+
+        @Override
+        public String toString()
+        {
+            return connectionAddr != null ? connectionId + "@" + connectionAddr : connectionId;
+        }
+    }
 
     public SettingsNode(Options options)
     {
@@ -91,6 +110,27 @@ public class SettingsNode implements Serializable
         else
         {
             usedHostsPerRemoteDc = null;
+        }
+
+        if (options.clientRoutes.setByUser())
+        {
+            List<ClientRouteEntry> entries = new ArrayList<>();
+            for (String entry : options.clientRoutes.value().split(","))
+            {
+                String[] parts = entry.split("@", 2);
+                String connectionId = parts[0].trim();
+                if (connectionId.isEmpty())
+                    throw new IllegalArgumentException("client-routes: connectionId must not be empty in entry '" + entry.trim() + "'");
+                String connectionAddr = parts.length > 1 ? parts[1].trim() : null;
+                if (connectionAddr != null && connectionAddr.isEmpty())
+                    throw new IllegalArgumentException("client-routes: connectionAddr must not be empty when '@' is present in entry '" + entry.trim() + "'");
+                entries.add(new ClientRouteEntry(connectionId, connectionAddr));
+            }
+            clientRoutes = Collections.unmodifiableList(entries);
+        }
+        else
+        {
+            clientRoutes = Collections.emptyList();
         }
     }
 
@@ -166,17 +206,18 @@ public class SettingsNode implements Serializable
     public static final class Options extends GroupedOptions
     {
         final OptionSimple datacenter = new OptionSimple("datacenter=", ".*", null, "Datacenter used for DCAwareRoundRobinLoadPolicy", false);
-        final OptionSimple rack = new OptionSimple("rack=", ".*", null, "Rack used for RackAwareRoundRobinLoadPolicy", false); 
+        final OptionSimple rack = new OptionSimple("rack=", ".*", null, "Rack used for RackAwareRoundRobinLoadPolicy", false);
         final OptionSimple whitelist = new OptionSimple("whitelist", "", null, "Limit communications to the provided nodes", false);
         final OptionSimple file = new OptionSimple("file=", ".*", null, "Node file (one per line)", false);
         final OptionSimple list = new OptionSimple("", "[^=,]+(,[^=,]+)*", "localhost", "comma delimited list of nodes", false);
         final OptionSimple loadBalance = new OptionSimple("loadbalance=", ".*", null, "Load balancing strategy: round-robin, dc-aware, or rack-aware", false);
         final OptionSimple usedHostsPerRemoteDc = new OptionSimple("remote-dc=", "[1-9][0-9]*", null, "Number of hosts from remote DCs to use for failover (used with dc-aware load balancing)", false);
+        final OptionSimple clientRoutes = new OptionSimple("client-routes=", ".+", null, "Comma-separated client routes: connId[@addr[:port]],... (driver 4.x only)", false);
 
         @Override
         public List<? extends Option> options()
         {
-            return Arrays.asList(datacenter, rack, whitelist, file, loadBalance, usedHostsPerRemoteDc, list);
+            return Arrays.asList(datacenter, rack, whitelist, file, loadBalance, usedHostsPerRemoteDc, clientRoutes, list);
         }
     }
 
@@ -189,6 +230,7 @@ public class SettingsNode implements Serializable
         out.println("  Rack: " + rack);
         out.println("  Load Balance: " + (loadBalance != null ? loadBalance.toString() : "auto"));
         out.println("  Remote DC Hosts: " + (usedHostsPerRemoteDc != null ? usedHostsPerRemoteDc : "disabled"));
+        out.println("  Client Routes: " + (clientRoutes.isEmpty() ? "disabled" : clientRoutes));
     }
 
     public static SettingsNode get(Map<String, String[]> clArgs)
