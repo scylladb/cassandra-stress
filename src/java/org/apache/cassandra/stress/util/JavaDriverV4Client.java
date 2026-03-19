@@ -24,12 +24,15 @@ import org.apache.cassandra.security.SSLFactory;
 import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
+import org.apache.cassandra.stress.settings.SettingsNode;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.codecs.TimestampCodec;
 import shaded.com.datastax.oss.driver.api.core.AllNodesFailedException;
 import shaded.com.datastax.oss.driver.api.core.CqlSession;
 import shaded.com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import shaded.com.datastax.oss.driver.api.core.ProtocolVersion;
+import shaded.com.datastax.oss.driver.api.core.config.ClientRouteProxy;
+import shaded.com.datastax.oss.driver.api.core.config.ClientRoutesConfig;
 import shaded.com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import shaded.com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import shaded.com.datastax.oss.driver.api.core.cql.BoundStatementBuilder;
@@ -80,6 +83,7 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
     public final Integer maxPendingPerConnection;
     public final int connectionsPerHost;
     public final int requestTimeout;
+    public final List<SettingsNode.ClientRouteEntry> clientRoutes;
 
     private final ProtocolVersion protocolVersion;
     private final EncryptionOptions.ClientEncryptionOptions encryptionOptions;
@@ -106,6 +110,7 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
         this.connectionsPerHost = settings.mode.connectionsPerHost == null ? 8 : settings.mode.connectionsPerHost;
         this.requestTimeout = settings.mode.requestTimeout == null ? 12000 : settings.mode.requestTimeout;
+        this.clientRoutes = settings.node.clientRoutes;
 
         int maxThreadCount = 0;
         if (settings.rate.auto)
@@ -273,6 +278,8 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         else if (username != null)
             sessionBuilder.withCredentials(username, password);
 
+        applyClientRoutes(sessionBuilder);
+
         sessionBuilder.withConfigLoader(configBuilder.build());
 
         // If we were invoked for discovery, we must not throw on missing local DC.
@@ -360,6 +367,8 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
             else if (username != null)
                 sessionBuilder.withCredentials(username, password);
 
+            applyClientRoutes(sessionBuilder);
+
             sessionBuilder.withConfigLoader(configBuilder.build());
             tmp = sessionBuilder.withCodecRegistry(prepareCodecRegistry()).build();
 
@@ -375,6 +384,17 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         {
             if (tmp != null)
                 tmp.close();
+        }
+    }
+
+    private void applyClientRoutes(CqlSessionBuilder sessionBuilder)
+    {
+        if (!clientRoutes.isEmpty())
+        {
+            ClientRoutesConfig.Builder routesBuilder = ClientRoutesConfig.builder();
+            for (SettingsNode.ClientRouteEntry entry : clientRoutes)
+                routesBuilder.addEndpoint(new ClientRouteProxy(entry.connectionId, entry.connectionAddr));
+            sessionBuilder.withClientRoutesConfig(routesBuilder.build());
         }
     }
 
