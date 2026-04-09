@@ -27,6 +27,17 @@
       "matchStrings": [
         "<property name=\"base.javaDriverVersion\" value=\"(?<currentValue>[\\w+\\.\\-]*)\""
       ]
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "maven",
+      "managerFilePatterns": [
+        "/(^|/)build\\.xml$/"
+      ],
+      "depNameTemplate": "com.scylladb:java-driver-core-shaded",
+      "matchStrings": [
+        "<property name=\"base.java4DriverVersion\" value=\"(?<currentValue>[\\w+\\.\\-]*)\""
+      ]
     }
   ]
 }
