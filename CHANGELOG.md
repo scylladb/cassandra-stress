@@ -1,17 +1,16 @@
-## 🐛 Bug Fixes
-
-- QATOOLS-22 Fix column size specs ignored for uppercase column names in user profiles by @Copilot in #120
-
 ## 🧰 Maintenance
 
-- chore(deps): update actions/github-script action to v8 by @renovate[bot] in #129
-- chore(deps): update eclipse-temurin docker tag by @renovate[bot] in #134
+- chore(deps): update github artifact actions (major) by @renovate[bot] in #137
+- chore(deps): update mikepenz/release-changelog-builder-action action to v6 by @renovate[bot] in #133
+- chore(deps): update dependency com.scylladb:scylla-driver-core to v3.11.5.12 by @renovate[bot] in #135
+- chore(config): migrate Renovate config by @renovate[bot] in #138
+- chore(deps): update docker/build-push-action action to v7 by @renovate[bot] in #139
+- chore(deps): update docker/setup-qemu-action action to v4 by @renovate[bot] in #142
+- chore(deps): update docker/login-action action to v4 by @renovate[bot] in #140
+- chore(deps): update docker/setup-buildx-action action to v4 by @renovate[bot] in #141
+- chore(deps): update dependency com.scylladb:scylla-driver-core to v3.11.5.13 by @renovate[bot] in #143
 
 
 
-- PM-157:Update cassandra-stress.git with github actions for integration and automation with Jira by @dani-tweig in #128
-- README.md: Potential fixes for 4 code quality findings by @mykaul in #122
-- .github/workflows/docker.yml: Potential fix for code scanning alert no. 78: Workflow does not contain permissions by @mykaul in #131
-- src/java/org/apache/cassandra/stress/util/codecs/TimestampCodec.java: Potential fixes for 4 code quality findings by @mykaul in #123
-- Replace failing changelog generator with mikepenz/release-changelog-builder-action by @Copilot in #130
-- Add requestTimeout commandline argument for v3 and v4 drivers by @Copilot in #136
+- Add remote-dc option for multi-DC failover testing by @Copilot in #132
+- Update Jira sync calling workflow by @soyacz in #144
