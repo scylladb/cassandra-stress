@@ -38,6 +38,26 @@
       "matchStrings": [
         "<property name=\"base.java4DriverVersion\" value=\"(?<currentValue>[\\w+\\.\\-]*)\""
       ]
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "maven",
+      "managerFilePatterns": [
+        "/(^|/)build\\.xml$/"
+      ],
+      "depNameTemplate": "com.scylladb:native-protocol",
+      "matchStrings": [
+        "<property name=\"base.java4NativeProtocolVersion\" value=\"(?<currentValue>[\\w+\\.\\-]*)\""
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": [
+        "com.scylladb:java-driver-core-shaded",
+        "com.scylladb:native-protocol"
+      ],
+      "groupName": "scylla java4 driver stack"
     }
   ]
 }
