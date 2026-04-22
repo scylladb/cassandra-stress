@@ -1,8 +1,8 @@
 ## 🧰 Maintenance
 
-- chore(deps): update actions/github-script action to v9 by @renovate[bot] in #148
-- chore(deps): update softprops/action-gh-release action to v3 by @renovate[bot] in #149
+- chore(deps): update dependency com.scylladb:scylla-driver-core to v3.11.5.14 by @renovate[bot] in #151
+- chore(deps): update dependency com.scylladb:java-driver-core-shaded to v4.19.0.8 by @renovate[bot] in #147
 
 
 
-- Revert "chore(deps): update eclipse-temurin docker tag" by @CodeLieutenant in #150
+- fix(ssl): replace legacy RSA/CBC cipher defaults with TLS 1.3 and ECDHE equivalents by @CodeLieutenant in #153
