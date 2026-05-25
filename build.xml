@@ -35,7 +35,7 @@
 
     <!-- default version and SCM information -->
     <property name="base.version" value="3.12.0" />
-    <property name="base.javaDriverVersion" value="3.11.5.14" />
+    <property name="base.javaDriverVersion" value="3.11.5.15" />
     <property name="base.java4DriverVersion" value="4.19.0.9" />
     <property name="base.java4NativeProtocolVersion" value="1.5.2.2" />
     <property name="lib.override.com.scylladb.scylla-driver-core" value="" />
