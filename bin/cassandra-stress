@@ -93,23 +93,118 @@ if [ "$CLASSPATH" = "" ]; then
   exit 1
 fi
 
-while read -r opt; do
-  JVM_OPTS="$JVM_OPTS $opt"
-done < <(grep "^-" "$CASSANDRA_STRESS_CONFIG/jvm-clients.options")
+# ============================================================================
+# JVM Performance Tuning
+#
+# All flags below have reasonable defaults but can be overridden via
+# environment variables. Set any variable to "false" to disable its flag,
+# or provide a custom value where applicable.
+# ============================================================================
 
+# --- Heap Configuration ---
+# Override: CASSANDRA_STRESS_HEAP_SIZE (default: 8g)
+CASSANDRA_STRESS_HEAP_SIZE="${CASSANDRA_STRESS_HEAP_SIZE:-8g}"
+
+# --- Thread Stack Size ---
+# Override: CASSANDRA_STRESS_STACK_SIZE (default: 512k)
+# Reduced from 1MB default — stress tools spawn many threads; saves memory and TLB pressure.
+CASSANDRA_STRESS_STACK_SIZE="${CASSANDRA_STRESS_STACK_SIZE:-512k}"
+
+# --- Tiered Compilation ---
+# Override: CASSANDRA_STRESS_TIERED_COMPILATION (default: false)
+# Disabled by default — skips C1, compiles directly with C2 for peak throughput.
+# Stress tools run long enough that warmup time is irrelevant.
+CASSANDRA_STRESS_TIERED_COMPILATION="${CASSANDRA_STRESS_TIERED_COMPILATION:-false}"
+
+# --- NUMA Support ---
+# Override: CASSANDRA_STRESS_NUMA (default: true)
+# ZGC is NUMA-aware. Ensures NUMA-local allocations on multi-socket machines.
+CASSANDRA_STRESS_NUMA="${CASSANDRA_STRESS_NUMA:-true}"
+
+# --- AlwaysPreTouch ---
+# Override: CASSANDRA_STRESS_PRE_TOUCH (default: true)
+# Pre-faults heap pages at startup — eliminates page-fault latency during operation.
+CASSANDRA_STRESS_PRE_TOUCH="${CASSANDRA_STRESS_PRE_TOUCH:-true}"
+
+# --- ZGC Uncommit ---
+# Override: CASSANDRA_STRESS_ZGC_UNCOMMIT (default: false)
+# Disabled by default — prevents ZGC from returning memory to OS which causes
+# recommit/page-fault latency spikes under sustained load.
+CASSANDRA_STRESS_ZGC_UNCOMMIT="${CASSANDRA_STRESS_ZGC_UNCOMMIT:-false}"
+
+# --- Optimize String Concatenation ---
+# Override: CASSANDRA_STRESS_OPTIMIZE_STRING_CONCAT (default: true)
+# C2 compiler optimizes StringBuilder chains — fewer allocations in request hot paths.
+CASSANDRA_STRESS_OPTIMIZE_STRING_CONCAT="${CASSANDRA_STRESS_OPTIMIZE_STRING_CONCAT:-true}"
+
+# --- Parallel Reference Processing ---
+# Override: CASSANDRA_STRESS_PARALLEL_REF_PROC (default: true)
+# Parallel reference processing during GC. Helps with WeakReferences/SoftReferences
+# in driver connection pools.
+CASSANDRA_STRESS_PARALLEL_REF_PROC="${CASSANDRA_STRESS_PARALLEL_REF_PROC:-true}"
+
+# --- AutoBox Cache Max ---
+# Override: CASSANDRA_STRESS_AUTOBOX_CACHE_MAX (default: 20000)
+# Extends Integer cache beyond [-128,127] — eliminates boxing allocations in hot counter paths.
+CASSANDRA_STRESS_AUTOBOX_CACHE_MAX="${CASSANDRA_STRESS_AUTOBOX_CACHE_MAX:-20000}"
+
+# JPMS settings (Java 11+)
+JVM_OPTS="$JVM_OPTS \
+  -Djdk.attach.allowAttachSelf=true \
+  --add-exports java.base/jdk.internal.misc=ALL-UNNAMED \
+  --add-opens java.base/jdk.internal.module=ALL-UNNAMED \
+  --add-opens=java.base/java.lang=ALL-UNNAMED \
+  --add-opens=java.base/java.util=ALL-UNNAMED \
+  --add-opens=java.base/java.io=ALL-UNNAMED \
+  --add-opens java.base/java.net=ALL-UNNAMED \
+  --add-opens java.base/sun.nio.ch=ALL-UNNAMED \
+  --add-exports java.base/jdk.internal.ref=ALL-UNNAMED \
+  --add-exports java.base/sun.nio.ch=ALL-UNNAMED \
+  --add-exports java.management.rmi/com.sun.jmx.remote.internal.rmi=ALL-UNNAMED \
+  --add-exports java.rmi/sun.rmi.registry=ALL-UNNAMED \
+  --add-exports java.rmi/sun.rmi.server=ALL-UNNAMED \
+  --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED \
+"
+
+# Heap sizing (equal min/max prevents resize overhead)
+JVM_OPTS="$JVM_OPTS -Xms${CASSANDRA_STRESS_HEAP_SIZE} -Xmx${CASSANDRA_STRESS_HEAP_SIZE}"
+
+# Thread stack size
+JVM_OPTS="$JVM_OPTS -Xss${CASSANDRA_STRESS_STACK_SIZE}"
+
+# Tiered compilation
+if [ "$CASSANDRA_STRESS_TIERED_COMPILATION" = "false" ]; then
+  JVM_OPTS="$JVM_OPTS -XX:-TieredCompilation"
+fi
+
+# String concatenation optimization
+if [ "$CASSANDRA_STRESS_OPTIMIZE_STRING_CONCAT" = "true" ]; then
+  JVM_OPTS="$JVM_OPTS -XX:+OptimizeStringConcat"
+fi
+
+# Parallel reference processing
+if [ "$CASSANDRA_STRESS_PARALLEL_REF_PROC" = "true" ]; then
+  JVM_OPTS="$JVM_OPTS -XX:+ParallelRefProcEnabled"
+fi
+
+# AutoBox cache extension
+JVM_OPTS="$JVM_OPTS -XX:AutoBoxCacheMax=${CASSANDRA_STRESS_AUTOBOX_CACHE_MAX}"
+
+# ZGC with generational mode for Java 21+ (sub-ms pauses, stable latency)
 if [ "$jvmver" -gt "20" ]; then
-  JVM_OPTS="$JVM_OPTS \
-    -XX:+UseZGC \
-    -XX:+EnableDynamicAgentLoading \
-    -XX:+RegisterFinalizersAtInit \
-    -XX:+UseStringDeduplication \
-    -XX:MaxGCPauseMillis=20 \
-    -XX:+AlwaysPreTouch \
-    -XX:ZUncommitDelay=5 \
-    -XX:+UseNUMA \
-    -XX:+UseLargePages \
-    -XX:+UseTransparentHugePages \
-  "
+  JVM_OPTS="$JVM_OPTS -XX:+UseZGC -XX:+ZGenerational"
+
+  if [ "$CASSANDRA_STRESS_PRE_TOUCH" = "true" ]; then
+    JVM_OPTS="$JVM_OPTS -XX:+AlwaysPreTouch"
+  fi
+
+  if [ "$CASSANDRA_STRESS_ZGC_UNCOMMIT" = "false" ]; then
+    JVM_OPTS="$JVM_OPTS -XX:-ZUncommit"
+  fi
+
+  if [ "$CASSANDRA_STRESS_NUMA" = "true" ]; then
+    JVM_OPTS="$JVM_OPTS -XX:+UseNUMA"
+  fi
 fi
 
 case "$1" in
