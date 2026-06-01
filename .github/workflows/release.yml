@@ -86,3 +86,17 @@ jobs:
           branch: ${{ github.event.repository.default_branch }}
           commit_options: '--no-verify --signoff'
           file_pattern: CHANGELOG.md
+
+  sign-packages:
+    needs: ['tag', 'release']
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Trigger Jenkins sign-cassandra-stress pipeline
+        run: |
+          curl -sf -X POST \
+            "https://jenkins.scylladb.com/job/releng/job/sign-cassandra-stress/buildWithParameters" \
+            --user "${{ secrets.JENKINS_USERNAME }}:${{ secrets.JENKINS_TOKEN }}" \
+            --data-urlencode "CASSANDRA_STRESS_VERSION=${{ needs.tag.outputs.version }}" \
+            --data-urlencode "GITHUB_RELEASE_TAG=v${{ needs.tag.outputs.version }}" \
+            --data-urlencode "UPLOAD_TO_RELEASE=true" \
+            --data-urlencode "UPLOAD_TO_S3=true"
