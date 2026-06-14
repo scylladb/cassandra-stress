@@ -59,6 +59,14 @@ public enum ConsistencyLevel {
         this.code = code;
     }
 
+    public boolean isDatacenterLocal() {
+        return this == LOCAL_QUORUM || this == LOCAL_ONE || this == LOCAL_SERIAL;
+    }
+
+    public boolean isSerialConsistency() {
+        return this == SERIAL || this == LOCAL_SERIAL;
+    }
+
     public com.datastax.driver.core.ConsistencyLevel ToV3Value() {
         return switch (this) {
             case ANY -> com.datastax.driver.core.ConsistencyLevel.ANY;

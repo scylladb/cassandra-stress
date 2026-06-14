@@ -33,6 +33,10 @@ public class Type<T> implements Comparator<ByteBuffer> {
         return serializer;
     }
 
+    public String getString(ByteBuffer bytes) {
+        return serializer.toString(compose(bytes));
+    }
+
     @Override
     public int compare(ByteBuffer o1, ByteBuffer o2) {
         return switch (comparisonType) {

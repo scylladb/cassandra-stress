@@ -29,11 +29,11 @@ repositories {
 
 
 dependencies {
-    implementation("com.scylladb:scylla-driver-core:3.11.5.11:shaded") {
+    implementation("com.scylladb:scylla-driver-core:3.11.5.15:shaded") {
         exclude(group = "io.netty")
         exclude(group = "io.dropwizard.metrics", module = "metrics-core")
     }
-    implementation("com.scylladb:java-driver-core:4.19.0.1")
+    implementation("com.scylladb:java-driver-core:4.19.0.9")
 
     implementation("org.apache.commons:commons-math3:3.6.1")
     implementation("org.apache.commons:commons-lang3:3.18.0")

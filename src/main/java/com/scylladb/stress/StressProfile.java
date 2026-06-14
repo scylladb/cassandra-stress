@@ -132,7 +132,7 @@ public class StressProfile implements Serializable {
     }
 
 
-    private void init(StressYaml yaml) throws RequestValidationException {
+    private void init(StressYaml yaml) throws IOException {
         keyspaceName = yaml.keyspace;
         keyspaceCql = yaml.keyspace_definition;
         tableName = yaml.table;
@@ -156,25 +156,11 @@ public class StressProfile implements Serializable {
             assert !tokenRangeQueries.containsKey(query) : String.format("Found %s in both queries and token_range_queries, please use different names", query);
             assert !query.equals("insert") : "Found 'insert' in queries, this name is reserved, please use different name";
         }
-        if (keyspaceCql != null && !keyspaceCql.isEmpty()) {
-            try {
-                String name = CQLFragmentParser.parseAnyUnhandled(CqlParser::createKeyspaceStatement, keyspaceCql).keyspace();
-                assert name.equalsIgnoreCase(keyspaceName) : "Name in keyspace_definition doesn't match keyspace property: '" + name + "' != '" + keyspaceName + "'";
-            } catch (RecognitionException | SyntaxException e) {
-                throw new IllegalArgumentException("There was a problem parsing the keyspace cql: " + e.getMessage());
-            }
-        } else {
+        if (keyspaceCql == null || keyspaceCql.isEmpty()) {
             keyspaceCql = null;
         }
 
-        if (tableCql != null && !tableCql.isEmpty()) {
-            try {
-                String name = CQLFragmentParser.parseAnyUnhandled(CqlParser::createTableStatement, tableCql).columnFamily();
-                assert name.equalsIgnoreCase(tableName) : "Name in table_definition doesn't match table property: '" + name + "' != '" + tableName + "'";
-            } catch (RecognitionException | RuntimeException e) {
-                throw new IllegalArgumentException("There was a problem parsing the table cql: " + e.getMessage());
-            }
-        } else {
+        if (tableCql == null || tableCql.isEmpty()) {
             tableCql = null;
         }
 
@@ -194,7 +180,7 @@ public class StressProfile implements Serializable {
                     throw new IllegalArgumentException("Missing name argument in column spec");
 
                 GeneratorConfig config = new GeneratorConfig(seedStr + name, clustering, size, population);
-                columnConfigs.put(name, config);
+                columnConfigs.put(name.toLowerCase(), config);
             }
         }
     }
@@ -749,7 +735,7 @@ public class StressProfile implements Serializable {
             profile.init(profileYaml);
 
             return profile;
-        } catch (YAMLException | IOException | RequestValidationException e) {
+        } catch (YAMLException | IOException e) {
             throw new IOError(e);
         }
     }

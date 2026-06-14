@@ -18,11 +18,16 @@
 package com.scylladb.utils;
 
 import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -348,7 +353,7 @@ public class UUIDGen
          * instanciation and the UUID generator is used in Stress for instance,
          * where we don't want to require the yaml.
          */
-        Collection<InetAddress> localAddresses = FBUtilities.getAllLocalAddresses();
+        Collection<InetAddress> localAddresses = getAllLocalAddresses();
         if (localAddresses.isEmpty())
             throw new RuntimeException("Cannot generate the node component of the UUID because cannot retrieve any IP addresses.");
 
@@ -374,14 +379,12 @@ public class UUIDGen
                 messageDigest.update(addr.getAddress());
 
             // Identify the process on the load: we use both the PID and class loader hash.
-            long pid = NativeLibrary.getProcessID();
-            if (pid < 0)
-                pid = new Random(System.currentTimeMillis()).nextLong();
-            FBUtilities.updateWithLong(messageDigest, pid);
+            long pid = ProcessHandle.current().pid();
+            updateWithLong(messageDigest, pid);
 
             ClassLoader loader = UUIDGen.class.getClassLoader();
             int loaderId = loader != null ? System.identityHashCode(loader) : 0;
-            FBUtilities.updateWithInt(messageDigest, loaderId);
+            updateWithInt(messageDigest, loaderId);
 
             return messageDigest.digest();
         }
@@ -389,6 +392,42 @@ public class UUIDGen
         {
             throw new RuntimeException("MD5 digest algorithm is not available", nsae);
         }
+    }
+
+    private static Collection<InetAddress> getAllLocalAddresses()
+    {
+        List<InetAddress> addresses = new ArrayList<>();
+        try
+        {
+            Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
+            if (ifaces != null)
+            {
+                while (ifaces.hasMoreElements())
+                {
+                    NetworkInterface iface = ifaces.nextElement();
+                    Enumeration<InetAddress> addrs = iface.getInetAddresses();
+                    while (addrs.hasMoreElements())
+                        addresses.add(addrs.nextElement());
+                }
+            }
+        }
+        catch (SocketException e)
+        {
+            // best effort
+        }
+        return addresses;
+    }
+
+    private static void updateWithLong(MessageDigest digest, long value)
+    {
+        for (int i = 7; i >= 0; i--)
+            digest.update((byte)(value >>> (i * 8)));
+    }
+
+    private static void updateWithInt(MessageDigest digest, int value)
+    {
+        for (int i = 3; i >= 0; i--)
+            digest.update((byte)(value >>> (i * 8)));
     }
 }
 

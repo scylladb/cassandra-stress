@@ -24,7 +24,7 @@ package com.scylladb.stress.generate.values;
 import java.util.Arrays;
 import java.util.List;
 
-import com.scylladb.types.ListType;
+import com.scylladb.serializers.ListSerializer;
 
 public class Lists<T> extends Generator<List<T>>
 {
@@ -34,7 +34,7 @@ public class Lists<T> extends Generator<List<T>>
     @SuppressWarnings("unchecked")
     public Lists(String name, Generator<T> valueType, GeneratorConfig config)
     {
-        super(ListType.getInstance(valueType.type, true), config, name, List.class);
+        super(ListSerializer.getInstance(valueType.type.getSerializer()), config, name, (Class<List<T>>)(Class<?>)List.class);
         this.valueType = valueType;
         buffer = (T[]) new Object[(int) sizeDistribution.maxValue()];
     }

@@ -38,7 +38,7 @@ import com.datastax.shaded.netty.channel.socket.SocketChannel;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import com.scylladb.utils.EncryptionOptions;
-import org.apache.cassandra.security.SSLFactory;
+import com.scylladb.utils.SSLFactory;
 import com.scylladb.stress.core.BoundStatement;
 import com.scylladb.stress.core.PreparedStatement;
 import com.scylladb.stress.core.TableMetadata;
@@ -58,6 +58,7 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
     public final AuthProvider authProvider;
     public final Integer maxPendingPerConnection;
     public final int connectionsPerHost;
+    public final int requestTimeout;
 
     private final ProtocolVersion protocolVersion;
     private final EncryptionOptions.ClientEncryptionOptions encryptionOptions;
@@ -78,16 +79,13 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
         this.encryptionOptions = encryptionOptions;
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
         this.connectionsPerHost = settings.mode().connectionsPerHost == null ? 8 : settings.mode().connectionsPerHost;
+        this.requestTimeout = settings.mode().requestTimeout == null ? 12000 : settings.mode().requestTimeout;
 
         int maxThreadCount = 0;
         if (settings.rate().auto)
             maxThreadCount = settings.rate().maxThreads;
         else
             maxThreadCount = settings.rate().threadCount;
-
-        //Always allow enough pending requests so every thread can have a request pending
-        //See https://issues.apache.org/jira/browse/CASSANDRA-7217
-        int requestsPerConnection = (maxThreadCount / connectionsPerHost) + connectionsPerHost;
 
         maxPendingPerConnection = settings.mode().maxPendingPerConnection;
     }
@@ -147,6 +145,8 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
         }
 
         clusterBuilder.withCompression(compression.ToJavaDriverV3());
+
+        clusterBuilder.withSocketOptions(new SocketOptions().setReadTimeoutMillis(requestTimeout));
 
         if (encryptionOptions.enabled) {
             SSLContext sslContext;

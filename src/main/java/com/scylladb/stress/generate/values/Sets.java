@@ -30,9 +30,10 @@ public class Sets<T> extends Generator<Set<T>>
 {
     final Generator<T> valueType;
 
+    @SuppressWarnings("unchecked")
     public Sets(String name, Generator<T> valueType, GeneratorConfig config)
     {
-        super(SetSerializer.getInstance(valueType.type.getSerializer()), config, name, Set.class);
+        super(SetSerializer.getInstance(valueType.type.getSerializer(), valueType.type), config, name, (Class<Set<T>>)(Class<?>)Set.class);
         this.valueType = valueType;
     }
 

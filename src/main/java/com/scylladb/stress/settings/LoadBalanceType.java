@@ -28,6 +28,8 @@ public enum LoadBalanceType {
         DCAwareRoundRobinPolicy.Builder builder = DCAwareRoundRobinPolicy.builder();
         if (settings.node().datacenter != null)
             builder.withLocalDc(settings.node().datacenter);
+        if (settings.node().usedHostsPerRemoteDc != null)
+            builder.withUsedHostsPerRemoteDc(settings.node().usedHostsPerRemoteDc);
         return builder.build();
     }),
     RACK_AWARE(settings -> {

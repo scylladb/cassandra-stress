@@ -37,8 +37,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import com.google.common.collect.Iterables;
 
-import com.scylladb.types.AbstractType;
-import com.scylladb.types.BytesType;
+import com.scylladb.stress.generate.values.Type;
 import com.scylladb.stress.generate.values.Generator;
 import com.scylladb.utils.Pair;
 
@@ -721,7 +720,8 @@ public abstract class PartitionIterator implements Iterator<Row>
 
     // calculate a new seed based on the combination of a parent seed and the generated child, to generate
     // any children of this child
-    static long seed(Object object, AbstractType type, long seed)
+    @SuppressWarnings("unchecked")
+    static long seed(Object object, Type type, long seed)
     {
         if (object instanceof ByteBuffer buf)
         {
@@ -745,7 +745,10 @@ public abstract class PartitionIterator implements Iterator<Row>
         }
         else
         {
-            return seed(type.decompose(object), BytesType.instance, seed);
+            ByteBuffer bytes = type.decompose(object);
+            for (int i = bytes.position() ; i < bytes.limit() ; i++)
+                seed = (31 * seed) + bytes.get(i);
+            return seed;
         }
     }
 
@@ -762,7 +765,7 @@ public abstract class PartitionIterator implements Iterator<Row>
         {
             if (i > 0)
                 sb.append("|");
-            AbstractType type = generator.partitionKey.get(i++).type;
+            Type type = generator.partitionKey.get(i++).type;
             sb.append(type.getString(type.decompose(key)));
         }
         return sb.toString();

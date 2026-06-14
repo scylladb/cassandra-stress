@@ -41,6 +41,7 @@ public class SettingsMode implements Serializable {
 
     public final Integer maxPendingPerConnection;
     public final Integer connectionsPerHost;
+    public final Integer requestTimeout;
 
     private final ProtocolCompression compression;
 
@@ -66,6 +67,7 @@ public class SettingsMode implements Serializable {
             password = opts.password.value();
             maxPendingPerConnection = opts.maxPendingPerConnection.value().isEmpty() ? null : Integer.valueOf(opts.maxPendingPerConnection.value());
             connectionsPerHost = opts.connectionsPerHost.value().isEmpty() ? null : Integer.valueOf(opts.connectionsPerHost.value());
+            requestTimeout = opts.requestTimeout.value().isEmpty() ? null : Integer.valueOf(opts.requestTimeout.value());
             authProvider = new AuthProvider(opts.authProvider.value(), username, password);
         } else
             throw new IllegalStateException();
@@ -112,13 +114,14 @@ public class SettingsMode implements Serializable {
         final OptionSimple authProvider = new OptionSimple("auth-provider=", ".*", null, "Fully qualified implementation of com.datastax.driver.core.AuthProvider", false);
         final OptionSimple maxPendingPerConnection = new OptionSimple("maxPending=", "[0-9]+", "", "Maximum pending requests per connection", false);
         final OptionSimple connectionsPerHost = new OptionSimple("connectionsPerHost=", "[0-9]+", "8", "Number of connections per host", false);
+        final OptionSimple requestTimeout = new OptionSimple("requestTimeout=", "[0-9]+", "12000", "Request timeout in milliseconds", false);
 
         abstract OptionSimple mode();
 
         @Override
         public List<? extends Option> options() {
             return Arrays.asList(mode(), useUnPrepared, api, useCompression, port, user, password, authProvider,
-                    maxPendingPerConnection, connectionsPerHost, protocolVersion);
+                    maxPendingPerConnection, connectionsPerHost, requestTimeout, protocolVersion);
         }
     }
 
@@ -134,6 +137,8 @@ public class SettingsMode implements Serializable {
         out.printf("  Max Pending Per Connection: %d%n", maxPendingPerConnection);
         out.printf("  Connections Per Host: %d%n", connectionsPerHost);
         out.printf("  Compression: %s%n", compression);
+        if (requestTimeout != null)
+            out.printf("  Request Timeout: %d ms%n", requestTimeout);
 
     }
 
