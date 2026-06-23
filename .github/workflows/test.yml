@@ -55,15 +55,15 @@ jobs:
         java: ["21"]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
         with:
           distribution: "temurin"
           java-version: ${{ matrix.java }}
       - name: Setup Ant
-        uses: cedx/setup-ant@v6
+        uses: cedx/setup-ant@da941eb444b657ea183d731ba96e59ec26411014 # v6.3.0
         with:
           optional-tasks: true
           version: latest
@@ -80,7 +80,7 @@ jobs:
       matrix: ${{ steps.enumerate.outputs.matrix }}
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
       - name: Enumerate tests
@@ -112,15 +112,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
       - name: Download Cassandra Stress binary
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: cassandra-stress-java${{ matrix.java }}
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
         with:
           distribution: "temurin"
           java-version: ${{ matrix.java }}
