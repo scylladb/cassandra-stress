@@ -33,15 +33,15 @@ jobs:
         os: ["ubuntu-24.04"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
         with:
           distribution: "temurin"
           java-version: ${{ inputs.java }}
       - name: Setup Ant
-        uses: cedx/setup-ant@v6
+        uses: cedx/setup-ant@da941eb444b657ea183d731ba96e59ec26411014 # v6.3.0
         with:
           optional-tasks: true
           version: latest
@@ -72,7 +72,7 @@ jobs:
           mv build/cassandra-stress-src.tar.gz.sha512 build/cassandra-stress-src-java${{ inputs.java }}.tar.gz.sha512
           mv build/cassandra-stress_${{ inputs.version }}_all.deb build/cassandra-stress-java${{ inputs.java }}_${{ inputs.version }}_all.deb
           mv build/cassandra-stress-${{ inputs.version }}-1.noarch.rpm build/cassandra-stress-java${{ inputs.java }}-${{ inputs.version }}-1.noarch.rpm
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cassandra-stress-java${{ inputs.java }}
           path: |
