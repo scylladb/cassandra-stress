@@ -89,6 +89,7 @@ public class ValidatingSchemaQuery extends PartitionOperation
     {
         int partitionCount;
         int rowCount;
+        String validationError;
         final PartitionIterator iter;
         final int statementIndex;
 
@@ -108,6 +109,12 @@ public class ValidatingSchemaQuery extends PartitionOperation
         public int rowCount()
         {
             return rowCount;
+        }
+
+        @Override
+        public String validationErrorMessage()
+        {
+            return validationError;
         }
     }
 
@@ -142,7 +149,12 @@ public class ValidatingSchemaQuery extends PartitionOperation
                     break;
 
                 if (!results.hasNext())
+                {
+                    validationError = String.format(
+                        "Data returned was not validated: expected row %d but result set exhausted (row empty/missing)",
+                        rowCount + 1);
                     return false;
+                }
 
                 rowCount++;
                 com.datastax.driver.core.Row actualRow = results.next();
@@ -151,11 +163,29 @@ public class ValidatingSchemaQuery extends PartitionOperation
                     Object expectedValue = expectedRow.get(valueIndex[i]);
                     Object actualValue = spec.partitionGenerator.convert(valueIndex[i], actualRow.getBytesUnsafe(i));
                     if (!expectedValue.equals(actualValue))
+                    {
+                        String colName = actualRow.getColumnDefinitions().getName(i);
+                        validationError = String.format(
+                            "Data returned was not validated: row %d, column %d (%s): value mismatch" +
+                            " (expected [%s] %s, got [%s] %s)",
+                            rowCount, i, colName,
+                            expectedValue.getClass().getSimpleName(), describeValue(expectedValue),
+                            actualValue == null ? "null" : actualValue.getClass().getSimpleName(),
+                            actualValue == null ? "null" : describeValue(actualValue));
                         return false;
+                    }
                 }
             }
             partitionCount = Math.min(1, rowCount);
-            return rs.isExhausted();
+            if (!rs.isExhausted())
+            {
+                validationError = String.format(
+                    "Data returned was not validated: result set not exhausted after consuming %d expected row(s)" +
+                    " (got more rows than expected)",
+                    rowCount);
+                return false;
+            }
+            return true;
         }
     }
 
@@ -190,7 +220,12 @@ public class ValidatingSchemaQuery extends PartitionOperation
                     break;
 
                 if (!results.hasNext())
+                {
+                    validationError = String.format(
+                        "Data returned was not validated: expected row %d but result set exhausted (row empty/missing)",
+                        rowCount + 1);
                     return false;
+                }
 
                 rowCount++;
                 shaded.com.datastax.oss.driver.api.core.cql.Row actualRow = results.next();
@@ -199,11 +234,29 @@ public class ValidatingSchemaQuery extends PartitionOperation
                     Object expectedValue = expectedRow.get(valueIndex[i]);
                     Object actualValue = spec.partitionGenerator.convert(valueIndex[i], actualRow.getBytesUnsafe(i));
                     if (!expectedValue.equals(actualValue))
+                    {
+                        String colName = actualRow.getColumnDefinitions().get(i).getName().toString();
+                        validationError = String.format(
+                            "Data returned was not validated: row %d, column %d (%s): value mismatch" +
+                            " (expected [%s] %s, got [%s] %s)",
+                            rowCount, i, colName,
+                            expectedValue.getClass().getSimpleName(), describeValue(expectedValue),
+                            actualValue == null ? "null" : actualValue.getClass().getSimpleName(),
+                            actualValue == null ? "null" : describeValue(actualValue));
                         return false;
+                    }
                 }
             }
             partitionCount = Math.min(1, rowCount);
-            return rs.isFullyFetched();
+            if (!rs.isFullyFetched())
+            {
+                validationError = String.format(
+                    "Data returned was not validated: result set not exhausted after consuming %d expected row(s)" +
+                    " (got more rows than expected)",
+                    rowCount);
+                return false;
+            }
+            return true;
         }
     }
 
@@ -233,7 +286,12 @@ public class ValidatingSchemaQuery extends PartitionOperation
                     break;
 
                 if (r == rs.num)
+                {
+                    validationError = String.format(
+                        "Data returned was not validated: expected row %d but result set exhausted (row empty/missing)",
+                        rowCount + 1);
                     return false;
+                }
 
                 rowCount++;
                 CqlRow actualRow = rs.getRows().get(r++);
@@ -242,7 +300,21 @@ public class ValidatingSchemaQuery extends PartitionOperation
                     ByteBuffer expectedValue = spec.partitionGenerator.convert(valueIndex[i], expectedRow.get(valueIndex[i]));
                     ByteBuffer actualValue = actualRow.getColumns().get(i).value;
                     if (!expectedValue.equals(actualValue))
+                    {
+                        int expectedSize = (expectedValue != null) ? expectedValue.remaining() : -1;
+                        int actualSize = (actualValue != null) ? actualValue.remaining() : -1;
+                        String diff;
+                        if (actualSize < 0)
+                            diff = String.format("got null (expected %d bytes)", expectedSize);
+                        else if (actualSize != expectedSize)
+                            diff = String.format("expected %d bytes, got %d bytes", expectedSize, actualSize);
+                        else
+                            diff = String.format("same size (%d bytes) but content differs", expectedSize);
+                        validationError = String.format(
+                            "Data returned was not validated: row %d, column %d: %s",
+                            rowCount, i, diff);
                         return false;
+                    }
                 }
             }
             assert r == rs.num;
@@ -410,5 +482,22 @@ public class ValidatingSchemaQuery extends PartitionOperation
             default:
                 throw new RuntimeException("Unknown client type: " + settings.mode.api);
         }
+    }
+
+    private static String describeValue(Object value)
+    {
+        if (value == null) return "null";
+        if (value instanceof ByteBuffer)
+        {
+            ByteBuffer bb = (ByteBuffer) value;
+            return hexPreview(bb, 16) + " (" + bb.remaining() + " bytes)";
+        }
+        if (value instanceof byte[])
+        {
+            byte[] b = (byte[]) value;
+            return hexPreview(ByteBuffer.wrap(b), 16) + " (" + b.length + " bytes)";
+        }
+        String s = String.valueOf(value);
+        return s.length() > 80 ? s.substring(0, 80) + "..." : s;
     }
 }

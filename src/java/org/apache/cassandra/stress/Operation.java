@@ -19,6 +19,7 @@
 package org.apache.cassandra.stress;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
 import com.datastax.driver.core.exceptions.OverloadedException;
@@ -48,9 +49,24 @@ public abstract class Operation
         public boolean run() throws Exception;
         public int partitionCount();
         public int rowCount();
+        default String validationErrorMessage() { return null; }
     }
 
     public abstract int ready(WorkManager permits);
+
+    // shared hex-dump preview used by validation diagnostics: caps at maxBytes and appends "..." if truncated
+    protected static String hexPreview(ByteBuffer bb, int maxBytes)
+    {
+        if (bb == null) return "null";
+        ByteBuffer dup = bb.duplicate();
+        int len = Math.min(dup.remaining(), maxBytes);
+        StringBuilder sb = new StringBuilder("0x");
+        for (int i = 0; i < len; i++)
+            sb.append(String.format("%02x", dup.get() & 0xFF));
+        if (dup.hasRemaining())
+            sb.append("...");
+        return sb.toString();
+    }
 
     public boolean isWrite()
     {
@@ -137,12 +153,15 @@ public abstract class Operation
 
         if (!success)
         {
-            error(String.format("Operation x%d on key(s) %s: %s%n",
-                    tries,
-                    key(),
-                    (exceptionMessage == null)
-                        ? "Data returned was not validated"
-                        : "Error executing: " + exceptionMessage));
+            String detail;
+            if (exceptionMessage != null)
+                detail = "Error executing: " + exceptionMessage;
+            else
+            {
+                String validationMsg = run.validationErrorMessage();
+                detail = (validationMsg != null) ? validationMsg : "Data returned was not validated";
+            }
+            error(String.format("Operation x%d on key(s) %s: %s%n", tries, key(), detail));
         }
 
     }

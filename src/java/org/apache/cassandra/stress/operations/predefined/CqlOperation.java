@@ -175,6 +175,7 @@ public abstract class CqlOperation<V> extends PredefinedOperation
     {
 
         final List<List<ByteBuffer>> expect;
+        private String validationError;
 
         // a null value for an item in expect means we just check the row is present
         protected CqlRunOpMatchResults(ClientWrapper client, String query, Object queryId, List<Object> params, ByteBuffer key, List<List<ByteBuffer>> expect)
@@ -195,17 +196,121 @@ public abstract class CqlOperation<V> extends PredefinedOperation
             return result == null ? 0 : result.length;
         }
 
+        @Override
+        public String validationErrorMessage()
+        {
+            return validationError;
+        }
+
+        // keep every validationError message single-line: SCT captures the whole matched log line as one event,
+        // so an embedded %n would silently split off part of the diagnostic detail.
         public boolean validate(ByteBuffer[][] result)
         {
             if (!settings.errors.skipReadValidation)
             {
-                if (result.length != expect.size())
+                int expectedRows = expect.size();
+                int actualRows = result.length;
+
+                if (actualRows != expectedRows)
+                {
+                    long expectedBytes = 0;
+                    int expectedColsPerRow = 0;
+                    if (expectedRows > 0 && expect.get(0) != null)
+                    {
+                        expectedColsPerRow = expect.get(0).size();
+                        for (List<ByteBuffer> row : expect)
+                            if (row != null) expectedBytes += totalBytes(row);
+                    }
+
+                    if (actualRows == 0)
+                    {
+                        validationError = String.format(
+                            "Data returned was not validated: row empty/missing" +
+                            " (expected %d row(s) with %d column(s) %s, %d bytes total (%dx%d); got 0 rows)",
+                            expectedRows, expectedColsPerRow,
+                            columnNamesPreview(expectedColsPerRow),
+                            expectedBytes, expectedColsPerRow,
+                            expectedColsPerRow > 0 ? expectedBytes / expectedColsPerRow : 0);
+                    }
+                    else
+                    {
+                        long actualBytes = 0;
+                        for (ByteBuffer[] row : result)
+                            if (row != null) actualBytes += totalBytes(row);
+                        validationError = String.format(
+                            "Data returned was not validated: row count mismatch" +
+                            " (expected %d row(s) / %d bytes total; got %d row(s) / %d bytes total)",
+                            expectedRows, expectedBytes, actualRows, actualBytes);
+                    }
                     return false;
+                }
+
                 for (int i = 0; i < result.length; i++)
-                    if (expect.get(i) != null && !expect.get(i).equals(Arrays.asList(result[i])))
+                {
+                    List<ByteBuffer> expectedRow = expect.get(i);
+                    if (expectedRow == null)
+                        continue;
+                    ByteBuffer[] actualRow = result[i];
+
+                    if (actualRow.length != expectedRow.size())
+                    {
+                        long expectedRowBytes = totalBytes(expectedRow);
+                        long actualRowBytes = totalBytes(actualRow);
+                        validationError = String.format(
+                            "Data returned was not validated: row %d column count mismatch" +
+                            " (expected %d column(s) %s / %d bytes; got %d column(s) / %d bytes)",
+                            i, expectedRow.size(), columnNamesPreview(expectedRow.size()),
+                            expectedRowBytes, actualRow.length, actualRowBytes);
                         return false;
+                    }
+
+                    for (int j = 0; j < expectedRow.size(); j++)
+                    {
+                        ByteBuffer expectedVal = expectedRow.get(j);
+                        ByteBuffer actualVal = actualRow[j];
+                        if (expectedVal != null && !expectedVal.equals(actualVal))
+                        {
+                            int expectedSize = expectedVal.remaining();
+                            int actualSize = (actualVal != null) ? actualVal.remaining() : -1;
+                            String colLabel = columnLabel(j);
+                            String diff;
+                            if (actualSize < 0)
+                                diff = String.format("got null (expected %d bytes)", expectedSize);
+                            else if (actualSize != expectedSize)
+                                diff = String.format("expected %d bytes, got %d bytes", expectedSize, actualSize);
+                            else
+                                diff = String.format("same size (%d bytes) but content differs; expected[0..%d]=%s, got[0..%d]=%s",
+                                    expectedSize,
+                                    Math.min(15, expectedSize - 1), hexPreview(expectedVal, 16),
+                                    Math.min(15, actualSize - 1),   hexPreview(actualVal, 16));
+                            validationError = String.format(
+                                "Data returned was not validated: row %d, %s: %s",
+                                i, colLabel, diff);
+                            return false;
+                        }
+                    }
+                }
             }
             return true;
+        }
+
+        private String columnLabel(int j)
+        {
+            List<String> names = settings.columns.namestrs;
+            if (names != null && j < names.size())
+                return String.format("column %d (%s)", j, names.get(j));
+            return String.format("column %d", j);
+        }
+
+        private String columnNamesPreview(int count)
+        {
+            List<String> names = settings.columns.namestrs;
+            if (names == null || names.isEmpty() || count <= 0)
+                return "";
+            int available = Math.min(count, names.size());
+            if (available <= 4)
+                return names.subList(0, available).toString();
+            return "[" + names.get(0) + ".." + names.get(available - 1) + "]";
         }
     }
 
@@ -756,6 +861,22 @@ public abstract class CqlOperation<V> extends PredefinedOperation
     protected String wrapInQuotes(String string)
     {
         return "\"" + string + "\"";
+    }
+
+    private static long totalBytes(List<ByteBuffer> bufs)
+    {
+        long total = 0;
+        for (ByteBuffer bb : bufs)
+            if (bb != null) total += bb.remaining();
+        return total;
+    }
+
+    private static long totalBytes(ByteBuffer[] bufs)
+    {
+        long total = 0;
+        for (ByteBuffer bb : bufs)
+            if (bb != null) total += bb.remaining();
+        return total;
     }
 
 }

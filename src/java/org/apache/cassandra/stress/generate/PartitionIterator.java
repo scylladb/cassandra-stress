@@ -766,9 +766,40 @@ public abstract class PartitionIterator implements Iterator<Row>
             if (i > 0)
                 sb.append("|");
             AbstractType type = generator.partitionKey.get(i++).type;
-            sb.append(type.getString(type.decompose(key)));
+            String typeStr = type.getString(type.decompose(key));
+            if (type instanceof BytesType)
+            {
+                String decoded = tryDecodeHexAsAscii(typeStr);
+                if (decoded != null)
+                    sb.append(decoded).append(" (hex: ").append(typeStr).append(")");
+                else
+                    sb.append(typeStr);
+            }
+            else
+            {
+                sb.append(typeStr);
+            }
         }
         return sb.toString();
+    }
+
+    private static String tryDecodeHexAsAscii(String hex)
+    {
+        if (hex == null || hex.length() == 0 || hex.length() % 2 != 0)
+            return null;
+        byte[] bytes = new byte[hex.length() / 2];
+        for (int i = 0; i < bytes.length; i++)
+        {
+            int hi = Character.digit(hex.charAt(i * 2), 16);
+            int lo = Character.digit(hex.charAt(i * 2 + 1), 16);
+            if (hi < 0 || lo < 0)
+                return null;
+            bytes[i] = (byte) ((hi << 4) | lo);
+            // only keep it if every byte is printable ASCII
+            if (bytes[i] < 0x20 || bytes[i] > 0x7E)
+                return null;
+        }
+        return new String(bytes, java.nio.charset.StandardCharsets.US_ASCII);
     }
 
     // used for thrift smart routing - if it's a multi-part key we don't try to route correctly right now
