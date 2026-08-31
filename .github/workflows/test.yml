@@ -63,7 +63,7 @@ jobs:
           distribution: "temurin"
           java-version: ${{ matrix.java }}
       - name: Setup Ant
-        uses: cedx/setup-ant@da941eb444b657ea183d731ba96e59ec26411014 # v6.3.0
+        uses: cedx/setup-ant@28c2882e2b72a15accaffe9ec2f7005601c0cf66 # v7.0.0
         with:
           optional-tasks: true
           version: latest
