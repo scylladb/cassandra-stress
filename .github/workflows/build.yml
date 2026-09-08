@@ -41,10 +41,7 @@ jobs:
           distribution: "temurin"
           java-version: ${{ inputs.java }}
       - name: Setup Ant
-        uses: cedx/setup-ant@28c2882e2b72a15accaffe9ec2f7005601c0cf66 # v7.0.0
-        with:
-          optional-tasks: true
-          version: latest
+        uses: ./.github/actions/setup-ant
       - name: Install Deps
         run: |
           sudo apt-get update

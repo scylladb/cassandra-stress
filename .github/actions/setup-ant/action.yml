@@ -1,0 +1,40 @@
+name: Setup Ant
+description: Install the current Apache Ant release and export ANT_HOME.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Ant
+      shell: bash
+      env:
+        ANT_BASE_URL: https://downloads.apache.org/ant/binaries
+      run: |
+        set -euo pipefail
+
+        version=$(curl -sSfL "$ANT_BASE_URL/" \
+          | grep -o 'apache-ant-[0-9][0-9.]*-bin\.tar\.gz' \
+          | sed 's/^apache-ant-//; s/-bin\.tar\.gz$//' \
+          | sort -u -V \
+          | tail -1)
+
+        if [ -z "$version" ]; then
+          echo "::error::Found no Apache Ant release at $ANT_BASE_URL/"
+          exit 1
+        fi
+
+        archive="apache-ant-$version-bin.tar.gz"
+        workdir="$(mktemp -d)"
+
+        curl -sSfL "$ANT_BASE_URL/$archive" -o "$workdir/$archive"
+        curl -sSfL "$ANT_BASE_URL/$archive.sha512" -o "$workdir/$archive.sha512"
+        ( cd "$workdir" && printf '%s  %s\n' "$(cat "$archive.sha512")" "$archive" | sha512sum -c - )
+
+        ant_home="$RUNNER_TOOL_CACHE/ant/$version"
+        rm -rf "$ant_home"
+        mkdir -p "$ant_home"
+        tar -xzf "$workdir/$archive" -C "$ant_home" --strip-components=1
+        rm -rf "$workdir"
+
+        echo "ANT_HOME=$ant_home" >> "$GITHUB_ENV"
+        echo "$ant_home/bin" >> "$GITHUB_PATH"
+        echo "Apache Ant $version" >> "$GITHUB_STEP_SUMMARY"
