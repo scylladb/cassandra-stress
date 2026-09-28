@@ -11,4 +11,4 @@ Use one of these types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`,
 ### License header
 
 Keep the ASF license header in the files that have it. These files come
-from Apache Cassandra. Do not add the ASF header to a new file.
+from Apache Cassandra.

@@ -13,37 +13,39 @@ standard conflicts with the task, ask the user.
 Located in `docs/standards/global/`.
 
 #### Conventions (`standards/global/conventions.md`)
-Conventional commit subjects and pull request titles in the
-`type(scope): subject` form, and the license header rule: keep the ASF
-header in inherited files, do not add it to new files.
+Commit subjects and pull request titles use the conventional
+`type(scope): subject` form. Files from Apache Cassandra keep the ASF
+license header.
 
 ### Backend standards
 
 Located in `docs/standards/backend/`.
 
 #### Java conventions (`standards/backend/java-conventions.md`)
-The code style of `ide/idea/codeStyleSettings.xml` (braces on their own
-line, four-space indentation, no tabs), the rule to keep the style of a K&R
-file when you edit it, the four-group import order with static imports last,
-and Java 21 as the target version.
+The code style follows `ide/idea/codeStyleSettings.xml`: braces on their own
+line, four-space indentation, no tabs. A file with K&R braces keeps its own
+style. Imports use four groups, with static imports last. The code targets
+Java 21.
 
 ### Testing standards
 
 Located in `docs/standards/testing/`.
 
 #### Test writing (`standards/testing/test-writing.md`)
-JUnit 4 tests with `@Test` and static imports from `org.junit.Assert`, and
-the test location `test/unit/<package>/<Class>Test.java` in the same package
-as the class under test.
+Unit tests use JUnit 4 with `@Test` and static imports from
+`org.junit.Assert`. The test for a class goes in
+`test/unit/<package>/<Class>Test.java`, in the same package.
 
 ### Infra standards
 
 Located in `docs/standards/infra/`.
 
 #### CI and build (`standards/infra/ci-and-build.md`)
-GitHub Actions and reusable workflows pinned to a commit SHA with a tag or
-branch comment, the scope of Renovate updates and the dependencies to update
-by hand, and Ant as the build tool with `Makefile` targets that call Ant.
+External GitHub Actions and reusable workflows use a commit SHA pin with a
+tag or branch comment. Local references have no pin. Renovate updates the
+actions, the Docker base images, and the Scylla driver versions. Other
+`build.xml` dependencies get manual updates. Ant is the build tool, and the
+`Makefile` holds shortcuts.
 
 ## Updating this documentation
 

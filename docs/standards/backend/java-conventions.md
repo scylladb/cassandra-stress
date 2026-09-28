@@ -29,4 +29,5 @@ groups with one blank line:
 ### Java 21
 
 Write code for Java 21. `build.xml` sets the source and target version to
-21, and CI builds and tests on Java 21 only.
+21. CI compiles the code and the unit tests on Java 21. CI does not run the
+unit tests, so run them locally.
