@@ -2,8 +2,8 @@
 
 ### JUnit 4
 
-Write unit tests with JUnit 4. Mark each test method with `@Test`. Use the
-static import `import static org.junit.Assert.*`.
+Write unit tests with JUnit 4. Mark each test method with `@Test`. Import
+the assertions statically from `org.junit.Assert`.
 
 ### Test location
 

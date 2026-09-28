@@ -14,16 +14,17 @@ Located in `docs/standards/global/`.
 
 #### Conventions (`standards/global/conventions.md`)
 Conventional commit subjects and pull request titles in the
-`type(scope): subject` form, and the Apache license header at the start of
-each Java source file.
+`type(scope): subject` form, and the license header rule: keep the ASF
+header in inherited files, do not add it to new files.
 
 ### Backend standards
 
 Located in `docs/standards/backend/`.
 
 #### Java conventions (`standards/backend/java-conventions.md`)
-Allman braces, four-space indentation without tabs, the import order with
-`java.*` and `javax.*` first, try-with-resources for every `AutoCloseable`,
+The code style of `ide/idea/codeStyleSettings.xml` (braces on their own
+line, four-space indentation, no tabs), the rule to keep the style of a K&R
+file when you edit it, the four-group import order with static imports last,
 and Java 21 as the target version.
 
 ### Testing standards
@@ -31,7 +32,7 @@ and Java 21 as the target version.
 Located in `docs/standards/testing/`.
 
 #### Test writing (`standards/testing/test-writing.md`)
-JUnit 4 tests with `@Test` and the static `org.junit.Assert.*` import, and
+JUnit 4 tests with `@Test` and static imports from `org.junit.Assert`, and
 the test location `test/unit/<package>/<Class>Test.java` in the same package
 as the class under test.
 
@@ -40,9 +41,9 @@ as the class under test.
 Located in `docs/standards/infra/`.
 
 #### CI and build (`standards/infra/ci-and-build.md`)
-GitHub Actions pinned to a commit SHA with a release tag comment, Renovate
-for dependency updates with `chore(deps):` subjects, and Ant as the build
-tool with `Makefile` targets that call Ant.
+GitHub Actions and reusable workflows pinned to a commit SHA with a tag or
+branch comment, the scope of Renovate updates and the dependencies to update
+by hand, and Ant as the build tool with `Makefile` targets that call Ant.
 
 ## Updating this documentation
 

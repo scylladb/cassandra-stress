@@ -14,7 +14,8 @@ ant testsome -Dtest.name=<FQCN>
 
 This repository uses the `qatools-sdlc` plugin. Every piece of work goes
 through its flow: `/qatools-sdlc:intent <KEY>`, then `/qatools-sdlc:spec` or
-`/qatools-sdlc:rca` for a bug, then `/qatools-sdlc:plan`, then the code.
+`/qatools-sdlc:rca` for a bug, then `/qatools-sdlc:plan` (optional for a
+bug), then the code.
 Commit each artifact before the stage that consumes it. A review works
 through `/qatools-sdlc:review`. File a Jira issue about our work with
 `/qatools-sdlc:issue`. It needs the Atlassian connector.
