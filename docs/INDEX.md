@@ -43,8 +43,8 @@ Located in `docs/standards/infra/`.
 #### CI and build (`standards/infra/ci-and-build.md`)
 External GitHub Actions and reusable workflows use a commit SHA pin with a
 tag or branch comment. Local references have no pin. Renovate updates the
-actions, the Docker base images, and the Scylla driver versions. Other
-`build.xml` dependencies get manual updates. Ant is the build tool, and the
+actions, the Docker base images, and the Scylla driver versions. Update the
+other `build.xml` dependencies by hand. Ant is the build tool, and the
 `Makefile` holds shortcuts.
 
 ## Updating this documentation

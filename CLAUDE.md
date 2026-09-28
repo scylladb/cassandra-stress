@@ -2,7 +2,7 @@
 
 ```bash
 # Compile check (compile main and tests, as CI does)
-ant init && ant build-test
+ant build-test
 # Test (stress unit tests)
 ant testold -Dtest.name='stress/**/*Test'
 # One test class

@@ -12,8 +12,9 @@ method, and control block on its own line. Put `else`, `catch`, and
     }
 
 Some files use K&R braces and two-space indentation, for example the files
-in `stress/core/`. When you edit such a file, keep the style of that file.
-Do not reformat lines that your change does not touch.
+in `src/java/org/apache/cassandra/stress/core/`. When you edit such a file,
+keep the style of that file. Do not reformat lines that your change does not
+touch.
 
 ### Import order
 
