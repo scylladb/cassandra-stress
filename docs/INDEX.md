@@ -14,8 +14,9 @@ Located in `docs/standards/global/`.
 
 #### Conventions (`standards/global/conventions.md`)
 Commit subjects and pull request titles use the conventional
-`type(scope): subject` form. Files from Apache Cassandra keep the ASF
-license header.
+`type(scope): subject` form, with `!` for a breaking change and the Jira
+key first in the subject. Files from Apache Cassandra keep the ASF license
+header.
 
 ### Backend standards
 

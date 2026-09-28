@@ -18,6 +18,5 @@ Scylla driver versions in `build.xml`. Its pull requests use the
 ### Ant build
 
 Ant is the build tool. `build.xml` holds the targets. Add a build step as
-an Ant target. The `Makefile` holds shortcuts: `build` and `setup` call Ant,
-`docker-build` and `docker-run` call Docker, and `release` calls Ant and the
-package scripts.
+an Ant target. The `Makefile` holds shortcuts. Most of them call Ant. Some
+call Docker or the package scripts.
