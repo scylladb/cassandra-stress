@@ -84,3 +84,6 @@ cassandra-dtest/
 doc/source/tools/nodetool
 
 audit
+
+# Claude Code per-user settings
+.claude/settings.local.json

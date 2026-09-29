@@ -1216,6 +1216,12 @@
                 <exclude name="ide/nbproject/private/**" />
                 <exclude name="Dockerfile" />
                 <exclude name=".dockerignore" />
+                <!-- exclude Claude Code and development flow files -->
+                <exclude name=".claude/**" />
+                <exclude name="CLAUDE.md" />
+                <exclude name="tasks/**" />
+                <exclude name="docs/standards/**" />
+                <exclude name="docs/INDEX.md" />
             </tarfileset>
 
             <!-- Everything else (assumed to be scripts), is executable -->
