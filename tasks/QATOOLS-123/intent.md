@@ -62,11 +62,11 @@ on Temurin 25.0.2, master at `3f8a9b79a3`:
 
 ```
     [javac] warning: [options] --add-opens has no effect at compile time
-    [javac] /Users/dmalusev/Code/ScyllaDB/cassandra-stress/src/java/org/apache/cassandra/io/util/Memory.java:52: warning: [removal] arrayBaseOffset(Class<?>) in Unsafe has been deprecated and marked for removal
+    [javac] src/java/org/apache/cassandra/io/util/Memory.java:52: warning: [removal] arrayBaseOffset(Class<?>) in Unsafe has been deprecated and marked for removal
     [javac] only showing the first 100 warnings, of 133 total; use -Xmaxwarns if you would like to see more
 
 BUILD FAILED
-/Users/dmalusev/Code/ScyllaDB/cassandra-stress/build.xml:1117: Warning: Could not find file /Users/dmalusev/Code/ScyllaDB/cassandra-stress/build/classes/main/META-INF/hotspot_compiler to copy.
+build.xml:1117: Warning: Could not find file build/classes/main/META-INF/hotspot_compiler to copy.
 ```
 
 `ant build-test` on Temurin 21.0.11, same commit:
@@ -98,8 +98,8 @@ Java matrix to `["21"]`, and the `Dockerfile` builds on
   today when stress cannot connect over JMX.
 - The stress code keeps the `org.apache.cassandra.stress` package and the
   main class `org.apache.cassandra.stress.Stress`.
-- The build and the tests succeed on JDK 21, 25 and 27. The CI workflows run
-  on a JDK matrix of 21, 25 and 27 and prove it.
+- The build and the tests succeed on JDK 21 and 25. The CI test matrix runs
+  both and proves it.
 - The jar holds Java 21 bytecode, so stress still runs on a JDK 21 runtime.
 - The Docker image and the deb and rpm packages build and run as today.
 - The integration tests in `integration-tests/` pass against Scylla with the
@@ -110,15 +110,17 @@ Java matrix to `["21"]`, and the `Dockerfile` builds on
   `-transport factory=`. The `simplenative` mode runs on the server class
   `transport.SimpleClient`.
   `-schema replication(strategy=X)` also fails for `SimpleStrategy`,
-  `LocalStrategy` and `OldNetworkTopologyStrategy`. Scylla no longer supports
-  `SimpleStrategy`, only system keyspaces use `LocalStrategy`, and Cassandra
-  4.0 removed `OldNetworkTopologyStrategy`.
+  `LocalStrategy` and `OldNetworkTopologyStrategy`. Our tests never use
+  `SimpleStrategy`, and Scylla rejects it for tablets keyspaces. Only system
+  keyspaces use `LocalStrategy`, and Cassandra 4.0 removed
+  `OldNetworkTopologyStrategy`.
 - The build uses no server-only dependency or JVM flag: jamm, sigar, ecj,
   byteman, ohc, or the `--add-exports` and `--add-opens` flags for server code.
 
 ## Out of scope
 
 - The move to Gradle. It is a second pull request after this one merges.
+- JDK 27 in CI, and a JDK 25 runtime for the Docker image and the packages.
 - Changes to stress features to use new Java features, such as virtual
   threads or records. Follow-up tasks cover these.
 - Removal of Cassandra support. Stress continues to run against Cassandra
