@@ -1,31 +1,15 @@
 # QATOOLS-123 — Remove the vendored Cassandra source from cassandra-stress
 
-**Date**: 2026-09-30
+## Overview
 
-## Design drivers
+The change deletes the Cassandra server tree and the stress features that run on it: the Thrift mode, `simplenative`, offline SSTable writing, `CompactionStress` and JMX. The server helpers that the remaining stress code needs move under `org.apache.cassandra.stress` with their byte format unchanged. The user profile flow stays on the driver metadata it uses today. `build.xml` keeps only the direct dependencies of stress. CI runs the build and the tests on JDK 21 and 25, and the jar keeps Java 21 bytecode.
 
-- Generated data stays byte-identical. `PartitionIterator` seeds each row from the serialized key bytes (`seed(type.decompose(object), ...)`). A new release must validate data that an old release wrote, so every serializer keeps its byte format.
-- A command line that uses a removed option fails at argument parsing, before stress connects to the cluster. It does not run with part of its options ignored.
-- This pull request removes code and ports helpers. JDK 25 runs the build and the tests, to prove that the removal clears the JDK 25 build failure. Both drivers must run on JDK 25, and a driver failure there is fixed in this pull request. The jar keeps Java 21 bytecode.
-- The Gradle move follows in a second pull request. The Ant build keeps to plain Maven coordinates plus the driver 4.x shade, so the Gradle build can copy the dependency list as-is.
+## Constraints
 
-## Goals
-
-- Stress, its helpers and its tests are the only Java source in the repository.
-- The helpers that stress needs move under `org.apache.cassandra.stress`, rewritten or trimmed from the Cassandra originals. A file that comes from a Cassandra original keeps its ASF license header.
-- A unit test compares the serialized bytes of each `stress.marshal` type with fixed bytes that master produces.
-- `-mode` keeps `native` (driver 3.x) and `native 4x` (driver 4.x) only.
-- `build.xml` declares only the direct dependencies of stress, and keeps only the targets that CI, the Makefile, the Dockerfile and packaging call.
-- The build, the stress unit tests and the integration tests pass on JDK 21 and 25. The CI test matrix is `["21", "25"]`.
-
-## Non-goals
-
-- The Gradle build (the second pull request).
-- JDK 27 in CI, a `--release` above 21, or a JDK 25 base for the Docker image, the deb and rpm packages, or `release.yml`.
-- A rename of the `org.apache.cassandra.stress` package or of the main class.
-- Changes to workloads, generators, distributions, or the output format.
-- Replacements for the removed modes: Thrift, `simplenative`, offline SSTable writing, `CompactionStress`, and JMX.
-- New tests beyond the four stress unit tests that exist today and the `stress.marshal` byte-format test.
+- Generated data stays byte-identical. `PartitionIterator` seeds each row from the serialized key bytes, so a new release must produce the bytes that an old release wrote.
+- A command line that uses a removed option fails at argument parsing, before stress connects to the cluster.
+- Both drivers run on JDK 25. A driver failure on JDK 25 blocks the merge of this pull request.
+- `build.xml` uses plain Maven coordinates plus the driver 4.x shade, so the Gradle build can copy the dependency list as-is.
 
 ## Design
 
@@ -43,9 +27,9 @@
 | `CompactionStress`, offline `SchemaInsert` | Write SSTables with server code | Removed |
 | User profiles, other commands, workloads, output | | Unchanged |
 
-`SimpleStrategy` leaves the replication allow-list, because our tests never use it and Scylla rejects it for tablets keyspaces. `LocalStrategy` leaves because only system keyspaces use it, and `OldNetworkTopologyStrategy` leaves because Cassandra 4.0 removed it. A profile that names a strategy in its own `CREATE KEYSPACE` text passes it to the cluster unchanged.
+A profile that names a strategy in its own `CREATE KEYSPACE` text passes it to the cluster unchanged.
 
-The user profile flow does not change. `StressProfile` creates the keyspace and the table, then reads the table through the `MetadataProvider` that `JavaDriverClient` and `JavaDriverV4Client` implement today. The generators bind to the driver columns, as today. The parse of the profile CQL to get the keyspace and the table name moves from `CQLFragmentParser` to `stress.util.CqlNames`.
+The user profile flow stays as it is. `StressProfile` creates the keyspace and the table, then reads the table through the `MetadataProvider` that `JavaDriverClient` and `JavaDriverV4Client` implement. The generators bind to the driver columns. Only the parse of the keyspace and the table name from the profile CQL moves, from `CQLFragmentParser` to `stress.util.CqlNames`.
 
 ### What changes in the code
 
@@ -62,7 +46,9 @@ The user profile flow does not change. `StressProfile` creates the keyspace and 
 | `ByteBufferUtil`, `FBUtilities`, `Pair`, `UUIDGen`, `MurmurHash`, `DynamicList`, `LockedDynamicList`, `ConsistencyLevel`, `EncryptionOptions`, `SSLFactory`, `FileUtils` | many | Trimmed copies in `stress.util` |
 | `WindowsTimer`, `NamedThreadFactory` | `Stress`, `StressServer` | Removed, or replaced with JDK classes |
 
-### Build and dependencies
+A file that comes from a Cassandra original keeps its ASF license header. A unit test compares the serialized bytes of each `stress.marshal` type with fixed bytes that master produces.
+
+### Build and CI
 
 `build.xml` declares the jars that stress code imports, plus the logging and compression jars that the drivers load at run time. The resolver brings the transitive dependencies from the driver POMs. One POM, `cassandra-stress`, replaces the `parent`, `all` and `thrift` POMs.
 
@@ -72,17 +58,17 @@ The user profile flow does not change. `StressProfile` creates the keyspace and 
 | test | junit 4, hamcrest |
 | build | `maven-resolver-ant-tasks`, jarjar |
 
-Every other coordinate goes, `compile-command-annotations` included. `<javac>` sets `-proc:none`, so no JDK writes `META-INF/hotspot_compiler`. The `build` target loses its copy of that file at `build.xml:1117`, and the `artifacts` target loses the exclude at `build.xml:1205`. `conf/jvm-clients.options` loses the flags that only server code needs. The integration tests on JDK 21 and 25 decide the list.
+Every other coordinate goes, `compile-command-annotations` included. `<javac>` sets `--release 21` and `-proc:none`. With no annotation processor, the `build` target stops copying `META-INF/hotspot_compiler`, and the `artifacts` target stops excluding it. `conf/jvm-clients.options` keeps only the flags that the drivers need. The integration tests on JDK 21 and 25 decide that list.
 
-`build.xml` keeps `init`, `clean`, `realclean`, the resolver targets, `java-driver-core.get`, `java-driver-core.shade`, `scylla-driver-core.override`, `build`, `jar`, `artifacts`, `build-test`, `testold` and `testsome`. All other targets go, with the properties that only they read.
+`build.xml` keeps the targets that CI, the Makefile, the Dockerfile and packaging call: `init`, `clean`, `realclean`, the resolver targets, `java-driver-core.get`, `java-driver-core.shade`, `scylla-driver-core.override`, `build`, `jar`, `artifacts`, `build-test`, `testold` and `testsome`. The CI test matrix is `["21", "25"]`.
 
-These files go with the code that used them: `interface/`, `src/antlr/`, `src/gen-java/`, `src/java/com/datastax/`, `test/distributed`, `test/long`, `test/burn`, `test/microbench`, `test/data`, the non-stress tests in `test/unit`, `.build/dependency-check-suppressions.xml`, `eclipse_compiler.properties`, `ide/idea-iml-file.xml`, `NEWS.txt` and `README-cassandra.asc`. `ide/idea/` stays, because the Java standard reads its code style.
+The server tree, the server tests, the Thrift and ANTLR sources, and the build files that only they use leave the repository. `ide/idea/` stays, because the Java standard reads its code style.
 
 ## Contracts
 
 ### Inputs
 
-The command line, after this change. Every other option is unchanged.
+The command line, after this change. Every other option keeps its form.
 
 ```
 -mode native [4x] cql3 [prepared|unprepared] [protocolVersion=N] [compression=none|lz4|snappy] [user= password= ...]
@@ -127,10 +113,6 @@ public enum CompactionStrategy {
 
 `AbstractType.parse` reads the type names that `-col comparator=` accepts: `AsciiType`, `UTF8Type` and `TimeUUIDType`. `ReplicationStrategy.validate` returns the full `org.apache.cassandra.locator.` name, and `CompactionStrategy.validate` returns the name as given, as today.
 
-## Subtasks
-
-None. One pull request carries this spec, because stress does not compile until the removals and the ports are both in. The Gradle move is a second pull request under the same key.
-
 ## Risks
 
 | Risk | Response |
@@ -138,18 +120,22 @@ None. One pull request carries this spec, because stress does not compile until 
 | A ported serializer changes the bytes, and validation of old data fails | Port the serializer bodies as-is. The `stress.marshal` byte-format test fixes the bytes that master produces for each type |
 | SCT passes a removed option, such as `-mode thrift`, `-port jmx=` or `-transport factory=` | Search SCT for the removed options before merge, and change SCT first where it uses one |
 | Without the hand-pinned transitive jars, the resolver picks other versions of Netty, Guava or Jackson for the drivers | Compare the `build/lib/jars` list against master in the plan. Pin a version only when the integration tests or a CVE require it |
-| Driver 3.x or 4.x, or the Netty in them, fails on JDK 25 | Fix it in this pull request. Add the JVM flags that the JDK 25 integration tests show to be needed, or move to a driver version that runs on JDK 25. The JDK 25 matrix entry blocks a merge |
+| Driver 3.x or 4.x, or the Netty in them, fails on JDK 25 | Add the JVM flags that the JDK 25 integration tests show to be needed, or move to a driver version that runs on JDK 25 |
 | The diff is too large to review | Remove files in separate commits (Thrift, simplenative, offline and JMX, server tree, server tests) before the rewrite commits |
 
 ## Deferred work
 
-- A JDK 25 runtime for the Docker image and the packages. JDK 27 in CI follows after its GA.
-- The Gradle build. The source stays in `src/java` and `test/unit`, and the Gradle pull request moves it to `src/main/java` and `src/test/java`.
-- Adoption of new Java features. That needs a `--release` bump and ends JDK 21 runtime support.
+- The Gradle build, in a second pull request under the same key. It moves the source from `src/java` and `test/unit` to `src/main/java` and `src/test/java`.
+- A JDK 25 runtime for the Docker image and the packages.
+- JDK 27 in CI, after its GA.
+- New Java features in stress code. They need a `--release` above 21 and end JDK 21 runtime support.
 
----
+## Decisions
 
-Files, internal functions, tests, and line numbers go to `plan.md`. On the
-spike path the code diff carries them, and the spec keeps this shape. A spec
-near 150 lines, diagrams included, reads in one sitting. Above that, consider
-a split and propose it in the spec. This footer stays in every spec.
+- Thrift, `simplenative`, offline SSTable writing, `CompactionStress` and JMX go with no replacement. Each one runs on server code, and Cassandra 4.0 removed Thrift. (spec)
+- The GC fields stay in the output and print zero, so parsers of the output keep working. (spec)
+- The replication allow-list leaves out `SimpleStrategy`, `LocalStrategy` and `OldNetworkTopologyStrategy`. Our tests never use `SimpleStrategy`, only system keyspaces use `LocalStrategy`, and Cassandra 4.0 removed `OldNetworkTopologyStrategy`. (review)
+- One pull request carries the removal, because stress does not compile until the removals and the ports are both in. (spec)
+- CI tests on JDK 21 and 25, and this pull request fixes any driver failure on JDK 25. (review)
+- JDK 27 joins CI after its GA. (review)
+- A unit test fixes the bytes of each ported serializer against master. (review)
