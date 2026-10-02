@@ -128,7 +128,7 @@ public enum CompactionStrategy {
 }
 ```
 
-`CqlNames` reads `CREATE KEYSPACE` and `CREATE TABLE` in any letter case, with or without `IF NOT EXISTS`, with any run of whitespace between tokens, and with a plain or a double-quoted name. `tableOf` also reads a qualified `ks.table` name and returns the table part.
+`CqlNames` reads `CREATE KEYSPACE` and `CREATE TABLE` or `CREATE COLUMNFAMILY` in any letter case, with or without `IF NOT EXISTS`, with any run of whitespace between tokens, and with a plain or a double-quoted name. `tableOf` also reads a qualified `ks.table` name and returns the table part.
 
 `ReplicationStrategy.validate` returns the full `org.apache.cassandra.locator.` name, and `CompactionStrategy.validate` returns the name as given, as today.
 

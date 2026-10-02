@@ -36,11 +36,6 @@ import com.google.common.util.concurrent.Uninterruptibles;
 
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.AlreadyExistsException;
-import org.antlr.runtime.RecognitionException;
-import org.apache.cassandra.cql3.CQLFragmentParser;
-import org.apache.cassandra.cql3.CqlParser;
-import org.apache.cassandra.exceptions.RequestValidationException;
-import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.cassandra.stress.core.BatchStatementType;
 import org.apache.cassandra.stress.core.ColumnMetadata;
 import org.apache.cassandra.stress.core.DataType;
@@ -61,6 +56,7 @@ import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.QueryPrepare;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
+import org.apache.cassandra.stress.util.CqlNames;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
@@ -139,7 +135,7 @@ public class StressProfile implements Serializable {
     }
 
 
-    private void init(StressYaml yaml) throws RequestValidationException {
+    private void init(StressYaml yaml) {
         keyspaceName = yaml.keyspace;
         keyspaceCql = yaml.keyspace_definition;
         tableName = yaml.table;
@@ -165,9 +161,9 @@ public class StressProfile implements Serializable {
         }
         if (keyspaceCql != null && keyspaceCql.length() > 0) {
             try {
-                String name = CQLFragmentParser.parseAnyUnhandled(CqlParser::createKeyspaceStatement, keyspaceCql).keyspace();
+                String name = CqlNames.keyspaceOf(keyspaceCql);
                 assert name.equalsIgnoreCase(keyspaceName) : "Name in keyspace_definition doesn't match keyspace property: '" + name + "' != '" + keyspaceName + "'";
-            } catch (RecognitionException | SyntaxException e) {
+            } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("There was a problem parsing the keyspace cql: " + e.getMessage());
             }
         } else {
@@ -176,9 +172,9 @@ public class StressProfile implements Serializable {
 
         if (tableCql != null && tableCql.length() > 0) {
             try {
-                String name = CQLFragmentParser.parseAnyUnhandled(CqlParser::createTableStatement, tableCql).columnFamily();
+                String name = CqlNames.tableOf(tableCql);
                 assert name.equalsIgnoreCase(tableName) : "Name in table_definition doesn't match table property: '" + name + "' != '" + tableName + "'";
-            } catch (RecognitionException | RuntimeException e) {
+            } catch (RuntimeException e) {
                 throw new IllegalArgumentException("There was a problem parsing the table cql: " + e.getMessage());
             }
         } else {
@@ -813,7 +809,7 @@ public class StressProfile implements Serializable {
             profile.init(profileYaml);
 
             return profile;
-        } catch (YAMLException | IOException | RequestValidationException e) {
+        } catch (YAMLException | IOException e) {
             throw new IOError(e);
         }
     }

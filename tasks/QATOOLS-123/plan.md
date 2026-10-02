@@ -131,11 +131,11 @@ stays in every plan built from a spec.
 
 **Internals:** `keyspaceOf` and `tableOf` match one regular expression each, case-insensitive: `CREATE KEYSPACE (IF NOT EXISTS)? <name>` and `CREATE TABLE (IF NOT EXISTS)? (<name>\.)?<name>`, where `<name>` is `"[^"]+"` or `\w+`, with `\s+` between tokens. A quoted name keeps its case. An unquoted name is lower-cased. No match throws `IllegalArgumentException` with the CQL text.
 
-- [ ] Write `CqlNamesTest` with these cases: plain, `IF NOT EXISTS`, mixed letter case, two spaces and a newline between tokens, a quoted name, a qualified `ks.table`, and a statement that matches nothing.
-- [ ] Run it and confirm the failure.
-- [ ] Create `CqlNames` and switch `StressProfile` to it.
-- [ ] Run the verify sequence. `StressProfileTest` must pass.
-- [ ] Commit `refactor(profile): QATOOLS-123 read profile names without the cql parser`, with the boxes of this task checked.
+- [x] Write `CqlNamesTest` with these cases: plain, `IF NOT EXISTS`, mixed letter case, two spaces and a newline between tokens, a quoted name, a qualified `ks.table`, and a statement that matches nothing.
+- [x] Run it and confirm the failure.
+- [x] Create `CqlNames` and switch `StressProfile` to it.
+- [x] Run the verify sequence. `StressProfileTest` must pass.
+- [x] Commit `refactor(profile): QATOOLS-123 read profile names without the cql parser`, with the boxes of this task checked.
 
 ## Task 9 — Check the strategies against allow-lists
 
