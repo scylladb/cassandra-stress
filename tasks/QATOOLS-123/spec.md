@@ -26,7 +26,7 @@ The change deletes the Cassandra server tree and the stress features that run on
 | GC columns and `Total GC` lines | Values over JMX, or zero when JMX fails | Removed |
 | `-col` | `names=` or `n=`, `slice`, `super=`, `comparator=`, `timestamp=`, `size=` | `names=` or `n=`, `slice`, `timestamp=`, `size=`. Column names are ASCII. `super=` and `comparator=` stop at argument parsing |
 | `CompactionStress`, offline `SchemaInsert` | Write SSTables with server code | Removed |
-| User profiles, other commands, workloads, output | | Unchanged |
+| User profiles, other commands, workloads | | Unchanged |
 
 A profile that names a strategy in its own `CREATE KEYSPACE` text passes it to the cluster unchanged.
 
@@ -52,11 +52,11 @@ A file that comes from a Cassandra original keeps its ASF license header. A unit
 
 ### Build and CI
 
-`build.xml` declares the jars that stress code imports, plus the logging and compression jars that the drivers load at run time. The resolver brings the transitive dependencies from the driver POMs. HdrHistogram stays pinned at 2.1.12, so the HDR log files that `-log hdrfile=` writes keep their format. One POM, `cassandra-stress`, replaces the `parent`, `all` and `thrift` POMs.
+`build.xml` declares the jars that stress code imports, plus the logging and compression jars that the drivers load at run time. The resolver brings the transitive dependencies from the driver POMs. HdrHistogram moves from 2.1.12 to 2.2.2, the version that both drivers declare. Both versions write the same HDR log, format 1.3. One POM, `cassandra-stress`, replaces the `parent`, `all` and `thrift` POMs.
 
 | Scope | Coordinates |
 |---|---|
-| runtime | `scylla-driver-core` 3.x, `java-driver-core` 4.x (shaded by jarjar), guava, commons-math3, commons-lang3, commons-cli, snakeyaml, json-simple, jctools-core, netty-common, HdrHistogram 2.1.12, slf4j-api, logback-classic, lz4-java, snappy-java |
+| runtime | `scylla-driver-core` 3.x, `java-driver-core` 4.x (shaded by jarjar), guava, commons-math3, commons-lang3, commons-cli, snakeyaml, json-simple, jctools-core, netty-common, HdrHistogram 2.2.2, slf4j-api, logback-classic, lz4-java, snappy-java |
 | test | junit 4, hamcrest |
 | build | `maven-resolver-ant-tasks`, jarjar |
 
@@ -90,7 +90,7 @@ The interval and summary header loses the five GC fields, and the summary loses 
 type, total ops, op/s, pk/s, row/s, mean, med, .95, .99, .999, max, time, stderr, errors
 ```
 
-`cassandra-stress version` prints these lines, as today. SCT parses them for Argus. The stress version comes from the `Implementation-Version` of the jar manifest. Each driver version comes from the driver itself: `Cluster.getDriverVersion()` for 3.x and `Session.OSS_DRIVER_COORDINATES` for 4.x. Both read the `Driver.properties` file in the driver jar:
+`cassandra-stress version` prints these lines, as today. SCT parses them for Argus. The stress version comes from the `Implementation-Version` of the jar manifest. Each driver version comes from the driver itself: `Cluster.getDriverVersion()` for 3.x and `Session.OSS_DRIVER_COORDINATES` for 4.x. Both read the `Driver.properties` file in the driver jar. The plan confirms both calls against the shaded jars:
 
 ```
 Version: <version>
@@ -136,7 +136,7 @@ public enum CompactionStrategy {
 
 | Risk | Response |
 |---|---|
-| A ported serializer changes the bytes, and validation of old data fails | Port the serializer bodies as-is. The `stress.marshal` byte-format test fixes the bytes that master produces for each type |
+| A ported serializer changes the bytes, and validation of old data fails | Port the serializer bodies as-is. The `stress.marshal` byte-format test fixes the bytes that master produces and the bytes of an SCT snapshot for each type |
 | SCT passes a removed option or strategy, or parses the GC fields | SCT pins `scylladb/cassandra-stress:3.21.1`, so nothing breaks until SCT bumps the image. The bump changes SCT to the new command line and output: it removes `-port jmx=6868` from eight test cases and configurations, changes `SimpleStrategy` to `NetworkTopologyStrategy` in the two Cassandra provision tests, and drops the GC fields from its output parser |
 | Without the hand-pinned transitive jars, the resolver picks other versions of Netty, Guava or Jackson for the drivers | Compare the `build/lib/jars` list against master in the plan. Pin a version only when the integration tests or a CVE require it. Before the SCT bump, one SCT performance run gives the same latency as the current image, and one run each with `use_hdrhistogram: true` and `client_encrypt: true` passes |
 | Driver 3.x or 4.x, or the Netty in them, fails on JDK 25 | Add the JVM flags that the JDK 25 integration tests show to be needed, or move to a driver version that runs on JDK 25 |
@@ -161,4 +161,4 @@ public enum CompactionStrategy {
 - CI tests on JDK 21 and 25, and this pull request fixes any driver failure on JDK 25. (review)
 - JDK 27 joins CI after its GA. (review)
 - A unit test fixes the bytes of each ported serializer against master and against an SCT snapshot. (review)
-- `build.xml` pins HdrHistogram 2.1.12, so SCT keeps parsing the HDR logs it parses today. (review)
+- `build.xml` declares HdrHistogram 2.2.2, because stress imports it directly and the 3.x driver declares the range `[2.2,3)`. 2.1.12 and 2.2.2 write byte-identical logs, and each reads the log of the other. (review)
