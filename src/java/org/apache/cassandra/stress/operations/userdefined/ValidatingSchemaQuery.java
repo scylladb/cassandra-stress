@@ -376,7 +376,6 @@ public class ValidatingSchemaQuery extends PartitionOperation
             case JAVA_DRIVER4_NATIVE:
                 return new ValidatingStatement(settings.getJavaDriverV4Client().prepare(cql), incLb, incUb);
             case JAVA_DRIVER_NATIVE:
-            case SIMPLE_NATIVE:
                 return new ValidatingStatement(settings.getJavaDriverClient().prepare(cql), incLb, incUb);
             default:
                 throw new RuntimeException("Unknown client type: " + settings.mode.api);

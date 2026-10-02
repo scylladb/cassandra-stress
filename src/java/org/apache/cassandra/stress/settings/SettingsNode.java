@@ -110,7 +110,7 @@ public class SettingsNode implements Serializable
                         r.add(host.getAddress().getHostName());
                     break;
                 }
-            case SIMPLE_NATIVE:
+            default:
                 for (InetAddress address : resolveAllSpecified())
                     r.add(address.getHostName());
         }

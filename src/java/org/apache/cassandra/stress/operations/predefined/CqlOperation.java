@@ -37,8 +37,6 @@ import org.apache.cassandra.stress.settings.ConnectionStyle;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.transport.SimpleClient;
-import org.apache.cassandra.transport.messages.ResultMessage;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
 public abstract class CqlOperation<V> extends PredefinedOperation
@@ -341,12 +339,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
 
 
     @Override
-    public void run(SimpleClient client) throws IOException
-    {
-        run(wrap(client));
-    }
-
-    @Override
     public void run(JavaDriverClient client) throws IOException
     {
         run(wrap(client));
@@ -366,11 +358,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
     public ClientWrapper wrap(JavaDriverV4Client client)
     {
         return new JavaDriverV4Wrapper(client);
-    }
-
-    public ClientWrapper wrap(SimpleClient client)
-    {
-        return new SimpleClientWrapper(client);
     }
 
     protected interface ClientWrapper
@@ -446,44 +433,11 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         }
     }
 
-    private final class SimpleClientWrapper implements ClientWrapper
-    {
-        final SimpleClient client;
-        private SimpleClientWrapper(SimpleClient client)
-        {
-            this.client = client;
-        }
-
-        @Override
-        public <V> V execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
-        {
-            String formattedQuery = formatCqlQuery(query, queryParams);
-            return handler.thriftHandler().apply(client.execute(formattedQuery, settings.command.consistencyLevel));
-        }
-
-        @Override
-        public <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
-        {
-            return handler.thriftHandler().apply(
-                    client.executePrepared(
-                            (byte[]) stmt,
-                            toByteBufferParams(queryParams),
-                            settings.command.consistencyLevel));
-        }
-
-        @Override
-        public Object createPreparedStatement(String cqlQuery)
-        {
-            return client.prepare(cqlQuery).statementId.bytes;
-        }
-    }
-
     // interface for building functions to standardise results from each client
     protected static interface ResultHandler<V>
     {
         Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, V> javaDriverV4Handler();
         Function<ResultSet, V> javaDriverHandler();
-        Function<ResultMessage, V> thriftHandler();
     }
 
     protected static class RowCountHandler implements ResultHandler<Integer>
@@ -515,19 +469,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
                     if (rows == null)
                         return 0;
                     return rows.all().size();
-                }
-            };
-        }
-
-        @Override
-        public Function<ResultMessage, Integer> thriftHandler()
-        {
-            return new Function<ResultMessage, Integer>()
-            {
-                @Override
-                public Integer apply(ResultMessage result)
-                {
-                    return result instanceof ResultMessage.Rows ? ((ResultMessage.Rows) result).result.size() : 0;
                 }
             };
         }
@@ -590,32 +531,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
             };
         }
 
-        @Override
-        public Function<ResultMessage, ByteBuffer[][]> thriftHandler()
-        {
-            return new Function<ResultMessage, ByteBuffer[][]>()
-            {
-
-                @Override
-                public ByteBuffer[][] apply(ResultMessage result)
-                {
-                    if (!(result instanceof ResultMessage.Rows))
-                        return EMPTY_BYTE_BUFFERS;
-
-                    ResultMessage.Rows rows = ((ResultMessage.Rows) result);
-                    ByteBuffer[][] r = new ByteBuffer[rows.result.size()][];
-                    for (int i = 0 ; i < r.length ; i++)
-                    {
-                        List<ByteBuffer> row = rows.result.rows.get(i);
-                        r[i] = new ByteBuffer[row.size()];
-                        for (int j = 0 ; j < row.size() ; j++)
-                            r[i][j] = row.get(j);
-                    }
-                    return r;
-                }
-            };
-        }
-
     }
     // Processes results from each client into an array of all key bytes returned
     protected static final class KeysHandler implements ResultHandler<byte[][]>
@@ -657,28 +572,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
                     for (int i = 0 ; i < r.length ; i++)
                         r[i] = rows.get(i).getBytes(0).array();
                     return r;
-                }
-            };
-        }
-
-        @Override
-        public Function<ResultMessage, byte[][]> thriftHandler()
-        {
-            return new Function<ResultMessage, byte[][]>()
-            {
-
-                @Override
-                public byte[][] apply(ResultMessage result)
-                {
-                    if (result instanceof ResultMessage.Rows)
-                    {
-                        ResultMessage.Rows rows = ((ResultMessage.Rows) result);
-                        byte[][] r = new byte[rows.result.size()][];
-                        for (int i = 0 ; i < r.length ; i++)
-                            r[i] = rows.result.rows.get(i).get(0).array();
-                        return r;
-                    }
-                    return null;
                 }
             };
         }

@@ -88,21 +88,6 @@ public class SettingsMode implements Serializable
             }
             authProvider = new AuthProvider(opts.authProvider.value(), username, password);
         }
-        else if (options instanceof Cql3SimpleNativeOptions)
-        {
-            cqlVersion = CqlVersion.CQL3;
-            Cql3SimpleNativeOptions opts = (Cql3SimpleNativeOptions) options;
-            protocolVersion = ProtocolVersion.DEFAULT;
-            api = ConnectionAPI.SIMPLE_NATIVE;
-            style = opts.usePrepared.setByUser() ? ConnectionStyle.CQL_PREPARED : ConnectionStyle.CQL;
-            compression = ProtocolCompression.NONE;
-            username = null;
-            password = null;
-            authProvider = null;
-            maxPendingPerConnection = null;
-            connectionsPerHost = null;
-            requestTimeout = null;
-        }
         else
             throw new IllegalStateException();
     }
@@ -156,20 +141,6 @@ public class SettingsMode implements Serializable
     }
 
 
-    private static final class Cql3SimpleNativeOptions extends GroupedOptions
-    {
-        final OptionSimple api = new OptionSimple("cql3", "", null, "", true);
-        final OptionSimple useSimpleNative = new OptionSimple("simplenative", "", null, "", true);
-        final OptionSimple usePrepared = new OptionSimple("prepared", "", null, "", false);
-        final OptionSimple port = new OptionSimple("port=", "[0-9]+", "9046", "", false);
-
-        @Override
-        public List<? extends Option> options()
-        {
-            return Arrays.asList(useSimpleNative, usePrepared, api, port);
-        }
-    }
-
     // CLI Utility Methods
     public void printSettings(ResultLogger out)
     {
@@ -203,7 +174,7 @@ public class SettingsMode implements Serializable
         }
 
         rejectRemovedModes(params);
-        GroupedOptions options = GroupedOptions.select(params, new Cql3NativeOptions(), new Cql3NativeV4Options(), new Cql3SimpleNativeOptions());
+        GroupedOptions options = GroupedOptions.select(params, new Cql3NativeOptions(), new Cql3NativeV4Options());
         if (options == null)
         {
             printHelp();
@@ -213,7 +184,7 @@ public class SettingsMode implements Serializable
         return new SettingsMode(options);
     }
 
-    private static final List<String> REMOVED_MODES = Arrays.asList("thrift");
+    private static final List<String> REMOVED_MODES = Arrays.asList("thrift", "simplenative");
 
     private static void rejectRemovedModes(String[] params)
     {
@@ -226,7 +197,7 @@ public class SettingsMode implements Serializable
 
     public static void printHelp()
     {
-        GroupedOptions.printOptions(System.out, "-mode", new Cql3NativeOptions(), new Cql3NativeV4Options(), new Cql3SimpleNativeOptions());
+        GroupedOptions.printOptions(System.out, "-mode", new Cql3NativeOptions(), new Cql3NativeV4Options());
     }
 
     public static Runnable helpPrinter()

@@ -43,6 +43,12 @@ public class SettingsModeTest
     }
 
     @Test
+    public void simpleNativeModeIsRejected()
+    {
+        assertRemoved("simplenative", "cql3", "simplenative");
+    }
+
+    @Test
     public void nativeModeUsesDriver3()
     {
         assertEquals(ConnectionAPI.JAVA_DRIVER_NATIVE, parse("cql3", "native").api);

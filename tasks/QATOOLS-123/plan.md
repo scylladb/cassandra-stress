@@ -40,12 +40,12 @@ stays in every plan built from a spec.
 - Modify: `S/settings/SettingsMode.java:188-200` (the `simplenative` group), `S/settings/StressSettings.java:42` (`SimpleClient`), `S/StressAction.java`, `S/Operation.java`, `S/operations/predefined/CqlOperation.java:45,362-366,394-396,472-503` (`SimpleClientWrapper`, `ResultMessage`)
 - Test: `T/settings/SettingsModeTest.java`
 
-- [ ] Add a case to `SettingsModeTest`: `-mode cql3 simplenative` throws `Mode simplenative was removed. Use -mode native or -mode 4x.`
-- [ ] Run it and confirm the failure.
-- [ ] Remove the `simplenative` group, the `SimpleClient` getter and every `SimpleClient` path.
-- [ ] Run `grep -rn "transport.SimpleClient\|ResultMessage" S` and confirm no match.
-- [ ] Run the verify sequence.
-- [ ] Commit `feat(mode)!: QATOOLS-123 remove the simplenative mode`, with the boxes of this task checked.
+- [x] Add a case to `SettingsModeTest`: `-mode cql3 simplenative` throws `Mode simplenative was removed. Use -mode native or -mode 4x.`
+- [x] Run it and confirm the failure.
+- [x] Remove the `simplenative` group, the `SimpleClient` getter and every `SimpleClient` path.
+- [x] Run `grep -rn "transport.SimpleClient\|ResultMessage" S` and confirm no match.
+- [x] Run the verify sequence.
+- [x] Commit `feat(mode)!: QATOOLS-123 remove the simplenative mode`, with the boxes of this task checked.
 
 ## Task 3 — Remove offline SSTable writing and CompactionStress
 

@@ -29,7 +29,6 @@ import org.apache.cassandra.stress.settings.SettingsLog;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.transport.SimpleClient;
 
 public abstract class Operation
 {
@@ -69,11 +68,6 @@ public abstract class Operation
     public boolean isWrite()
     {
         return false;
-    }
-
-    public void run(SimpleClient client) throws IOException
-    {
-        throw new UnsupportedOperationException();
     }
 
     public void run(JavaDriverClient client) throws IOException

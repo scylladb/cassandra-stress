@@ -29,7 +29,6 @@ import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.transport.SimpleClient;
 
 public class StressSettings implements Serializable
 {
@@ -80,23 +79,6 @@ public class StressSettings implements Serializable
         this.sendToDaemon = sendToDaemon;
         this.graph = graph;
         this.tokenRange = tokenRange;
-    }
-
-    public SimpleClient getSimpleNativeClient()
-    {
-        try
-        {
-            String currentNode = node.randomNode();
-            SimpleClient client = new SimpleClient(currentNode, port.nativePort);
-            client.connect(false);
-            if (schema.keyspace != null)
-                client.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.db.ConsistencyLevel.ONE);
-            return client;
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e.getMessage());
-        }
     }
 
     private static volatile JavaDriverClient client;

@@ -35,7 +35,6 @@ import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.transport.SimpleClient;
 import org.jctools.queues.SpscArrayQueue;
 import org.jctools.queues.SpscUnboundedArrayQueue;
 
@@ -442,7 +441,6 @@ public class StressAction implements Runnable
         {
             try
             {
-                SimpleClient sclient = null;
                 JavaDriverClient jclient = null;
                 JavaDriverV4Client jv4client = null;
                 final ConnectionAPI clientType = settings.mode.api;
@@ -454,9 +452,6 @@ public class StressAction implements Runnable
                             break;
                         case JAVA_DRIVER4_NATIVE:
                             jv4client = settings.getJavaDriverV4Client();
-                            break;
-                        case SIMPLE_NATIVE:
-                            sclient = settings.getSimpleNativeClient();
                             break;
                         default:
                             throw new IllegalStateException();
@@ -485,9 +480,6 @@ public class StressAction implements Runnable
                                 break;
                             case JAVA_DRIVER_NATIVE:
                                 op.run(jclient);
-                                break;
-                            case SIMPLE_NATIVE:
-                                op.run(sclient);
                                 break;
                             default:
                                 throw new IllegalStateException();
