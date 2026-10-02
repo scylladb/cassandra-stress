@@ -66,8 +66,8 @@ jobs:
         uses: ./.github/actions/setup-ant
       - name: Setup
         run: ant init
-      - name: Test tests
-        run: ant build-test
+      - name: Unit tests
+        run: ant test
 
   enumerated-tests:
     timeout-minutes: 2

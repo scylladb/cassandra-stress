@@ -1,21 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.cassandra.stress.settings;
 
 import java.util.HashMap;
@@ -23,62 +5,41 @@ import java.util.Map;
 
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 public class SettingsNodeTest
 {
-    @Test
-    public void testRemoteDcOptionParsing()
+    private static SettingsNode parse(String... params)
     {
         Map<String, String[]> clArgs = new HashMap<>();
-        clArgs.put("-node", new String[]{"remote-dc=5"});
-        
-        SettingsNode settings = SettingsNode.get(clArgs);
-        
-        assertNotNull("usedHostsPerRemoteDc should not be null", settings.usedHostsPerRemoteDc);
-        assertEquals("usedHostsPerRemoteDc should be 5", Integer.valueOf(5), settings.usedHostsPerRemoteDc);
+        clArgs.put("-node", params);
+        return SettingsNode.get(clArgs);
     }
-    
+
     @Test
-    public void testRemoteDcOptionNotSet()
+    public void readsRemoteDc()
     {
-        Map<String, String[]> clArgs = new HashMap<>();
-        clArgs.put("-node", new String[]{});
-        
-        SettingsNode settings = SettingsNode.get(clArgs);
-        
-        assertNull("usedHostsPerRemoteDc should be null when not set", settings.usedHostsPerRemoteDc);
+        assertEquals(Integer.valueOf(5), parse("remote-dc=5").usedHostsPerRemoteDc);
     }
-    
+
     @Test
-    public void testRemoteDcWithOtherOptions()
+    public void leavesRemoteDcUnsetByDefault()
     {
-        Map<String, String[]> clArgs = new HashMap<>();
-        clArgs.put("-node", new String[]{"datacenter=dc1", "remote-dc=3", "localhost"});
-        
-        SettingsNode settings = SettingsNode.get(clArgs);
-        
-        assertEquals("datacenter should be dc1", "dc1", settings.datacenter);
-        assertNotNull("usedHostsPerRemoteDc should not be null", settings.usedHostsPerRemoteDc);
-        assertEquals("usedHostsPerRemoteDc should be 3", Integer.valueOf(3), settings.usedHostsPerRemoteDc);
+        assertNull(parse().usedHostsPerRemoteDc);
     }
-    
+
     @Test
-    public void testRemoteDcRejectsZero()
+    public void readsRemoteDcWithOtherOptions()
     {
-        // The regex pattern [1-9][0-9]* rejects zero and leading zeros
-        Map<String, String[]> clArgs = new HashMap<>();
-        clArgs.put("-node", new String[]{"remote-dc=0"});
-        
-        // This should fail during option parsing before SettingsNode is created
-        try
-        {
-            SettingsNode.get(clArgs);
-            fail("Should have rejected remote-dc=0");
-        }
-        catch (Exception e)
-        {
-            // Expected - option parsing should fail
-        }
+        SettingsNode settings = parse("datacenter=dc1", "remote-dc=3", "localhost");
+        assertEquals("dc1", settings.datacenter);
+        assertEquals(Integer.valueOf(3), settings.usedHostsPerRemoteDc);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsZeroRemoteDc()
+    {
+        parse("remote-dc=0");
     }
 }

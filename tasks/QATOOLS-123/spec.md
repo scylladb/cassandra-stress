@@ -62,7 +62,7 @@ A file that comes from a Cassandra original starts with `// SPDX-License-Identif
 
 Every other coordinate goes, `compile-command-annotations` and joda-time included. `<javac>` sets `--release 21` and `-proc:none`. With no annotation processor, the `build` target stops copying `META-INF/hotspot_compiler`, and the `artifacts` target stops excluding it. `conf/jvm-clients.options` keeps only the flags that the drivers need. The integration tests on JDK 21 and 25 decide that list.
 
-`build.xml` keeps the targets that CI, the Makefile, the Dockerfile and packaging call: `init`, `clean`, `realclean`, `resolver-init`, `resolver-retrieve-build`, `java-driver-core.get`, `java-driver-core.shade`, `scylla-driver-core.override`, `build`, `jar`, `artifacts`, `build-test`, `testold` and `testsome`. The `jar` target writes the stress version to the `Implementation-Version` attribute of the jar manifest. The CI build, unit test and integration test matrices are `["21", "25"]`. The deb and rpm package tests stay on JDK 21, the runtime of the packages. The build workflow passes no `source.version` or `target.version`, so a JDK 25 build still writes Java 21 bytecode.
+`build.xml` keeps the targets that CI, the Makefile, the Dockerfile and packaging call: `init`, `clean`, `realclean`, `resolver-init`, `resolver-retrieve-build`, `java-driver-core.get`, `java-driver-core.shade`, `scylla-driver-core.override`, `build`, `jar`, `artifacts`, `build-test` and `test`. `test` runs every unit test in one forked JVM, or one class with `-Dtest.name=ClassNameTest`, and CI runs it on JDK 21 and 25. The `jar` target writes the stress version to the `Implementation-Version` attribute of the jar manifest. The CI build, unit test and integration test matrices are `["21", "25"]`. The deb and rpm package tests stay on JDK 21, the runtime of the packages. The build workflow passes no `source.version` or `target.version`, so a JDK 25 build still writes Java 21 bytecode.
 
 The server tree, the server tests, the Thrift and ANTLR sources, and the build files that only they use leave the repository. `ide/idea/` stays, because the Java standard reads its code style.
 
@@ -162,6 +162,7 @@ public enum CompactionStrategy {
 - A ported file starts with an SPDX line, not the ASF block comment, because the repository allows no comments and an SPDX line is a license directive. `NOTICE.txt` keeps the Apache Cassandra attribution. (build)
 - `build.xml` writes no POM and uses no maven-ant-tasks. The POMs only fed the resolver, and two resolver `<dependencies>` sets do that without a generated file. (build)
 - `SimpleDateSerializer` formats with `java.time` and drops the string parser, because stress only serializes and prints dates, and joda-time left with the server dependencies. (build)
+- One `test` target replaces `testold` and `testsome`, which kept the per-test fork and the Cassandra test harness. CI runs `ant test`, so the unit tests run on every pull request. (review)
 - One pull request carries the removal, because stress does not compile until the removals and the ports are both in. (spec)
 - CI tests on JDK 21 and 25, and this pull request fixes any driver failure on JDK 25. (review)
 - JDK 27 joins CI after its GA. (review)

@@ -15,9 +15,7 @@
   limitations under the License.
 -->
 <project basedir="." default="jar" name="cassandra-stress"
-    xmlns:resolver="antlib:org.apache.maven.resolver.ant"
-    xmlns:if="ant:if"
-    xmlns:unless="ant:unless">
+    xmlns:resolver="antlib:org.apache.maven.resolver.ant">
 
     <fail message="You need to use Ant of version at least 1.10 to continue.">
         <condition>
@@ -53,7 +51,6 @@
     <property name="test.lib" value="${build.dir}/test/lib" />
     <property name="test.classes" value="${build.dir}/test/classes" />
     <property name="test.name" value="*Test" />
-    <property name="test.methods" value="" />
     <property name="test.unit.src" value="${test.dir}/unit" />
     <property name="test.timeout" value="240000" />
     <property name="dist.dir" value="${build.dir}/dist" />
@@ -443,56 +440,23 @@
         </copy>
     </target>
 
-    <macrodef name="testmacro">
-        <attribute name="inputdir" />
-        <attribute name="timeout" default="${test.timeout}" />
-        <attribute name="forkmode" default="perTest" />
-        <attribute name="filter" default="**/${test.name}.java" />
-        <element name="optjvmargs" implicit="true" optional="true" />
-        <sequential>
-            <mkdir dir="${build.test.dir}/output" />
-            <junit fork="on" forkmode="@{forkmode}" failureproperty="testfailed"
-                maxmemory="1024m" timeout="@{timeout}" showoutput="false">
-                <formatter type="xml" usefile="true" />
-                <formatter type="brief" usefile="false" />
-                <jvmarg value="-Djava.awt.headless=true" />
-                <jvmarg value="-ea" />
-                <jvmarg value="-Djava.io.tmpdir=${tmp.dir}" />
-                <jvmarg value="-Djava.security.egd=file:/dev/urandom" />
-                <optjvmargs />
-                <classpath>
-                    <pathelement path="${java.class.path}" />
-                    <path refid="cassandra-stress.classpath" />
-                    <path refid="cassandra-stress.classpath.test" />
-                    <pathelement location="${test.classes}" />
-                </classpath>
-                <batchtest unless:blank="@{filter}" todir="${build.test.dir}/output">
-                    <fileset dir="@{inputdir}" includes="@{filter}" />
-                </batchtest>
-            </junit>
-            <fail message="Some test(s) failed.">
-                <condition>
-                    <and>
-                        <isset property="testfailed" />
-                        <not>
-                            <isset property="ant.test.failure.ignore" />
-                        </not>
-                    </and>
-                </condition>
-            </fail>
-        </sequential>
-    </macrodef>
-
-    <target name="testold" depends="build-test" description="Execute unit tests">
-        <testmacro inputdir="${test.unit.src}" />
-    </target>
-
-    <target name="testsome" depends="build-test" description="Execute specific unit tests">
-        <testmacro inputdir="${test.unit.src}" filter="">
-            <test unless:blank="${test.methods}" name="${test.name}" methods="${test.methods}"
-                todir="${build.test.dir}/output" />
-            <test if:blank="${test.methods}" name="${test.name}"
-                todir="${build.test.dir}/output" />
-        </testmacro>
+    <target name="test" depends="build-test" description="Run the unit tests, or one class with -Dtest.name=ClassNameTest">
+        <mkdir dir="${build.test.dir}/output" />
+        <junit fork="on" forkmode="once" failureproperty="testfailed"
+            maxmemory="1024m" timeout="${test.timeout}">
+            <formatter type="xml" usefile="true" />
+            <formatter type="brief" usefile="false" />
+            <jvmarg value="-ea" />
+            <jvmarg value="-Djava.io.tmpdir=${tmp.dir}" />
+            <classpath>
+                <path refid="cassandra-stress.classpath" />
+                <path refid="cassandra-stress.classpath.test" />
+                <pathelement location="${test.classes}" />
+            </classpath>
+            <batchtest todir="${build.test.dir}/output">
+                <fileset dir="${test.unit.src}" includes="**/${test.name}.java" />
+            </batchtest>
+        </junit>
+        <fail message="Some test(s) failed." if="testfailed" />
     </target>
 </project>

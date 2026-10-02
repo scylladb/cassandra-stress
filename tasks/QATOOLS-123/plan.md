@@ -11,7 +11,7 @@ stays in every plan built from a spec.
 
 - Paths below are relative to the repository root. `S` is `src/java/org/apache/cassandra/stress`. `T` is `test/unit/org/apache/cassandra/stress`.
 - Each task ends with a green build. Tasks 1 to 10 keep the server tree in place, so the build compiles at every commit. Task 11 deletes the tree only after no stress file imports it.
-- Verify sequence, from `CLAUDE.md`: `ant build-test`, then `ant testold -Dtest.name='stress/**/*Test'`. Run `ant clean` first after a task that deletes a class, because Ant compiles only the changed sources and a stale class file hides a broken reference.
+- Verify sequence, from `CLAUDE.md`: `ant build-test`, then `ant test`. Tasks 1 to 13 ran the earlier `testold -Dtest.name='stress/**/*Test'` form. Run `ant clean` first after a task that deletes a class, because Ant compiles only the changed sources and a stale class file hides a broken reference.
 - Follow `docs/standards/`: Allman braces and four spaces, the four import groups, JUnit 4 with `org.junit.Assert`, the test for `S/<pkg>/<Class>.java` in `T/<pkg>/<Class>Test.java`.
 - A file copied from a Cassandra original starts with `// SPDX-License-Identifier: Apache-2.0` and carries no other comment.
 - Commit subjects: `type(scope): QATOOLS-123 <subject>`, with `!` on a commit that removes a user-facing option or output field.
