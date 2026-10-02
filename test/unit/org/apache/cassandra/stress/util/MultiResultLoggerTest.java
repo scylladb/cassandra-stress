@@ -19,11 +19,11 @@
 package org.apache.cassandra.stress.util;
 
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
-import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.junit.Test;
 
 import static org.junit.Assert.*;

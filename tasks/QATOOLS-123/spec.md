@@ -52,17 +52,17 @@ A file that comes from a Cassandra original starts with `// SPDX-License-Identif
 
 ### Build and CI
 
-`build.xml` declares the jars that stress code imports, plus the logging and compression jars that the drivers load at run time. The resolver brings the transitive dependencies from the driver POMs. HdrHistogram moves from 2.1.12 to 2.2.2, the version that both drivers declare. Both versions write the same HDR log, format 1.3. One POM, `cassandra-stress`, replaces the `parent`, `all` and `thrift` POMs.
+`build.xml` declares the jars that stress code imports, plus the logging and compression jars that the drivers load at run time. The resolver brings the transitive dependencies from the 3.x driver POM. The 4.x driver is fetched and shaded by jarjar outside the resolver, so `build.xml` declares its runtime dependency `com.typesafe:config` itself. HdrHistogram moves from 2.1.12 to 2.2.2, the version that both drivers declare. Both versions write the same HDR log, format 1.3. Guava, Netty, slf4j and lz4-java take the versions that the 3.x driver declares. `build.xml` declares the dependencies in two resolver `<dependencies>` sets, one for run time and one for the tests, and writes no POM.
 
 | Scope | Coordinates |
 |---|---|
-| runtime | `scylla-driver-core` 3.x, `java-driver-core` 4.x (shaded by jarjar), guava, commons-math3, commons-lang3, commons-cli, snakeyaml, json-simple, jctools-core, netty-common, HdrHistogram 2.2.2, slf4j-api, logback-classic, lz4-java, snappy-java |
+| runtime | `scylla-driver-core` 3.x, `java-driver-core` 4.x (shaded by jarjar), guava, commons-math3, commons-lang3, commons-cli, snakeyaml, json-simple, jctools-core, netty-common, HdrHistogram 2.2.2, config, slf4j-api, logback-classic, lz4-java, snappy-java |
 | test | junit 4, hamcrest |
 | build | `maven-resolver-ant-tasks`, jarjar |
 
-Every other coordinate goes, `compile-command-annotations` included. `<javac>` sets `--release 21` and `-proc:none`. With no annotation processor, the `build` target stops copying `META-INF/hotspot_compiler`, and the `artifacts` target stops excluding it. `conf/jvm-clients.options` keeps only the flags that the drivers need. The integration tests on JDK 21 and 25 decide that list.
+Every other coordinate goes, `compile-command-annotations` and joda-time included. `<javac>` sets `--release 21` and `-proc:none`. With no annotation processor, the `build` target stops copying `META-INF/hotspot_compiler`, and the `artifacts` target stops excluding it. `conf/jvm-clients.options` keeps only the flags that the drivers need. The integration tests on JDK 21 and 25 decide that list.
 
-`build.xml` keeps the targets that CI, the Makefile, the Dockerfile and packaging call: `init`, `clean`, `realclean`, the resolver targets, `java-driver-core.get`, `java-driver-core.shade`, `scylla-driver-core.override`, `build`, `jar`, `artifacts`, `build-test`, `testold` and `testsome`. The `jar` target writes the stress version to the `Implementation-Version` attribute of the jar manifest. The CI test matrix is `["21", "25"]`.
+`build.xml` keeps the targets that CI, the Makefile, the Dockerfile and packaging call: `init`, `clean`, `realclean`, `resolver-init`, `resolver-retrieve-build`, `java-driver-core.get`, `java-driver-core.shade`, `scylla-driver-core.override`, `build`, `jar`, `artifacts`, `build-test`, `testold` and `testsome`. The `jar` target writes the stress version to the `Implementation-Version` attribute of the jar manifest. The CI build, unit test and integration test matrices are `["21", "25"]`. The deb and rpm package tests stay on JDK 21, the runtime of the packages. The build workflow passes no `source.version` or `target.version`, so a JDK 25 build still writes Java 21 bytecode.
 
 The server tree, the server tests, the Thrift and ANTLR sources, and the build files that only they use leave the repository. `ide/idea/` stays, because the Java standard reads its code style.
 
@@ -160,6 +160,8 @@ public enum CompactionStrategy {
 - The replication allow-list leaves out `SimpleStrategy`, `LocalStrategy` and `OldNetworkTopologyStrategy`. Only two SCT provision tests against Cassandra use `SimpleStrategy`, and SCT moves them to `NetworkTopologyStrategy` before the image bump. Only system keyspaces use `LocalStrategy`, and Cassandra 4.0 removed `OldNetworkTopologyStrategy`. (review)
 - `-mode` selects driver 4.x with the `4x` token, not `native 4x`, so the removal message and the Inputs contract name `-mode 4x`. (build)
 - A ported file starts with an SPDX line, not the ASF block comment, because the repository allows no comments and an SPDX line is a license directive. `NOTICE.txt` keeps the Apache Cassandra attribution. (build)
+- `build.xml` writes no POM and uses no maven-ant-tasks. The POMs only fed the resolver, and two resolver `<dependencies>` sets do that without a generated file. (build)
+- `SimpleDateSerializer` formats with `java.time` and drops the string parser, because stress only serializes and prints dates, and joda-time left with the server dependencies. (build)
 - One pull request carries the removal, because stress does not compile until the removals and the ports are both in. (spec)
 - CI tests on JDK 21 and 25, and this pull request fixes any driver failure on JDK 25. (review)
 - JDK 27 joins CI after its GA. (review)

@@ -80,12 +80,6 @@ if [ "$CASSANDRA_STRESS_STORAGE_DIR" = "" ]; then
   CASSANDRA_STRESS_STORAGE_DIR="$CASSANDRA_STRESS_HOME/data"
 fi
 
-CONFIG_FILE_REALPATH=$(realpath "$CASSANDRA_STRESS_CONFIG/cassandra.yaml")
-
-if [ -f "$CASSANDRA_STRESS_CONFIG/scylla.yaml" ]; then
-  CONFIG_FILE_REALPATH=$(realpath "$CASSANDRA_STRESS_CONFIG/scylla.yaml")
-fi
-
 CLASSPATH="${CLASSPATH}:$(find_all_jars "$CASSANDRA_STRESS_HOME/lib")"
 CLASSPATH="${CLASSPATH#:}"
 
@@ -145,7 +139,6 @@ case "$1" in
     # shellcheck disable=SC2086,SC2068
     "$JAVA" $JVM_OPTS \
       -cp $CLASSPATH \
-      -Dcassandra.config="file://$CONFIG_FILE_REALPATH" \
       -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \
       -Dcassandra.logdir="$CASSANDRA_STRESS_STORAGE_DIR/logs" \
       -Dlogback.configurationFile="$CASSANDRA_STRESS_CONFIG/logback.xml" \

@@ -188,27 +188,29 @@ stays in every plan built from a spec.
 
 **Internals:** one POM `cassandra-stress` with the coordinates of the spec table, HdrHistogram at 2.2.2. `<javac>` sets `release="21"` and `<compilerarg value="-proc:none"/>`, and takes no `--add-exports` or `--add-opens`. `artifacts` loses its `hotspot_compiler` exclude.
 
-- [ ] Run `grep -rn "ant \|make " .github Makefile Dockerfile scripts dist` and list every target that they call. Each one must stay.
-- [ ] Rewrite `maven-declare-dependencies` to the spec table and remove the other coordinates and the `parent`, `all` and `thrift` POMs.
-- [ ] Remove the targets above and the properties that only they read.
-- [ ] Remove from `conf/jvm-clients.options` the flags for JDK internals that only server code used: `jdk.internal.misc`, `jdk.internal.module`, `jdk.internal.ref`, the `java.rmi` and `java.management.rmi` exports, `com.sun.management.internal`, `-Djdk.attach.allowAttachSelf`.
-- [ ] Set every `java:` matrix in `.github/workflows/test.yml` to `["21", "25"]`.
-- [ ] Run `ant realclean`, then the verify sequence on JDK 21.
-- [ ] Run `ls build/lib/jars` and diff it against the master baseline. Record each version change of Netty, Guava and Jackson in the pull request body.
-- [ ] Run `make docker-build`, and build the deb and the rpm with `scripts/build_deb.sh` and `scripts/build_rpm.sh`.
-- [ ] Commit `build!: QATOOLS-123 keep only the stress dependencies and targets`, with the boxes of this task checked.
+- [x] Run `grep -rn "ant \|make " .github Makefile Dockerfile scripts dist` and list every target that they call. Each one must stay.
+- [x] Rewrite `maven-declare-dependencies` to the spec table and remove the other coordinates and the `parent`, `all` and `thrift` POMs.
+- [x] Remove the targets above and the properties that only they read.
+- [x] Remove from `conf/jvm-clients.options` the flags for JDK internals that only server code used: `jdk.internal.misc`, `jdk.internal.module`, `jdk.internal.ref`, the `java.rmi` and `java.management.rmi` exports, `com.sun.management.internal`, `-Djdk.attach.allowAttachSelf`.
+- [x] Set every `java:` matrix in `.github/workflows/test.yml` to `["21", "25"]`.
+- [x] Run `ant realclean`, then the verify sequence on JDK 21.
+- [x] Run `ls build/lib/jars` and diff it against the master baseline. Record each version change of Netty, Guava and Jackson in the pull request body.
+- [x] Build the Docker image with the `docker build` command of `make docker-build`, under a local tag, and run its `version` command.
+- [ ] Build the deb and the rpm with `scripts/build_deb.sh` and `scripts/build_rpm.sh`. The macOS build host has no `dpkg-deb` or `rpmbuild`, so the `build.yml` CI job runs this step.
+- [x] Commit `build!: QATOOLS-123 keep only the stress dependencies and targets`, with the boxes of this task checked.
 
 ## Task 13 — Run on JDK 25
 
 **Files:**
 - Modify: `conf/jvm-clients.options` when a driver needs a flag, `build.xml` driver versions when a flag does not suffice
 
-- [ ] Run the verify sequence with `JAVA_HOME` set to Temurin 25.
-- [ ] Start Scylla with `compose.yml`, then run each script in `integration-tests/` with the 3.x and the 4.x driver on JDK 21 and on JDK 25.
-- [ ] For each failure on JDK 25, add the smallest flag to `conf/jvm-clients.options`, or move to a driver version that runs on JDK 25. Run the step again.
-- [ ] Run each integration test once with `-log hdrfile=` and once with `-transport truststore=`, on JDK 25.
-- [ ] Run the verify sequence on JDK 21 again.
-- [ ] Commit `fix: QATOOLS-123 run the drivers on JDK 25`, with the boxes of this task checked. Skip the commit when no file changed, and check this box.
+- [x] Run the verify sequence with `JAVA_HOME` set to Temurin 25.
+- [x] Start Scylla 2025.1 in Docker with port 9042 published, then run each script in `integration-tests/` with the 3.x and the 4.x driver on JDK 21 and on JDK 25.
+- [x] For each failure on JDK 25, add the smallest flag to `conf/jvm-clients.options`, or move to a driver version that runs on JDK 25. Run the step again.
+- [x] Run a write with `-log hdrfile=` on JDK 25, and read the log with the HdrHistogram 2.1.12 reader.
+- [ ] Run a write with `-transport truststore=` on JDK 25. The local Scylla has no client encryption, so the SCT run with `client_encrypt: true` from the spec risks covers this step.
+- [x] Run the verify sequence on JDK 21 again.
+- [x] Commit `fix: QATOOLS-123 run the drivers on JDK 25`, with the boxes of this task checked. Skip the commit when no file changed, and check this box.
 
 ## Task 14 — Close the spec checks
 

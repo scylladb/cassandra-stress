@@ -2,10 +2,8 @@
 
 # C*
 build/
-src/gen-java/
 logs/
 data/
-conf/hotspot_compiler
 doc/cql3/CQL.html
 doc/build/
 pylib/src/
