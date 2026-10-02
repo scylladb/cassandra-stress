@@ -155,17 +155,17 @@ stays in every plan built from a spec.
 ## Task 10 — Read the versions from the manifest and the drivers
 
 **Files:**
-- Modify: `S/settings/SettingsMisc.java:128-168` (`maybePrintVersion`, `parseVersionFile`), `build.xml:1026-1034` (`createVersionPropFile`), `build.xml:1113` (its `antcall`), `build.xml:1138-1140` (the `jar` manifest), `build.xml:1204` (the exclude), `build.xml:91,387` (`version.properties.dir`)
+- Modify: `.gitignore` (the `src/resources/org/apache/cassandra/config/` entry), `S/settings/SettingsMisc.java:128-168` (`maybePrintVersion`, `parseVersionFile`), `build.xml:1026-1034` (`createVersionPropFile`), `build.xml:1113` (its `antcall`), `build.xml:1138-1140` (the `jar` manifest), `build.xml:1204` (the exclude), `build.xml:91,387` (`version.properties.dir`)
 - Test: `T/settings/SettingsMiscTest.java`
 
-**Internals:** `SettingsMisc.versionLines(String stressVersion, String driver3Version, String driver4Version)` returns the three lines of the spec Outputs contract. `maybePrintVersion` passes `SettingsMisc.class.getPackage().getImplementationVersion()`, `com.datastax.driver.core.Cluster.getDriverVersion()` and `shaded.com.datastax.oss.driver.api.core.session.Session.OSS_DRIVER_COORDINATES.getVersion().toString()`. The `jar` target adds `<manifest><attribute name="Implementation-Version" value="${version}"/></manifest>`.
+**Internals:** `SettingsMisc.versionLines(String stressVersion, String driver3Version, String driver4Version)` returns the three lines of the spec Outputs contract. `maybePrintVersion` passes `SettingsMisc.class.getPackage().getImplementationVersion()` and the `driver.version` key of each driver's `Driver.properties` resource, read by `driver3Version()` and `driver4Version()`. The `jar` target adds `<manifest><attribute name="Implementation-Version" value="${version}"/></manifest>`.
 
-- [ ] Write `SettingsMiscTest`: `versionLines("1.0.0", "3.11.5.18", "4.19.2.1")` equals the three lines.
-- [ ] Run it and confirm the failure.
-- [ ] Add `versionLines`, switch `maybePrintVersion`, remove `parseVersionFile`, `createVersionPropFile` and its property, and add the manifest attribute.
-- [ ] Run `ant jar` and then `bin/cassandra-stress version`. Confirm the three lines with real versions.
-- [ ] Run the verify sequence.
-- [ ] Commit `refactor(version): QATOOLS-123 read versions from the manifest and the drivers`, with the boxes of this task checked.
+- [x] Write `SettingsMiscTest`: `versionLines("1.0.0", "3.11.5.18", "4.19.2.1")` equals the three lines.
+- [x] Run it and confirm the failure.
+- [x] Add `versionLines`, switch `maybePrintVersion`, remove `parseVersionFile`, `createVersionPropFile` and its property, and add the manifest attribute.
+- [x] Run `ant artifacts`, extract `build/cassandra-stress-bin.tar.gz`, and run its `bin/cassandra-stress version`. Confirm the three lines with real versions.
+- [x] Run the verify sequence.
+- [x] Commit `refactor(version): QATOOLS-123 read versions from the manifest and the drivers`, with the boxes of this task checked.
 
 ## Task 11 — Delete the server tree and the server tests
 
@@ -181,7 +181,7 @@ stays in every plan built from a spec.
 ## Task 12 — Trim `build.xml` to the stress dependencies and targets
 
 **Files:**
-- Modify: `build.xml:550-984` (`maven-declare-dependencies`), `build.xml:169-170` (`java11-jvmargs`), `build.xml:176-181` (`build.classes.thrift`), `build.xml:1088-1110` (`build_java`), `build.xml:1036-1083,1296-1375` (the test macros: `storage-config`, jamm, the Cassandra system properties), `build.xml:1120-1131` (the POMs), `conf/jvm-clients.options`, `.github/workflows/test.yml:18,30,43,55,106`
+- Modify: `bin/cassandra-stress:83-86,148` (`CONFIG_FILE_REALPATH` and `-Dcassandra.config`, which only `DatabaseDescriptor` read), `build.xml:550-984` (`maven-declare-dependencies`), `build.xml:169-170` (`java11-jvmargs`), `build.xml:176-181` (`build.classes.thrift`), `build.xml:1088-1110` (`build_java`), `build.xml:1036-1083,1296-1375` (the test macros: `storage-config`, jamm, the Cassandra system properties), `build.xml:1120-1131` (the POMs), `conf/jvm-clients.options`, `.github/workflows/test.yml:18,30,43,55,106`
 - Delete targets: `check-gen-cql3-grammar`, `gen-cql3-grammar`, `maven-ant-tasks-*`, `maven-ant-tasks-retrieve-build`, `echo-base-version` when nothing calls it, `check-gen-thrift-java`, `gen-thrift-java`, `gen-thrift-py`, `test-run`, `test-cdc`, `msg-ser-*`, `cql-test`, `cql-test-some`, `test-jvm-dtest`, `test-jvm-upgrade-dtest`, `mvn-install`, `generate-idea-files`
 
 **Internals:** one POM `cassandra-stress` with the coordinates of the spec table, HdrHistogram at 2.2.2. `<javac>` sets `release="21"` and `<compilerarg value="-proc:none"/>`, and takes no `--add-exports` or `--add-opens`. The `build` target loses the `hotspot_compiler` copy, and `artifacts` loses its exclude. The test macro keeps `-ea`, `-Djava.io.tmpdir` and `-Djava.awt.headless=true`.

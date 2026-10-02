@@ -20,19 +20,15 @@ package org.apache.cassandra.stress.settings;
  *
  */
 
-
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
-import java.net.URL;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import com.google.common.base.Charsets;
-import com.google.common.io.Resources;
+import java.util.Properties;
 
 import org.apache.cassandra.stress.generate.Distribution;
 
@@ -129,42 +125,49 @@ class SettingsMisc implements Serializable
     {
         if (clArgs.containsKey("version"))
         {
-            try
-            {
-                URL url = Resources.getResource("org/apache/cassandra/config/version.properties");
-                System.out.println(parseVersionFile(Resources.toString(url, Charsets.UTF_8)).trim());
-            }
-            catch (IOException e)
-            {
-                e.printStackTrace(System.err);
-            }
+            System.out.println(versionLines(stressVersion(), driver3Version(), driver4Version()).trim());
             return true;
         }
         return false;
     }
 
-    static String parseVersionFile(String versionFileContents)
+    static String versionLines(String stressVersion, String driver3Version, String driver4Version)
     {
-        Map<String, String> translatedStrings = Stream.of(new String[][] {
-            {"CassandraVersion", "Version: "},
-            {"JavaDriverVersion", "scylla-java-driver: "},
-            {"Java4DriverVersion", "scylla-java-driver-4x: "},
-        }).collect(Collectors.toMap(data -> data[0], data->data[1]));
+        return "Version: " + stressVersion + "\n"
+               + "scylla-java-driver: " + driver3Version + "\n"
+               + "scylla-java-driver-4x: " + driver4Version + "\n";
+    }
 
-        StringBuilder versionInfo = new StringBuilder();
-        for (String line : versionFileContents.split("\n")) {
-            if (line.contains("=")) {
-                String[] version = line.split("=");
-                if (version.length < 2) {
-                    continue;
-                }
-                String message = translatedStrings.get(version[0].trim());
-                versionInfo.append(message != null ? message : (version[0].trim() + ": "));
-                versionInfo.append(version[1].trim());
-                versionInfo.append("\n");
-            }
+    private static String stressVersion()
+    {
+        String version = SettingsMisc.class.getPackage().getImplementationVersion();
+        return version == null ? "unknown" : version;
+    }
+
+    static String driver3Version()
+    {
+        return driverVersion("com/datastax/driver/core/Driver.properties");
+    }
+
+    static String driver4Version()
+    {
+        return driverVersion("shaded/com/datastax/oss/driver/Driver.properties");
+    }
+
+    private static String driverVersion(String resource)
+    {
+        try (InputStream in = SettingsMisc.class.getClassLoader().getResourceAsStream(resource))
+        {
+            if (in == null)
+                return "unknown";
+            Properties properties = new Properties();
+            properties.load(in);
+            return properties.getProperty("driver.version", "unknown");
         }
-        return versionInfo.toString();
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public static void printHelp()

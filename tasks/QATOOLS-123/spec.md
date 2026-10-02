@@ -90,7 +90,7 @@ The interval and summary header loses the five GC fields. The summary loses its 
 type, total ops, op/s, pk/s, row/s, mean, med, .95, .99, .999, max, time, stderr, errors
 ```
 
-`cassandra-stress version` prints these lines, as today. SCT parses them for Argus. The stress version comes from the `Implementation-Version` of the jar manifest. Each driver version comes from the driver itself: `Cluster.getDriverVersion()` for 3.x and `Session.OSS_DRIVER_COORDINATES` for 4.x. Both read the `Driver.properties` file in the driver jar. The plan confirms both calls against the shaded jars:
+`cassandra-stress version` prints these lines, as today. SCT parses them for Argus. The stress version comes from the `Implementation-Version` of the jar manifest. Each driver version comes from the `driver.version` key of the `Driver.properties` file in the driver jar: `com/datastax/driver/core/Driver.properties` for 3.x and `shaded/com/datastax/oss/driver/Driver.properties` for 4.x. These are the files that `Cluster.getDriverVersion()` and `Session.OSS_DRIVER_COORDINATES` read:
 
 ```
 Version: <version>
@@ -156,6 +156,7 @@ public enum CompactionStrategy {
 - JMX goes completely, the GC fields and the GC summary lines included. SCT adapts its output parser when it moves to this release. (review)
 - `-col super=` and `comparator=` go, because only Thrift column families used them. `-col slice` stays, because the CQL read uses it. (review)
 - `version.properties` and its `createVersionPropFile` target go. `cassandra-stress version` keeps its lines and reads the jar manifest and the drivers. (review)
+- `cassandra-stress version` reads the driver `Driver.properties` files as resources and does not call the driver classes, because loading those classes logs an INFO line to stdout ahead of the lines that SCT parses. A source checkout prints `Version: unknown`, because its launcher loads `build/classes/main` before the jar. (build)
 - The replication allow-list leaves out `SimpleStrategy`, `LocalStrategy` and `OldNetworkTopologyStrategy`. Only two SCT provision tests against Cassandra use `SimpleStrategy`, and SCT moves them to `NetworkTopologyStrategy` before the image bump. Only system keyspaces use `LocalStrategy`, and Cassandra 4.0 removed `OldNetworkTopologyStrategy`. (review)
 - `-mode` selects driver 4.x with the `4x` token, not `native 4x`, so the removal message and the Inputs contract name `-mode 4x`. (build)
 - A ported file starts with an SPDX line, not the ASF block comment, because the repository allows no comments and an SPDX line is a license directive. `NOTICE.txt` keeps the Apache Cassandra attribution. (build)

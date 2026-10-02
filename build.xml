@@ -88,8 +88,6 @@
         <isset property="release" />
     </condition>
     <property name="version" value="${base.version}-SNAPSHOT" />
-    <property name="version.properties.dir"
-        value="${build.src.resources}/org/apache/cassandra/config/" />
     <property name="final.name" value="${ant.project.name}" />
 
     <property name="local.repository" value="${user.home}/.m2/repository" />
@@ -384,7 +382,6 @@
         <delete dir="${build.test.dir}" />
         <delete dir="${build.classes}" />
         <delete dir="${build.src.gen-java}" />
-        <delete dir="${version.properties.dir}" />
     </target>
     <target depends="clean" name="cleanall" />
 
@@ -1022,17 +1019,6 @@
         </exec>
     </target>
 
-    <!-- create properties file with C version -->
-    <target name="createVersionPropFile">
-        <taskdef name="propertyfile" classname="org.apache.tools.ant.taskdefs.optional.PropertyFile" />
-        <mkdir dir="${version.properties.dir}" />
-        <propertyfile file="${version.properties.dir}/version.properties">
-            <entry key="CassandraVersion" value="${version}" />
-            <entry key="JavaDriverVersion" value="${base.javaDriverVersion}" />
-            <entry key="Java4DriverVersion" value="${base.java4DriverVersion}" />
-        </propertyfile>
-    </target>
-
     <target name="test-run" depends="jar"
         description="Run in test mode.  Not for production use!">
         <java classname="org.apache.cassandra.service.CassandraDaemon" fork="true">
@@ -1110,7 +1096,6 @@
         name="build-project">
         <echo message="${ant.project.name}: ${ant.file}" />
         <antcall target="build_java" />
-        <antcall target="createVersionPropFile" />
         <copy todir="${build.classes.main}">
             <fileset dir="${build.src.resources}" />
         </copy>
@@ -1137,6 +1122,9 @@
 
         <jar destfile="${build.dir}/lib/cassandra-stress.jar">
             <fileset dir="${build.classes.main}" />
+            <manifest>
+                <attribute name="Implementation-Version" value="${version}" />
+            </manifest>
         </jar>
     </target>
 
@@ -1201,7 +1189,6 @@
                 <exclude name="src/gen-java/**" />
                 <exclude name=".git/**" />
                 <exclude name="venv/**" />
-                <exclude name="src/resources/org/apache/cassandra/config/version.properties" />
                 <exclude name="conf/hotspot_compiler" />
                 <exclude name="doc/cql3/CQL.html" />
                 <exclude name="bin/*" /> <!-- handled separately below -->
@@ -1624,7 +1611,7 @@
 
     <!-- Generate IDEA project description files -->
     <target name="generate-idea-files"
-        depends="init,maven-ant-tasks-retrieve-build,gen-cql3-grammar,createVersionPropFile"
+        depends="init,maven-ant-tasks-retrieve-build,gen-cql3-grammar"
         description="Generate IDEA files">
         <mkdir dir=".idea" />
         <mkdir dir=".idea/libraries" />
