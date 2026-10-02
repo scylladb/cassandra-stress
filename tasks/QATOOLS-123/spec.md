@@ -48,7 +48,7 @@ The user profile flow stays as it is. `StressProfile` creates the keyspace and t
 | `ByteBufferUtil`, `Pair`, `UUIDGen`, `MurmurHash`, `DynamicList`, `LockedDynamicList`, `ConsistencyLevel`, `EncryptionOptions`, `SSLFactory` | many | Trimmed copies in `stress.util` |
 | `WindowsTimer`, `FBUtilities`, `NamedThreadFactory`, `FileUtils` | `Stress`, `StressServer`, `SettingsGraph` | Removed, or replaced with JDK classes |
 
-A file that comes from a Cassandra original starts with `// SPDX-License-Identifier: Apache-2.0`. A unit test compares the serialized bytes of each `stress.marshal` type with fixed bytes from two sources: bytes that master produces, and bytes from a snapshot that SCT restores through `defaults/manager_restore_benchmark_snapshots.yaml`.
+A file that comes from a Cassandra original starts with `// SPDX-License-Identifier: Apache-2.0`. A unit test compares the serialized bytes of each `stress.marshal` type with fixed bytes that master produces, sets of every element type with a custom comparator included. An end-to-end check writes the column shape of the SCT restore snapshots in `defaults/manager_restore_benchmark_snapshots.yaml` with the released `scylladb/cassandra-stress:3.21.1` image, and the new build reads and validates every row.
 
 ### Build and CI
 
@@ -138,7 +138,7 @@ public enum CompactionStrategy {
 
 | Risk | Response |
 |---|---|
-| A ported serializer changes the bytes, and validation of old data fails | Port the serializer bodies as-is. The `stress.marshal` byte-format test fixes the bytes that master produces and the bytes of an SCT snapshot for each type |
+| A ported serializer changes the bytes, and validation of old data fails | Port the serializer bodies as-is. The `stress.marshal` byte-format test fixes the bytes that master produces for each type. The new build validates data that the 3.21.1 image wrote |
 | SCT passes a removed option or strategy, or parses the GC fields | SCT pins `scylladb/cassandra-stress:3.21.1`, so nothing breaks until SCT bumps the image. The bump changes SCT to the new command line and output: it removes `-port jmx=6868` from eight test cases and configurations, changes `SimpleStrategy` to `NetworkTopologyStrategy` in the two Cassandra provision tests, and drops the GC fields from its output parser |
 | Without the hand-pinned transitive jars, the resolver picks other versions of Netty, Guava or Jackson for the drivers | Compare the `build/lib/jars` list against master in the plan. Pin a version only when the integration tests or a CVE require it. Before the SCT bump, one SCT performance run gives the same latency as the current image, and one run each with `use_hdrhistogram: true` and `client_encrypt: true` passes |
 | Driver 3.x or 4.x, or the Netty in them, fails on JDK 25 | Add the JVM flags that the JDK 25 integration tests show to be needed, or move to a driver version that runs on JDK 25 |
@@ -170,5 +170,5 @@ public enum CompactionStrategy {
 - One pull request carries the removal, because stress does not compile until the removals and the ports are both in. (spec)
 - CI tests on JDK 21 and 25, and this pull request fixes any driver failure on JDK 25. (review)
 - JDK 27 joins CI after its GA. (review)
-- A unit test fixes the bytes of each ported serializer against master and against an SCT snapshot. (review)
+- A unit test fixes the bytes of each ported serializer against master. Data that the 3.21.1 image writes in the shape of the SCT restore snapshots validates with the new build, because the snapshots themselves are terabytes in S3. (build)
 - `build.xml` declares HdrHistogram 2.2.2, because stress imports it directly and the 3.x driver declares the range `[2.2,3)`. 2.1.12 and 2.2.2 write byte-identical logs, and each reads the log of the other. (review)

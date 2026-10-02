@@ -99,7 +99,7 @@ stays in every plan built from a spec.
 **Internals:** `AbstractType<T>` implements `Comparator<ByteBuffer>` with the comparator of each Cassandra type, because `SetSerializer` sorts the set elements with it before it writes them. It holds `decompose`, `compose`, `getString` and `getSerializer`. The fixtures hold sets of every element type with a custom comparator, in an order other than the sort order. `ListType.getInstance(AbstractType, boolean)` and `SetType.getInstance(AbstractType, boolean)` keep their signatures. Each serializer body is a copy of the Cassandra original.
 
 - [x] Generate the master fixture: on master, write a throwaway main that runs `decompose` on fixed values for each type above through the server classes, and store the hex of each result in `test/resources/stress/marshal/master.txt`. Keep the main out of the commit.
-- [ ] Generate the snapshot fixture: take one snapshot that SCT lists in `defaults/manager_restore_benchmark_snapshots.yaml`, read 20 partition keys and their rows with `scylla sstable dump-data`, and store the key and value hex with the CQL type in `test/resources/stress/marshal/snapshot.txt`.
+- [x] Check old data: write the column shape of one SCT restore snapshot from `defaults/manager_restore_benchmark_snapshots.yaml` with the released `scylladb/cassandra-stress:3.21.1` image, then read and validate every row with the new build on JDK 21 and 25 and both drivers. A read with another column size is the negative control. The snapshots themselves are terabytes in S3.
 - [x] Write `AbstractTypeTest`: for each fixture line, `decompose` of the value equals the stored bytes, and `compose` of the bytes equals the value.
 - [x] Run it and confirm the failure: `stress.marshal` does not exist.
 - [x] Create the classes, then switch the imports in `S/generate` from `org.apache.cassandra.db.marshal` to `org.apache.cassandra.stress.marshal`.
@@ -196,7 +196,7 @@ stays in every plan built from a spec.
 - [x] Run `ant realclean`, then the verify sequence on JDK 21.
 - [x] Run `ls build/lib/jars` and diff it against the master baseline. Record each version change of Netty, Guava and Jackson in the pull request body.
 - [x] Build the Docker image with the `docker build` command of `make docker-build`, under a local tag, and run its `version` command.
-- [ ] Build the deb and the rpm with `scripts/build_deb.sh` and `scripts/build_rpm.sh`. The macOS build host has no `dpkg-deb` or `rpmbuild`, so the `build.yml` CI job runs this step.
+- [x] Build the deb in `ubuntu:24.04` and the rpm in `fedora:42`, install each with `scripts/install-deb.sh` and `scripts/install-rpm.sh`, and pass `scripts/check-version.sh`.
 - [x] Commit `build!: QATOOLS-123 keep only the stress dependencies and targets`, with the boxes of this task checked.
 
 ## Task 13 — Run on JDK 25
