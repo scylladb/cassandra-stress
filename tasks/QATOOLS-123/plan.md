@@ -146,11 +146,11 @@ stays in every plan built from a spec.
 
 **Internals:** `ReplicationStrategy.validate` accepts the short name or `org.apache.cassandra.locator.<name>` and returns the full name. `CompactionStrategy.validate` accepts the short name or `org.apache.cassandra.db.compaction.<name>` and returns the name as given. Each throws `IllegalArgumentException("Invalid replication strategy: " + name)` or `"Invalid compaction strategy: " + name`.
 
-- [ ] Write the two tests: each allowed name, short and full. `SimpleStrategy`, `LocalStrategy`, `OldNetworkTopologyStrategy` and `java.lang.String` fail with the message.
-- [ ] Run them and confirm the failure.
-- [ ] Create the enums and switch the two adapters to them.
-- [ ] Run the verify sequence.
-- [ ] Commit `feat(schema)!: QATOOLS-123 check strategies against fixed lists`, with the boxes of this task checked.
+- [x] Write the two tests: each allowed name, short and full. `SimpleStrategy`, `LocalStrategy`, `OldNetworkTopologyStrategy` and `java.lang.String` fail with the message.
+- [x] Run them and confirm the failure.
+- [x] Create the enums and switch the two adapters to them.
+- [x] Run the verify sequence.
+- [x] Commit `feat(schema)!: QATOOLS-123 check strategies against fixed lists`, with the boxes of this task checked.
 
 ## Task 10 — Read the versions from the manifest and the drivers
 
