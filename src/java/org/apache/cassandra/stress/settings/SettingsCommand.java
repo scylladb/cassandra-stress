@@ -244,13 +244,6 @@ public abstract class SettingsCommand implements Serializable
 
     static Runnable helpPrinter(final Command type)
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                printHelp(type);
-            }
-        };
+        return () -> printHelp(type);
     }
 }

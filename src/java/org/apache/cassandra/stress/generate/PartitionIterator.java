@@ -321,13 +321,13 @@ public abstract class PartitionIterator implements Iterator<Row>
             fill(0);
             Pair<int[], Object[]> bound1 = randomBound(clusteringComponentDepth);
             Pair<int[], Object[]> bound2 = randomBound(clusteringComponentDepth);
-            if (compare(bound1.left, bound2.left) > 0) { Pair<int[], Object[]> tmp = bound1; bound1 = bound2; bound2 = tmp;}
+            if (compare(bound1.left(), bound2.left()) > 0) { Pair<int[], Object[]> tmp = bound1; bound1 = bound2; bound2 = tmp;}
             Arrays.fill(lastRow, 0);
-            System.arraycopy(bound2.left, 0, lastRow, 0, bound2.left.length);
+            System.arraycopy(bound2.left(), 0, lastRow, 0, bound2.left().length);
             Arrays.fill(currentRow, 0);
-            System.arraycopy(bound1.left, 0, currentRow, 0, bound1.left.length);
+            System.arraycopy(bound1.left(), 0, currentRow, 0, bound1.left().length);
             seekToCurrentRow();
-            return Pair.create(new Row(partitionKey, bound1.right), new Row(partitionKey, bound2.right));
+            return Pair.create(new Row(partitionKey, bound1.right()), new Row(partitionKey, bound2.right()));
         }
 
         // returns expected row count

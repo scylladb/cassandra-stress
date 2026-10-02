@@ -21,6 +21,7 @@
 package org.apache.cassandra.stress.generate.values;
 
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -51,6 +52,6 @@ public class Lists<T> extends Generator<List<T>>
         int size = (int) sizeDistribution.next();
         for (int i = 0 ; i < size ; i++)
             buffer[i] = valueType.generate();
-        return com.google.common.collect.Lists.newArrayList(Arrays.copyOf(buffer, size));
+        return new ArrayList<>(Arrays.asList(Arrays.copyOf(buffer, size)));
     }
 }

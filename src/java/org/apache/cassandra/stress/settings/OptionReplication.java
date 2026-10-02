@@ -24,8 +24,7 @@ package org.apache.cassandra.stress.settings;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
-import com.google.common.base.Function;
+import java.util.function.Function;
 
 /**
  * For specifying replication options

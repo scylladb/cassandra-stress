@@ -28,10 +28,10 @@ import java.io.Serializable;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 import java.util.regex.Pattern;
 
-import com.google.common.base.Function;
 import com.google.common.util.concurrent.Uninterruptibles;
 
 import com.datastax.driver.core.*;
@@ -477,16 +477,16 @@ public class StressProfile implements Serializable {
 
         maybeLoadSchemaInfo(settings);
 
-        Set<ColumnMetadata> keyColumns = com.google.common.collect.Sets.newHashSet(tableMetaData.getPrimaryKey());
-        Set<ColumnMetadata> allColumns = com.google.common.collect.Sets.newHashSet(tableMetaData.getColumns());
+        Set<ColumnMetadata> keyColumns = new HashSet<>(tableMetaData.getPrimaryKey());
+        Set<ColumnMetadata> allColumns = new HashSet<>(tableMetaData.getColumns());
         boolean isKeyOnlyTable = (keyColumns.size() == allColumns.size());
         //With compact storage
         if (!isKeyOnlyTable && (keyColumns.size() == (allColumns.size() - 1))) {
-            com.google.common.collect.Sets.SetView diff = com.google.common.collect.Sets.difference(allColumns, keyColumns);
-            for (Object obj : diff) {
-                ColumnMetadata col = (ColumnMetadata) obj;
-                isKeyOnlyTable = col.getName().isEmpty();
-                break;
+            for (ColumnMetadata col : allColumns) {
+                if (!keyColumns.contains(col)) {
+                    isKeyOnlyTable = col.getName().isEmpty();
+                    break;
+                }
             }
         }
 
@@ -672,7 +672,7 @@ public class StressProfile implements Serializable {
         private GeneratorFactory(StressSettings settings) {
             List<ColumnInfo> unsupportedColumns = new ArrayList<>();
             List<ColumnInfo> unsupportedCriticalColumns = new ArrayList<>();
-            Set<ColumnMetadata> keyColumns = com.google.common.collect.Sets.newHashSet(tableMetaData.getPrimaryKey());
+            Set<ColumnMetadata> keyColumns = new HashSet<>(tableMetaData.getPrimaryKey());
 
             for (ColumnMetadata metadata : tableMetaData.getPartitionKey())
                 pushColumnInfo(metadata, partitionKeys, true, unsupportedColumns, unsupportedCriticalColumns);

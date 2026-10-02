@@ -22,7 +22,6 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import org.apache.cassandra.stress.util.ResultLogger;
@@ -49,7 +48,7 @@ public class SettingsTokenRange implements Serializable
         @Override
         public List<? extends Option> options()
         {
-            return ImmutableList.<Option>builder().add(wrap, splitFactor).build();
+            return List.of(wrap, splitFactor);
         }
     }
 

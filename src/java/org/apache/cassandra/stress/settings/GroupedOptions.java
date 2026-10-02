@@ -23,11 +23,10 @@ package org.apache.cassandra.stress.settings;
 
 import java.io.PrintStream;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import com.google.common.collect.ImmutableList;
 
 public abstract class GroupedOptions implements Serializable
 {
@@ -129,16 +128,16 @@ public abstract class GroupedOptions implements Serializable
 
     public static List<? extends Option> merge(List<? extends Option> ... optionss)
     {
-        ImmutableList.Builder<Option> builder = ImmutableList.builder();
+        List<Option> merged = new ArrayList<>();
         for (List<? extends Option> options : optionss)
             for (Option option : options)
                 if (option instanceof OptionSimple && ((OptionSimple) option).isRequired())
-                    builder.add(option);
+                    merged.add(option);
         for (List<? extends Option> options : optionss)
             for (Option option : options)
                 if (!(option instanceof OptionSimple && ((OptionSimple) option).isRequired()))
-                    builder.add(option);
-        return builder.build();
+                    merged.add(option);
+        return List.copyOf(merged);
     }
 
     static String formatLong(String longDisplay, String description)

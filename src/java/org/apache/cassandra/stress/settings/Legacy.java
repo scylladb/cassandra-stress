@@ -343,14 +343,7 @@ public class Legacy implements Serializable
 
     public static Runnable helpPrinter()
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                printHelpMessage();
-            }
-        };
+        return () -> printHelpMessage();
     }
 
 }

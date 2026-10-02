@@ -22,11 +22,10 @@ package org.apache.cassandra.stress.settings;
 
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
-import com.google.common.collect.ImmutableList;
 
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
@@ -101,7 +100,7 @@ public class SettingsPopulation implements Serializable
         @Override
         public List<? extends Option> options()
         {
-            return ImmutableList.<Option>builder().add(seed).addAll(super.options()).build();
+            return concat(List.of(seed), super.options());
         }
     }
 
@@ -121,8 +120,15 @@ public class SettingsPopulation implements Serializable
         @Override
         public List<? extends Option> options()
         {
-            return ImmutableList.<Option>builder().add(populate, nowrap, lookback).addAll(super.options()).build();
+            return concat(List.of(populate, nowrap, lookback), super.options());
         }
+    }
+
+    private static List<Option> concat(List<? extends Option> first, List<? extends Option> second)
+    {
+        List<Option> options = new ArrayList<>(first);
+        options.addAll(second);
+        return List.copyOf(options);
     }
 
     // CLI Utility Methods
@@ -189,14 +195,7 @@ public class SettingsPopulation implements Serializable
 
     public static Runnable helpPrinter()
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                printHelp();
-            }
-        };
+        return () -> printHelp();
     }
 }
 

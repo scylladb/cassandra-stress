@@ -256,11 +256,11 @@ public class ValidatingSchemaQuery extends PartitionOperation
 
     BoundStatement bind(int statementIndex)
     {
-        int pkc = bounds.left.partitionKey.length;
-        System.arraycopy(bounds.left.partitionKey, 0, bindBuffer, 0, pkc);
-        int ccc = bounds.left.row.length;
-        System.arraycopy(bounds.left.row, 0, bindBuffer, pkc, ccc);
-        System.arraycopy(bounds.right.row, 0, bindBuffer, pkc + ccc, ccc);
+        int pkc = bounds.left().partitionKey.length;
+        System.arraycopy(bounds.left().partitionKey, 0, bindBuffer, 0, pkc);
+        int ccc = bounds.left().row.length;
+        System.arraycopy(bounds.left().row, 0, bindBuffer, pkc, ccc);
+        System.arraycopy(bounds.right().row, 0, bindBuffer, pkc + ccc, ccc);
         return statements[statementIndex].statement.bind(bindBuffer);
     }
 

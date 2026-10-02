@@ -269,12 +269,7 @@ public class SettingsSchema implements Serializable
     }
 
     public static Runnable helpPrinter() {
-        return new Runnable() {
-            @Override
-            public void run() {
-                printHelp();
-            }
-        };
+        return () -> printHelp();
     }
 
 }

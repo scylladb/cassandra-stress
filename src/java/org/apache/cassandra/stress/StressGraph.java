@@ -33,14 +33,12 @@ import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.google.common.io.ByteStreams;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.cassandra.stress.report.StressMetrics;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
-
 
 public class StressGraph
 {
@@ -114,7 +112,7 @@ public class StressGraph
         String graphHTML;
         try
         {
-            graphHTML = new String(ByteStreams.toByteArray(graphHTMLRes));
+            graphHTML = new String(graphHTMLRes.readAllBytes());
         }
         catch (IOException e)
         {

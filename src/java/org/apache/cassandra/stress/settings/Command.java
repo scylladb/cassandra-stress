@@ -26,8 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.collect.ImmutableList;
-
 public enum Command
 {
 
@@ -106,7 +104,7 @@ public enum Command
             names.add(extra.toLowerCase());
             names.add(extra.replaceAll("_", "").toLowerCase());
         }
-        this.names = ImmutableList.copyOf(names);
+        this.names = List.copyOf(names);
         this.description = description;
     }
 

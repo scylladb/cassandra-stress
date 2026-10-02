@@ -156,13 +156,6 @@ public class SettingsCommandPreDefined extends SettingsCommand
 
     static Runnable helpPrinter(final Command type)
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                printHelp(type);
-            }
-        };
+        return () -> printHelp(type);
     }
 }

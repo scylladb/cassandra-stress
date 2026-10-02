@@ -194,7 +194,7 @@ public final class Stress
     }
 
     private static String threadDump(boolean lockedMonitors, boolean lockedSynchronizers) {
-        StringBuffer threadDump = new StringBuffer(System.lineSeparator());
+        StringBuilder threadDump = new StringBuilder(System.lineSeparator());
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
         for(ThreadInfo threadInfo : threadMXBean.dumpAllThreads(lockedMonitors, lockedSynchronizers)) {
             threadDump.append(threadInfo.toString());

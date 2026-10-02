@@ -23,8 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import com.google.common.base.Function;
+import java.util.function.Function;
 
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;

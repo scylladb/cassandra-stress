@@ -205,13 +205,6 @@ public class SettingsCommandUser extends SettingsCommand
 
     public static Runnable helpPrinter()
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                printHelp();
-            }
-        };
+        return () -> printHelp();
     }
 }

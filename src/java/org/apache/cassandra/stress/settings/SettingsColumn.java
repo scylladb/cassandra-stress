@@ -189,14 +189,7 @@ public class SettingsColumn implements Serializable
 
     static Runnable helpPrinter()
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                printHelp();
-            }
-        };
+        return () -> printHelp();
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException
