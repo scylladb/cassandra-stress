@@ -93,9 +93,8 @@ Java matrix to `["21"]`, and the `Dockerfile` builds on
   `interface/thrift/gen-java`. Stress connects through the native protocol
   only. The Thrift mode needs the server class `ThriftConversion`, and
   Cassandra 4.0 removed the Thrift protocol.
-- The JMX collector `stress/util/JmxCollector` is gone. The GC columns and
-  the `Total GC` summary lines stay in the output and show zero, as they do
-  today when stress cannot connect over JMX.
+- JMX is gone: the collector `stress/util/JmxCollector`, `-port jmx=`, the
+  GC columns and the `Total GC` summary lines.
 - The stress code keeps the `org.apache.cassandra.stress` package and the
   main class `org.apache.cassandra.stress.Stress`.
 - The build and the tests succeed on JDK 21 and 25. The CI test matrix runs
@@ -104,16 +103,16 @@ Java matrix to `["21"]`, and the `Dockerfile` builds on
 - The Docker image and the deb and rpm packages build and run as today.
 - The integration tests in `integration-tests/` pass against Scylla with the
   3.x and 4.x drivers, as they do today.
-- The `cassandra-stress` command-line options and output formats that SCT uses
-  work as they do today. The removed options are `-mode thrift`,
-  `-mode simplenative`, `-port thrift=`, `-port jmx=` and
-  `-transport factory=`. The `simplenative` mode runs on the server class
+- SCT moves to the new command line and output when it bumps the image.
+  The removed options are `-mode thrift`, `-mode simplenative`,
+  `-port thrift=`, `-port jmx=`, `-transport factory=`, `-col super=` and
+  `-col comparator=`. The `simplenative` mode runs on the server class
   `transport.SimpleClient`.
   `-schema replication(strategy=X)` also fails for `SimpleStrategy`,
-  `LocalStrategy` and `OldNetworkTopologyStrategy`. Our tests never use
-  `SimpleStrategy`, and Scylla rejects it for tablets keyspaces. Only system
-  keyspaces use `LocalStrategy`, and Cassandra 4.0 removed
-  `OldNetworkTopologyStrategy`.
+  `LocalStrategy` and `OldNetworkTopologyStrategy`. Two SCT provision tests
+  against Cassandra use `SimpleStrategy`, and SCT moves them to
+  `NetworkTopologyStrategy` before it bumps the image. Only system keyspaces
+  use `LocalStrategy`, and Cassandra 4.0 removed `OldNetworkTopologyStrategy`.
 - The build uses no server-only dependency or JVM flag: jamm, sigar, ecj,
   byteman, ohc, or the `--add-exports` and `--add-opens` flags for server code.
 
