@@ -15,8 +15,8 @@ Located in `docs/standards/global/`.
 #### Conventions (`standards/global/conventions.md`)
 Commit subjects and pull request titles use the conventional
 `type(scope): subject` form, with `!` for a breaking change and the Jira
-key first in the subject. Files from Apache Cassandra keep the ASF license
-header.
+key first in the subject. A file copied from Apache Cassandra starts with an
+SPDX license line and carries no other comment.
 
 ### Backend standards
 
@@ -26,7 +26,8 @@ Located in `docs/standards/backend/`.
 The code style follows `ide/idea/codeStyleSettings.xml`: braces on their own
 line, four-space indentation, no tabs. A file with K&R braces keeps its own
 style. Imports use four groups, with static imports last. The code targets
-Java 21.
+Java 21 with `release="21"`, and CI runs it on JDK 21 and 25. No code or
+dependency calls `sun.misc.Unsafe`.
 
 ### Testing standards
 
@@ -35,7 +36,8 @@ Located in `docs/standards/testing/`.
 #### Test writing (`standards/testing/test-writing.md`)
 Unit tests use JUnit 4 with `@Test` and static imports from
 `org.junit.Assert`. The test for a class goes in
-`test/unit/<package>/<Class>Test.java`, in the same package.
+`test/unit/<package>/<Class>Test.java`, in the same package. `ant test`
+runs them all, and `-Dtest.name=ClassNameTest` runs one class.
 
 ### Infra standards
 
