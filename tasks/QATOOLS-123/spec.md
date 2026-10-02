@@ -24,7 +24,7 @@ The change deletes the Cassandra server tree and the stress features that run on
 | `-schema replication(strategy=X)` | Any class on the classpath that extends `AbstractReplicationStrategy` | `NetworkTopologyStrategy` or `EverywhereStrategy`, short or full name. Other names stop with `Invalid replication strategy: X` |
 | `-schema compaction(strategy=X)` | Any compaction class that `CFMetaData` loads | The five compaction classes of the vendored tree. Other names stop with `Invalid compaction strategy: X` |
 | GC columns and the GC summary lines | Values over JMX, or zero when JMX fails | Removed |
-| `-col` | `names=` or `n=`, `slice`, `super=`, `comparator=`, `timestamp=`, `size=` | `names=` or `n=`, `slice`, `timestamp=`, `size=`. Column names are ASCII. `super=` and `comparator=` stop at argument parsing |
+| `-col` | `names=` or `n=`, `slice`, `super=`, `comparator=`, `timestamp=`, `size=` | `names=` or `n=`, `slice`, `timestamp=`, `size=`. Column names are UTF-8, sorted by unsigned byte order. `super=` and `comparator=` stop at argument parsing |
 | `CompactionStress`, offline `SchemaInsert` | Write SSTables with server code | Removed |
 | User profiles, other commands, workloads | | Unchanged |
 

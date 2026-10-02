@@ -81,13 +81,13 @@ stays in every plan built from a spec.
 - Modify: `S/settings/SettingsColumn.java:46-140,151-176`
 - Test: `T/settings/SettingsColumnTest.java`
 
-**Internals:** `SettingsColumn` builds the column names as UTF-8 bytes, sorted with `ByteBuffer.compareTo`. The `names` and `namestrs` fields stay.
+**Internals:** `SettingsColumn` builds the column names as UTF-8 bytes, sorted by unsigned byte order. The `names` and `namestrs` fields stay.
 
-- [ ] Write `SettingsColumnTest`: `-col n=FIXED(3)` gives the names `C0`, `C1`, `C2`. `-col names=b,a` gives `a`, `b`. `-col super=1` and `-col comparator=UTF8Type` throw `IllegalArgumentException`.
-- [ ] Run it and confirm the failure of the two removed options.
-- [ ] Remove the two options and the `TypeParser`, `AbstractType` and `BytesType` uses from `SettingsColumn`.
-- [ ] Run the verify sequence.
-- [ ] Commit `feat(settings)!: QATOOLS-123 remove the super and comparator column options`, with the boxes of this task checked.
+- [x] Write `SettingsColumnTest`: `-col n=FIXED(3)` gives the names `C0`, `C1`, `C2`. `-col names=b,a` gives `a`, `b`. `-col super=1` and `-col comparator=UTF8Type` throw `IllegalArgumentException`.
+- [x] Run it and confirm the failure of the two removed options.
+- [x] Remove the two options and the `TypeParser`, `AbstractType` and `BytesType` uses from `SettingsColumn`.
+- [x] Run the verify sequence.
+- [x] Commit `feat(settings)!: QATOOLS-123 remove the super and comparator column options`, with the boxes of this task checked.
 
 ## Task 6 — Port the marshal types to `stress.marshal`
 
