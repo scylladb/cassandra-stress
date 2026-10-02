@@ -20,7 +20,7 @@
  */
 package org.apache.cassandra.stress.generate.values;
 
-import org.apache.cassandra.db.marshal.DoubleType;
+import org.apache.cassandra.stress.marshal.DoubleType;
 
 public class Doubles extends Generator<Double>
 {

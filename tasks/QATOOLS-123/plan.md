@@ -13,7 +13,7 @@ stays in every plan built from a spec.
 - Each task ends with a green build. Tasks 1 to 10 keep the server tree in place, so the build compiles at every commit. Task 11 deletes the tree only after no stress file imports it.
 - Verify sequence, from `CLAUDE.md`: `ant build-test`, then `ant testold -Dtest.name='stress/**/*Test'`. Run `ant clean` first after a task that deletes a class, because Ant compiles only the changed sources and a stale class file hides a broken reference.
 - Follow `docs/standards/`: Allman braces and four spaces, the four import groups, JUnit 4 with `org.junit.Assert`, the test for `S/<pkg>/<Class>.java` in `T/<pkg>/<Class>Test.java`.
-- A file copied from a Cassandra original keeps its ASF license header.
+- A file copied from a Cassandra original starts with `// SPDX-License-Identifier: Apache-2.0` and carries no other comment.
 - Commit subjects: `type(scope): QATOOLS-123 <subject>`, with `!` on a commit that removes a user-facing option or output field.
 - Write no comments in code. The no-comments hooks block them.
 - Before Task 1, record the master baseline: `ls build/lib/jars > /tmp/qatools-123-jars-master.txt` after `ant build-test` on master.
@@ -92,25 +92,25 @@ stays in every plan built from a spec.
 ## Task 6 — Port the marshal types to `stress.marshal`
 
 **Files:**
-- Create: `S/marshal/AbstractType.java`, `S/marshal/TypeSerializer.java`, `S/marshal/MarshalException.java`, one class per type that `S/generate/values/*` and `S/generate/PartitionIterator.java` import: `AsciiType`, `UTF8Type`, `BytesType`, `BooleanType`, `ByteType`, `ShortType`, `Int32Type`, `LongType`, `FloatType`, `DoubleType`, `DecimalType`, `IntegerType`, `InetAddressType`, `UUIDType`, `TimeUUIDType`, `DateType`, `SimpleDateType`, `TimeType`, `ListType`, `SetType`, with their serializers from `src/java/org/apache/cassandra/serializers/`
+- Create: `S/util/ByteBufferUtil.java` and `S/util/UUIDGen.java` with the members that the serializers call, `S/marshal/AbstractType.java`, `S/marshal/TypeSerializer.java`, `S/marshal/MarshalException.java`, one class per type that `S/generate/values/*` and `S/generate/PartitionIterator.java` import: `AsciiType`, `UTF8Type`, `BytesType`, `BooleanType`, `ByteType`, `ShortType`, `Int32Type`, `LongType`, `FloatType`, `DoubleType`, `DecimalType`, `IntegerType`, `InetAddressType`, `UUIDType`, `TimeUUIDType`, `DateType`, `SimpleDateType`, `TimeType`, `ListType`, `SetType`, with their serializers from `src/java/org/apache/cassandra/serializers/`
 - Modify: every file under `S/generate/values/`, `S/generate/PartitionIterator.java`
 - Test: `T/marshal/AbstractTypeTest.java`, fixtures in `test/resources/stress/marshal/`
 
-**Internals:** `AbstractType<T>` implements `Comparator<ByteBuffer>` and holds `decompose`, `compose`, `getString` and `getSerializer`. `ListType.getInstance(AbstractType, boolean)` and `SetType.getInstance(AbstractType, boolean)` keep their signatures. Each serializer body is a copy of the Cassandra original.
+**Internals:** `AbstractType<T>` implements `Comparator<ByteBuffer>` with the comparator of each Cassandra type, because `SetSerializer` sorts the set elements with it before it writes them. It holds `decompose`, `compose`, `getString` and `getSerializer`. The fixtures hold sets of every element type with a custom comparator, in an order other than the sort order. `ListType.getInstance(AbstractType, boolean)` and `SetType.getInstance(AbstractType, boolean)` keep their signatures. Each serializer body is a copy of the Cassandra original.
 
-- [ ] Generate the master fixture: on master, write a throwaway main that runs `decompose` on fixed values for each type above through the server classes, and store the hex of each result in `test/resources/stress/marshal/master.txt`. Keep the main out of the commit.
+- [x] Generate the master fixture: on master, write a throwaway main that runs `decompose` on fixed values for each type above through the server classes, and store the hex of each result in `test/resources/stress/marshal/master.txt`. Keep the main out of the commit.
 - [ ] Generate the snapshot fixture: take one snapshot that SCT lists in `defaults/manager_restore_benchmark_snapshots.yaml`, read 20 partition keys and their rows with `scylla sstable dump-data`, and store the key and value hex with the CQL type in `test/resources/stress/marshal/snapshot.txt`.
-- [ ] Write `AbstractTypeTest`: for each fixture line, `decompose` of the value equals the stored bytes, and `compose` of the bytes equals the value.
-- [ ] Run it and confirm the failure: `stress.marshal` does not exist.
-- [ ] Create the classes, then switch the imports in `S/generate` from `org.apache.cassandra.db.marshal` to `org.apache.cassandra.stress.marshal`.
-- [ ] Run `grep -rn "org.apache.cassandra.db.marshal\|org.apache.cassandra.serializers" S` and confirm no match.
-- [ ] Run the verify sequence.
-- [ ] Commit `refactor(marshal): QATOOLS-123 port the marshal types into stress`, with the boxes of this task checked.
+- [x] Write `AbstractTypeTest`: for each fixture line, `decompose` of the value equals the stored bytes, and `compose` of the bytes equals the value.
+- [x] Run it and confirm the failure: `stress.marshal` does not exist.
+- [x] Create the classes, then switch the imports in `S/generate` from `org.apache.cassandra.db.marshal` to `org.apache.cassandra.stress.marshal`.
+- [x] Run `grep -rn "org.apache.cassandra.db.marshal\|org.apache.cassandra.serializers" S` and confirm no match.
+- [x] Run the verify sequence.
+- [x] Commit `refactor(marshal): QATOOLS-123 port the marshal types into stress`, with the boxes of this task checked.
 
 ## Task 7 — Port the utility helpers to `stress.util`
 
 **Files:**
-- Create: `S/util/ByteBufferUtil.java`, `S/util/FBUtilities.java`, `S/util/Pair.java`, `S/util/UUIDGen.java`, `S/util/MurmurHash.java`, `S/util/DynamicList.java`, `S/util/LockedDynamicList.java`, `S/util/ConsistencyLevel.java`, `S/util/EncryptionOptions.java`, `S/util/SSLFactory.java`, `S/util/FileUtils.java`. Each one keeps only the members that stress calls.
+- Create: `S/util/FBUtilities.java`, `S/util/Pair.java`, `S/util/MurmurHash.java`, `S/util/DynamicList.java`, `S/util/LockedDynamicList.java`, `S/util/ConsistencyLevel.java`, `S/util/EncryptionOptions.java`, `S/util/SSLFactory.java`, `S/util/FileUtils.java`. Each one keeps only the members that stress calls.
 - Modify: the importers that `grep -rln "org.apache.cassandra.utils\|org.apache.cassandra.db.ConsistencyLevel\|org.apache.cassandra.config.EncryptionOptions\|org.apache.cassandra.security\|org.apache.cassandra.io.util.FileUtils\|org.apache.cassandra.concurrent" S` lists, `S/Stress.java:27-31,65-73` (`DatabaseDescriptor.clientInitialization`, `WindowsTimer`), `S/StressServer.java` (`NamedThreadFactory`)
 
 **Internals:** `Stress` drops the Windows timer calls. `StressServer` uses `Executors.newCachedThreadPool` with a thread factory that sets the name. `ConsistencyLevel` keeps the constants and the driver conversion that stress uses.

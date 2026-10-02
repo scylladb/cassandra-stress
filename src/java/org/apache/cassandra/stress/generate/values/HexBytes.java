@@ -23,7 +23,7 @@ package org.apache.cassandra.stress.generate.values;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-import org.apache.cassandra.db.marshal.BytesType;
+import org.apache.cassandra.stress.marshal.BytesType;
 
 public class HexBytes extends Generator<ByteBuffer>
 {

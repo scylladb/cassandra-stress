@@ -22,7 +22,7 @@ package org.apache.cassandra.stress.generate.values;
 
 import java.util.UUID;
 
-import org.apache.cassandra.db.marshal.UUIDType;
+import org.apache.cassandra.stress.marshal.UUIDType;
 
 public class UUIDs extends Generator<UUID>
 {

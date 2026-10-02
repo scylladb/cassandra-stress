@@ -20,7 +20,7 @@
  */
 package org.apache.cassandra.stress.generate.values;
 
-import org.apache.cassandra.db.marshal.TimeType;
+import org.apache.cassandra.stress.marshal.TimeType;
 
 public class Times extends Generator<Long>
 {

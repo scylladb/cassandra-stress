@@ -20,7 +20,7 @@
  */
 package org.apache.cassandra.stress.generate.values;
 
-import org.apache.cassandra.db.marshal.ByteType;
+import org.apache.cassandra.stress.marshal.ByteType;
 
 public class TinyInts extends Generator<Byte>
 {

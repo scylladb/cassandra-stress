@@ -24,7 +24,7 @@ package org.apache.cassandra.stress.generate.values;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.cassandra.db.marshal.ListType;
+import org.apache.cassandra.stress.marshal.ListType;
 
 public class Lists<T> extends Generator<List<T>>
 {

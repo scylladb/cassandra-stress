@@ -20,7 +20,7 @@
  */
 package org.apache.cassandra.stress.generate.values;
 
-import org.apache.cassandra.db.marshal.BooleanType;
+import org.apache.cassandra.stress.marshal.BooleanType;
 
 public class Booleans extends Generator<Boolean>
 {

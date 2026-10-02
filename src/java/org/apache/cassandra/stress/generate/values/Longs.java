@@ -20,7 +20,7 @@
  */
 package org.apache.cassandra.stress.generate.values;
 
-import org.apache.cassandra.db.marshal.LongType;
+import org.apache.cassandra.stress.marshal.LongType;
 
 public class Longs extends Generator<Long>
 {

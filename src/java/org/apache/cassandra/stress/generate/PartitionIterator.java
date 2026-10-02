@@ -38,8 +38,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import com.google.common.collect.Iterables;
 
-import org.apache.cassandra.db.marshal.AbstractType;
-import org.apache.cassandra.db.marshal.BytesType;
+import org.apache.cassandra.stress.marshal.AbstractType;
+import org.apache.cassandra.stress.marshal.BytesType;
 import org.apache.cassandra.stress.generate.values.Generator;
 import org.apache.cassandra.utils.Pair;
 

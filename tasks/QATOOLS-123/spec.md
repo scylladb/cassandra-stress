@@ -48,7 +48,7 @@ The user profile flow stays as it is. `StressProfile` creates the keyspace and t
 | `ByteBufferUtil`, `FBUtilities`, `Pair`, `UUIDGen`, `MurmurHash`, `DynamicList`, `LockedDynamicList`, `ConsistencyLevel`, `EncryptionOptions`, `SSLFactory`, `FileUtils` | many | Trimmed copies in `stress.util` |
 | `WindowsTimer`, `NamedThreadFactory` | `Stress`, `StressServer` | Removed, or replaced with JDK classes |
 
-A file that comes from a Cassandra original keeps its ASF license header. A unit test compares the serialized bytes of each `stress.marshal` type with fixed bytes from two sources: bytes that master produces, and bytes from a snapshot that SCT restores through `defaults/manager_restore_benchmark_snapshots.yaml`.
+A file that comes from a Cassandra original starts with `// SPDX-License-Identifier: Apache-2.0`. A unit test compares the serialized bytes of each `stress.marshal` type with fixed bytes from two sources: bytes that master produces, and bytes from a snapshot that SCT restores through `defaults/manager_restore_benchmark_snapshots.yaml`.
 
 ### Build and CI
 
@@ -158,6 +158,7 @@ public enum CompactionStrategy {
 - `version.properties` and its `createVersionPropFile` target go. `cassandra-stress version` keeps its lines and reads the jar manifest and the drivers. (review)
 - The replication allow-list leaves out `SimpleStrategy`, `LocalStrategy` and `OldNetworkTopologyStrategy`. Only two SCT provision tests against Cassandra use `SimpleStrategy`, and SCT moves them to `NetworkTopologyStrategy` before the image bump. Only system keyspaces use `LocalStrategy`, and Cassandra 4.0 removed `OldNetworkTopologyStrategy`. (review)
 - `-mode` selects driver 4.x with the `4x` token, not `native 4x`, so the removal message and the Inputs contract name `-mode 4x`. (build)
+- A ported file starts with an SPDX line, not the ASF block comment, because the repository allows no comments and an SPDX line is a license directive. `NOTICE.txt` keeps the Apache Cassandra attribution. (build)
 - One pull request carries the removal, because stress does not compile until the removals and the ports are both in. (spec)
 - CI tests on JDK 21 and 25, and this pull request fixes any driver failure on JDK 25. (review)
 - JDK 27 joins CI after its GA. (review)
