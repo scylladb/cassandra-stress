@@ -20,11 +20,8 @@ package org.apache.cassandra.stress.settings;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
-import com.google.common.base.Function;
-
-import org.apache.cassandra.config.CFMetaData;
-import org.apache.cassandra.exceptions.ConfigurationException;
 
 /**
  * For specifying replication options
@@ -65,14 +62,7 @@ class OptionCompaction extends OptionMulti
 
         public String apply(String name)
         {
-            try
-            {
-                CFMetaData.createCompactionStrategy(name);
-            } catch (ConfigurationException e)
-            {
-                throw new IllegalArgumentException("Invalid compaction strategy: " + name);
-            }
-            return name;
+            return CompactionStrategy.validate(name);
         }
     }
 

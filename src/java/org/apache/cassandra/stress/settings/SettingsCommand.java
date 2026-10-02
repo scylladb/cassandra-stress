@@ -34,7 +34,7 @@ import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.db.ConsistencyLevel;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
 
 // Generic command settings - common to read/write/etc
 public abstract class SettingsCommand implements Serializable
@@ -174,7 +174,7 @@ public abstract class SettingsCommand implements Serializable
         for (String table : tables)
         {
             String cql = String.format("TRUNCATE %s.%s", ks, table);
-            client.execute(cql, org.apache.cassandra.db.ConsistencyLevel.ONE);
+            client.execute(cql, org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
         }
         System.out.println(String.format("Truncated %s.%s. Sleeping %ss for propagation.",
                                          ks, Arrays.toString(tables), settings.node.nodes.size()));
@@ -244,13 +244,6 @@ public abstract class SettingsCommand implements Serializable
 
     static Runnable helpPrinter(final Command type)
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                printHelp(type);
-            }
-        };
+        return () -> printHelp(type);
     }
 }

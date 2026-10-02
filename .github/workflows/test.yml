@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        java: ["21"]
+        java: ["21", "25"]
     uses: "./.github/workflows/build.yml"
     with:
       version: "1.0.0"
@@ -52,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ["21"]
+        java: ["21", "25"]
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -66,8 +66,8 @@ jobs:
         uses: ./.github/actions/setup-ant
       - name: Setup
         run: ant init
-      - name: Test tests
-        run: ant build-test
+      - name: Unit tests
+        run: ant test
 
   enumerated-tests:
     timeout-minutes: 2
@@ -103,7 +103,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        java: ["21"]
+        java: ["21", "25"]
         driver-type: ["3x", "4x"]
         test: ${{ fromJSON(needs.enumerated-tests.outputs.matrix) }}
     runs-on: ubuntu-26.04
@@ -131,6 +131,8 @@ jobs:
           until docker logs scylla 2>&1 | grep "Starting listening for CQL clients" > /dev/null; do sleep 0.2; done
       - name: Run tests
         shell: bash
+        env:
+          JVM_OPTS: ${{ matrix.java == '25' && '--sun-misc-unsafe-memory-access=deny' || '' }}
         run: |
           set -xe
           SCYLLA_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' scylla)"

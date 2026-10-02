@@ -19,8 +19,6 @@ package org.apache.cassandra.stress.util;
 
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
-import org.apache.cassandra.config.EncryptionOptions;
-import org.apache.cassandra.security.SSLFactory;
 import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
@@ -82,7 +80,7 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
     public final int requestTimeout;
 
     private final ProtocolVersion protocolVersion;
-    private final EncryptionOptions.ClientEncryptionOptions encryptionOptions;
+    private final EncryptionOptions encryptionOptions;
     private CqlSession session;
     private final JavaDriverV4ConfigBuilder loadBalancingPolicy;
 
@@ -91,10 +89,10 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
 
     public JavaDriverV4Client(StressSettings settings, List<String> hosts, int port)
     {
-        this(settings, hosts, port, new EncryptionOptions.ClientEncryptionOptions());
+        this(settings, hosts, port, new EncryptionOptions());
     }
 
-    public JavaDriverV4Client(StressSettings settings, List<String> hosts, int port, EncryptionOptions.ClientEncryptionOptions encryptionOptions)
+    public JavaDriverV4Client(StressSettings settings, List<String> hosts, int port, EncryptionOptions encryptionOptions)
     {
         this.protocolVersion = settings.mode.protocolVersion.ToJavaDriverV4();
         this.hosts = hosts;
@@ -383,15 +381,15 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         return session;
     }
 
-    public void execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
+    public void execute(String query, org.apache.cassandra.stress.util.ConsistencyLevel consistency)
     {
         SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
         builder.setConsistencyLevel(consistency.ToV4Value());
         session.execute(builder.build());
     }
 
-    public ResultSet execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency,
-                             org.apache.cassandra.db.ConsistencyLevel serialConsistency)
+    public ResultSet execute(String query, org.apache.cassandra.stress.util.ConsistencyLevel consistency,
+                             org.apache.cassandra.stress.util.ConsistencyLevel serialConsistency)
     {
         SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
         builder.setConsistencyLevel(consistency.ToV4Value());
@@ -399,7 +397,7 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         return getSession().execute(builder.build());
     }
 
-    public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency)
+    public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.stress.util.ConsistencyLevel consistency)
     {
         BoundStatementBuilder builder = stmt.ToV4Value().boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
         builder = builder.setConsistencyLevel(consistency.ToV4Value());
@@ -410,7 +408,7 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         return new TableMetadata(getSession().getMetadata().getKeyspace(keyspace).flatMap( ks -> ks.getTable(tableName)).orElse(null));
     }
 
-    public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency, org.apache.cassandra.db.ConsistencyLevel serialConsistency )
+    public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.stress.util.ConsistencyLevel consistency, org.apache.cassandra.stress.util.ConsistencyLevel serialConsistency )
     {
         BoundStatementBuilder builder = stmt.ToV4Value().boundStatementBuilder((Object[]) queryParams.toArray(new Object[queryParams.size()]));
         builder = builder.setConsistencyLevel(consistency.ToV4Value());

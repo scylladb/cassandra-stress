@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.cli.*;
 
-import org.apache.cassandra.concurrent.NamedThreadFactory;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.apache.cassandra.stress.util.ResultLogger;
@@ -97,7 +96,7 @@ public class StressServer
                 ResultLogger log = new MultiResultLogger(out);
 
                 StressAction action = new StressAction((StressSettings) in.readObject(), log);
-                Thread actionThread = NamedThreadFactory.createThread(action, "stress-" + threadCounter.incrementAndGet());
+                Thread actionThread = new Thread(action, "stress-" + threadCounter.incrementAndGet());
                 actionThread.start();
 
                 while (actionThread.isAlive())

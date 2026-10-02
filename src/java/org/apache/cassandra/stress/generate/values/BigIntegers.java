@@ -20,7 +20,7 @@
  */
 package org.apache.cassandra.stress.generate.values;
 
-import org.apache.cassandra.db.marshal.IntegerType;
+import org.apache.cassandra.stress.marshal.IntegerType;
 
 import java.math.BigInteger;
 

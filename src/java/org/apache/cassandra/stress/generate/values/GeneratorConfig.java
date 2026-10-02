@@ -25,8 +25,8 @@ import java.nio.ByteBuffer;
 
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
-import org.apache.cassandra.utils.ByteBufferUtil;
-import org.apache.cassandra.utils.MurmurHash;
+import org.apache.cassandra.stress.util.ByteBufferUtil;
+import org.apache.cassandra.stress.util.MurmurHash;
 
 public class GeneratorConfig implements Serializable
 {

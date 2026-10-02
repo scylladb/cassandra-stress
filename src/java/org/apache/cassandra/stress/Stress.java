@@ -24,11 +24,8 @@ import java.lang.management.ThreadMXBean;
 import java.net.Socket;
 import java.net.SocketException;
 
-import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.MultiResultLogger;
-import org.apache.cassandra.utils.FBUtilities;
-import org.apache.cassandra.utils.WindowsTimer;
 
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -64,13 +61,7 @@ public final class Stress
     {
         registerSignalHandler();
 
-        if (FBUtilities.isWindows)
-            WindowsTimer.startTimerPeriod(1);
-
         int exitCode = run(arguments);
-
-        if (FBUtilities.isWindows)
-            WindowsTimer.endTimerPeriod(1);
 
         System.exit(exitCode);
     }
@@ -80,8 +71,6 @@ public final class Stress
     {
         try
         {
-            DatabaseDescriptor.clientInitialization();
-
             final StressSettings settings;
             try
             {
@@ -205,7 +194,7 @@ public final class Stress
     }
 
     private static String threadDump(boolean lockedMonitors, boolean lockedSynchronizers) {
-        StringBuffer threadDump = new StringBuffer(System.lineSeparator());
+        StringBuilder threadDump = new StringBuilder(System.lineSeparator());
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
         for(ThreadInfo threadInfo : threadMXBean.dumpAllThreads(lockedMonitors, lockedSynchronizers)) {
             threadDump.append(threadInfo.toString());

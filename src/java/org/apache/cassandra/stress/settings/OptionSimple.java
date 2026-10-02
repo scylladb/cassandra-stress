@@ -24,9 +24,9 @@ package org.apache.cassandra.stress.settings;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
-import com.google.common.base.Function;
 
 /**
  * For parsing a simple (sub)option for a command/major option

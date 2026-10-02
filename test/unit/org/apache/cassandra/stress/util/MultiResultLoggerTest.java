@@ -1,105 +1,53 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
-
-import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
-import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class MultiResultLoggerTest
 {
+    private final ByteArrayOutputStream output = new ByteArrayOutputStream();
 
-    public static final OutputStream NOOP = new OutputStream()
+    private PrintStream captured()
     {
-        public void write(int b) throws IOException
-        {
-        }
-    };
+        return new PrintStream(output, true);
+    }
 
-    @Test
-    public void delegatesToInitialPrintStream() throws Exception
+    private static PrintStream discarded()
     {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        PrintStream printStream = new PrintStream(output, true);
-        MultiResultLogger underTest = new MultiResultLogger(printStream);
-
-        underTest.println("Very important result");
-
-        assertEquals("Very important result\n", output.toString());
+        return new PrintStream(OutputStream.nullOutputStream());
     }
 
     @Test
-    public void printingExceptions() throws Exception
+    public void printsToTheInitialStream()
     {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        PrintStream printStream = new PrintStream(output, true);
-        MultiResultLogger underTest = new MultiResultLogger(printStream);
-
-        underTest.printException(new RuntimeException("Bad things"));
-
-        String stackTrace = output.toString();
-        assertTrue("Expected strack trace to be printed but got: " + stackTrace, stackTrace.startsWith("java.lang.RuntimeException: Bad things\n" +
-                                                "\tat org.apache.cassandra.stress.util.MultiResultLoggerTest.printingExceptions"));
+        new MultiResultLogger(captured()).println("result");
+        assertEquals("result\n", output.toString());
     }
 
     @Test
-    public void delegatesToAdditionalPrintStreams() throws Exception
+    public void printsExceptionsWithTheirStackTrace()
     {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        PrintStream additionalPrintStream = new PrintStream(output, true);
-        MultiResultLogger underTest = new MultiResultLogger(new PrintStream(NOOP));
-
-        underTest.addStream(additionalPrintStream);
-        underTest.println("Very important result");
-
-        assertEquals("Very important result\n", output.toString());
+        new MultiResultLogger(captured()).printException(new RuntimeException("Bad things"));
+        assertTrue(output.toString().startsWith("java.lang.RuntimeException: Bad things\n\tat "));
     }
 
     @Test
-    public void delegatesPrintfToAdditionalPrintStreams() throws Exception
+    public void printsToAddedStreams()
     {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        PrintStream additionalPrintStream = new PrintStream(output, true);
-        MultiResultLogger underTest = new MultiResultLogger(new PrintStream(NOOP));
+        MultiResultLogger logger = new MultiResultLogger(discarded());
+        logger.addStream(captured());
 
-        underTest.addStream(additionalPrintStream);
-        underTest.printf("%s %s %s", "one", "two", "three");
+        logger.println("result");
+        logger.printf("%s %s", "one", "two");
+        logger.println();
 
-        assertEquals("one two three", output.toString());
-    }
-
-    @Test
-    public void delegatesPrintlnToAdditionalPrintStreams() throws Exception
-    {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        PrintStream additionalPrintStream = new PrintStream(output, true);
-        MultiResultLogger underTest = new MultiResultLogger(new PrintStream(NOOP));
-
-        underTest.addStream(additionalPrintStream);
-        underTest.println();
-
-        assertEquals("\n", output.toString());
+        assertEquals("result\none two\n", output.toString());
     }
 }

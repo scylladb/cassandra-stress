@@ -22,7 +22,7 @@ package org.apache.cassandra.stress.generate.values;
 
 import java.util.Date;
 
-import org.apache.cassandra.db.marshal.DateType;
+import org.apache.cassandra.stress.marshal.DateType;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.settings.OptionDistribution;
 

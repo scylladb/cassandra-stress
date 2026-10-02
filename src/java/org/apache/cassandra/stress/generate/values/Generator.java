@@ -21,7 +21,7 @@ package org.apache.cassandra.stress.generate.values;
  */
 
 
-import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.stress.marshal.AbstractType;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.settings.OptionDistribution;

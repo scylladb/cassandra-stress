@@ -23,8 +23,8 @@ package org.apache.cassandra.stress.generate.values;
 
 import java.util.UUID;
 
-import org.apache.cassandra.db.marshal.TimeUUIDType;
-import org.apache.cassandra.utils.UUIDGen;
+import org.apache.cassandra.stress.marshal.TimeUUIDType;
+import org.apache.cassandra.stress.util.UUIDGen;
 
 public class TimeUUIDs extends Generator<UUID>
 {

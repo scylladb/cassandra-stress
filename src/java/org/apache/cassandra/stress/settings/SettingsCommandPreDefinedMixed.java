@@ -130,11 +130,6 @@ public class SettingsCommandPreDefinedMixed extends SettingsCommandPreDefined {
     }
 
     public static Runnable helpPrinter() {
-        return new Runnable() {
-            @Override
-            public void run() {
-                printHelp();
-            }
-        };
+        return () -> printHelp();
     }
 }

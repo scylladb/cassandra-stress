@@ -24,10 +24,7 @@ package org.apache.cassandra.stress.settings;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
-import com.google.common.base.Function;
-
-import org.apache.cassandra.locator.AbstractReplicationStrategy;
+import java.util.function.Function;
 
 /**
  * For specifying replication options
@@ -72,24 +69,7 @@ class OptionReplication extends OptionMulti
     {
         public String apply(String name)
         {
-            String strategy = null;
-            for (String fullname : new String[] { name, "org.apache.cassandra.locator." + name })
-            {
-                try
-                {
-                    Class<?> clazz = Class.forName(fullname);
-                    if (!AbstractReplicationStrategy.class.isAssignableFrom(clazz))
-                        throw new IllegalArgumentException(clazz + " is not a replication strategy");
-                    strategy = fullname;
-                    break;
-                } catch (Exception ignore)
-                {
-                    // will throw below if strategy is still null
-                }
-            }
-            if (strategy == null)
-                throw new IllegalArgumentException("Invalid replication strategy: " + name);
-            return strategy;
+            return ReplicationStrategy.validate(name);
         }
     }
 

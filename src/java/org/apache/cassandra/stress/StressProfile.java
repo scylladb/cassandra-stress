@@ -28,24 +28,14 @@ import java.io.Serializable;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-import com.google.common.base.Function;
 import com.google.common.util.concurrent.Uninterruptibles;
 
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.AlreadyExistsException;
-import org.antlr.runtime.RecognitionException;
-import org.apache.cassandra.config.CFMetaData;
-import org.apache.cassandra.config.ColumnDefinition;
-import org.apache.cassandra.cql3.CQLFragmentParser;
-import org.apache.cassandra.cql3.CqlParser;
-import org.apache.cassandra.cql3.QueryProcessor;
-import org.apache.cassandra.cql3.statements.CreateTableStatement;
-import org.apache.cassandra.exceptions.RequestValidationException;
-import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.cassandra.stress.core.BatchStatementType;
 import org.apache.cassandra.stress.core.ColumnMetadata;
 import org.apache.cassandra.stress.core.DataType;
@@ -65,10 +55,8 @@ import org.apache.cassandra.stress.util.MetadataProvider;
 import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.QueryPrepare;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.thrift.Compression;
-import org.apache.cassandra.db.ConsistencyLevel;
-import org.apache.thrift.TException;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
+import org.apache.cassandra.stress.util.CqlNames;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
@@ -102,12 +90,10 @@ public class StressProfile implements Serializable {
     transient volatile ConsistencyLevel serialConsistencyLevel;
     transient volatile PreparedStatement insertStatement;
     transient volatile String query;
-    transient volatile Integer thriftInsertId;
     transient volatile List<ValidatingSchemaQuery.Factory> validationFactories;
 
     transient volatile Map<String, SchemaQuery.ArgSelect> argSelects;
     transient volatile Map<String, PreparedStatement> queryStatements;
-    transient volatile Map<String, Integer> thriftQueryIds;
 
     private static final Pattern lowercaseAlphanumeric = Pattern.compile("[a-z0-9_]+");
 
@@ -149,7 +135,7 @@ public class StressProfile implements Serializable {
     }
 
 
-    private void init(StressYaml yaml) throws RequestValidationException {
+    private void init(StressYaml yaml) {
         keyspaceName = yaml.keyspace;
         keyspaceCql = yaml.keyspace_definition;
         tableName = yaml.table;
@@ -175,9 +161,9 @@ public class StressProfile implements Serializable {
         }
         if (keyspaceCql != null && keyspaceCql.length() > 0) {
             try {
-                String name = CQLFragmentParser.parseAnyUnhandled(CqlParser::createKeyspaceStatement, keyspaceCql).keyspace();
+                String name = CqlNames.keyspaceOf(keyspaceCql);
                 assert name.equalsIgnoreCase(keyspaceName) : "Name in keyspace_definition doesn't match keyspace property: '" + name + "' != '" + keyspaceName + "'";
-            } catch (RecognitionException | SyntaxException e) {
+            } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("There was a problem parsing the keyspace cql: " + e.getMessage());
             }
         } else {
@@ -186,9 +172,9 @@ public class StressProfile implements Serializable {
 
         if (tableCql != null && tableCql.length() > 0) {
             try {
-                String name = CQLFragmentParser.parseAnyUnhandled(CqlParser::createTableStatement, tableCql).columnFamily();
+                String name = CqlNames.tableOf(tableCql);
                 assert name.equalsIgnoreCase(tableName) : "Name in table_definition doesn't match table property: '" + name + "' != '" + tableName + "'";
-            } catch (RecognitionException | RuntimeException e) {
+            } catch (RuntimeException e) {
                 throw new IllegalArgumentException("There was a problem parsing the table cql: " + e.getMessage());
             }
         } else {
@@ -297,7 +283,7 @@ public class StressProfile implements Serializable {
         }
         assert settings.command.truncate != SettingsCommand.TruncateWhen.NEVER;
         String cql = String.format("TRUNCATE %s.%s", keyspaceName, tableName);
-        client.execute(cql, org.apache.cassandra.db.ConsistencyLevel.ONE);
+        client.execute(cql, org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
         System.out.println(String.format("Truncated %s.%s. Sleeping %ss for propagation.",
                 keyspaceName, tableName, settings.node.nodes.size()));
         Uninterruptibles.sleepUninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);
@@ -428,61 +414,50 @@ public class StressProfile implements Serializable {
         if (queryStatements == null) {
             synchronized (this) {
                 if (queryStatements == null) {
-                    try {
-                        ThriftClient tclient = null;
-                        QueryPrepare client;
-                        switch (settings.mode.api) {
-                            case JAVA_DRIVER_NATIVE:
-                                client = settings.getJavaDriverClient();
-                                break;
-                            case JAVA_DRIVER4_NATIVE:
-                                client = settings.getJavaDriverV4Client();
-                                break;
-                            default:
-                                client = settings.getJavaDriverClient();
-                                tclient = settings.getThriftClient();
-                        }
-
-                        Map<String, PreparedStatement> stmts = new HashMap<>();
-                        Map<String, Integer> tids = new HashMap<>();
-                        Map<String, SchemaQuery.ArgSelect> args = new HashMap<>();
-                        for (Map.Entry<String, StressYaml.QueryDef> e : queries.entrySet()) {
-                            StressYaml.QueryDef query = e.getValue();
-                            PreparedStatement stmt = client.prepare(query.cql);
-                            String queryName = e.getKey().toLowerCase();
-
-                            if (query.consistencyLevel != null) {
-                                stmt.setConsistencyLevel(ConsistencyLevel.valueOf(query.consistencyLevel.toUpperCase()));
-                            } else {
-                                stmt.setConsistencyLevel(settings.command.consistencyLevel);
-                            }
-
-                            if (query.serialConsistencyLevel != null) {
-                                stmt.setSerialConsistencyLevel(ConsistencyLevel.valueOf(query.serialConsistencyLevel.toUpperCase()));
-                            } else {
-                                stmt.setSerialConsistencyLevel(settings.command.serialConsistencyLevel);
-                            }
-
-                            if (tclient != null)
-                                tids.put(queryName, tclient.prepare_cql3_query(query.cql, Compression.NONE));
-
-                            stmts.put(queryName, stmt);
-                            args.put(queryName, query.fields == null
-                                    ? SchemaQuery.ArgSelect.MULTIROW
-                                    : SchemaQuery.ArgSelect.valueOf(query.fields.toUpperCase()));
-
-                        }
-                        thriftQueryIds = tids;
-                        queryStatements = stmts;
-                        argSelects = args;
-                    } catch (TException e) {
-                        throw new RuntimeException(e);
+                    QueryPrepare client;
+                    switch (settings.mode.api) {
+                        case JAVA_DRIVER_NATIVE:
+                            client = settings.getJavaDriverClient();
+                            break;
+                        case JAVA_DRIVER4_NATIVE:
+                            client = settings.getJavaDriverV4Client();
+                            break;
+                        default:
+                            client = settings.getJavaDriverClient();
                     }
+
+                    Map<String, PreparedStatement> stmts = new HashMap<>();
+                    Map<String, SchemaQuery.ArgSelect> args = new HashMap<>();
+                    for (Map.Entry<String, StressYaml.QueryDef> e : queries.entrySet()) {
+                        StressYaml.QueryDef query = e.getValue();
+                        PreparedStatement stmt = client.prepare(query.cql);
+                        String queryName = e.getKey().toLowerCase();
+
+                        if (query.consistencyLevel != null) {
+                            stmt.setConsistencyLevel(ConsistencyLevel.valueOf(query.consistencyLevel.toUpperCase()));
+                        } else {
+                            stmt.setConsistencyLevel(settings.command.consistencyLevel);
+                        }
+
+                        if (query.serialConsistencyLevel != null) {
+                            stmt.setSerialConsistencyLevel(ConsistencyLevel.valueOf(query.serialConsistencyLevel.toUpperCase()));
+                        } else {
+                            stmt.setSerialConsistencyLevel(settings.command.serialConsistencyLevel);
+                        }
+
+                        stmts.put(queryName, stmt);
+                        args.put(queryName, query.fields == null
+                                ? SchemaQuery.ArgSelect.MULTIROW
+                                : SchemaQuery.ArgSelect.valueOf(query.fields.toUpperCase()));
+
+                    }
+                    queryStatements = stmts;
+                    argSelects = args;
                 }
             }
         }
 
-        return new SchemaQuery(timer, settings, generator, seeds, thriftQueryIds.get(name), queryStatements.get(name),
+        return new SchemaQuery(timer, settings, generator, seeds, queryStatements.get(name),
                 argSelects.get(name));
     }
 
@@ -495,82 +470,6 @@ public class StressProfile implements Serializable {
     }
 
 
-    public PartitionGenerator getOfflineGenerator() {
-        CFMetaData cfMetaData = CFMetaData.compile(tableCql, keyspaceName);
-
-        //Add missing column configs
-        Iterator<ColumnDefinition> it = cfMetaData.allColumnsInSelectOrder();
-        while (it.hasNext()) {
-            ColumnDefinition c = it.next();
-            if (!columnConfigs.containsKey(c.name.toString().toLowerCase()))
-                columnConfigs.put(c.name.toString().toLowerCase(), new GeneratorConfig(seedStr + c.name.toString(), null, null, null));
-        }
-
-        List<Generator> partitionColumns = cfMetaData.partitionKeyColumns().stream()
-                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
-                .map(c -> c.getGenerator())
-                .collect(Collectors.toList());
-
-        List<Generator> clusteringColumns = cfMetaData.clusteringColumns().stream()
-                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
-                .map(c -> c.getGenerator())
-                .collect(Collectors.toList());
-
-        List<Generator> regularColumns = com.google.common.collect.Lists.newArrayList(cfMetaData.partitionColumns().selectOrderIterator()).stream()
-                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
-                .map(c -> c.getGenerator())
-                .collect(Collectors.toList());
-
-        return new PartitionGenerator(partitionColumns, clusteringColumns, regularColumns, PartitionGenerator.Order.ARBITRARY);
-    }
-
-    public CreateTableStatement.RawStatement getCreateStatement() {
-        CreateTableStatement.RawStatement createStatement = QueryProcessor.parseStatement(tableCql, CreateTableStatement.RawStatement.class, "CREATE TABLE");
-        createStatement.prepareKeyspace(keyspaceName);
-
-        return createStatement;
-    }
-
-    public SchemaInsert getOfflineInsert(Timer timer, PartitionGenerator generator, SeedManager seedManager, StressSettings settings) {
-        assert tableCql != null;
-
-        CFMetaData cfMetaData = CFMetaData.compile(tableCql, keyspaceName);
-
-        List<ColumnDefinition> allColumns = com.google.common.collect.Lists.newArrayList(cfMetaData.allColumnsInSelectOrder());
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("INSERT INTO ").append(quoteIdentifier(keyspaceName)).append(".").append(quoteIdentifier(tableName)).append(" (");
-        StringBuilder value = new StringBuilder();
-        for (ColumnDefinition c : allColumns) {
-            sb.append(quoteIdentifier(c.name.toString())).append(", ");
-            value.append("?, ");
-        }
-        sb.delete(sb.lastIndexOf(","), sb.length());
-        value.delete(value.lastIndexOf(","), value.length());
-        sb.append(") ").append("values(").append(value).append(')');
-
-        if (insert == null)
-            insert = new HashMap<>();
-        lowerCase(insert);
-
-        partitions = select(settings.insert.batchsize, "partitions", "fixed(1)", insert, OptionDistribution.BUILDER);
-        selectchance = select(settings.insert.selectRatio, "select", "fixed(1)/1", insert, OptionRatioDistribution.BUILDER);
-        rowPopulation = select(settings.insert.rowPopulationRatio, "row-population", "fixed(1)/1", insert, OptionRatioDistribution.BUILDER);
-        consistencyLevel = selectConsistency(settings.insert.consistencyLevel, "consistencyLevel", settings.command.consistencyLevel, insert);
-        serialConsistencyLevel = selectConsistency(settings.insert.serialConsistencyLevel, "serialConsistencyLevel", settings.command.serialConsistencyLevel, insert);
-
-        if (generator.maxRowCount > 100 * 1000 * 1000)
-            System.err.printf("WARNING: You have defined a schema that permits very large partitions (%.0f max rows (>100M))%n", generator.maxRowCount);
-
-        String statement = sb.toString();
-
-        //CQLTableWriter requires the keyspace name be in the create statement
-        String tableCreate = tableCql.replaceFirst("\\s+\"?" + tableName + "\"?\\s+", " \"" + keyspaceName + "\".\"" + tableName + "\" ");
-
-
-        return new SchemaInsert(timer, settings, generator, seedManager, selectchance.get(), rowPopulation.get(), thriftInsertId, statement, tableCreate);
-    }
-
     public void prepareQuery(PartitionGenerator generator, StressSettings settings) {
         if (query != null) {
             return;
@@ -578,16 +477,16 @@ public class StressProfile implements Serializable {
 
         maybeLoadSchemaInfo(settings);
 
-        Set<ColumnMetadata> keyColumns = com.google.common.collect.Sets.newHashSet(tableMetaData.getPrimaryKey());
-        Set<ColumnMetadata> allColumns = com.google.common.collect.Sets.newHashSet(tableMetaData.getColumns());
+        Set<ColumnMetadata> keyColumns = new HashSet<>(tableMetaData.getPrimaryKey());
+        Set<ColumnMetadata> allColumns = new HashSet<>(tableMetaData.getColumns());
         boolean isKeyOnlyTable = (keyColumns.size() == allColumns.size());
         //With compact storage
         if (!isKeyOnlyTable && (keyColumns.size() == (allColumns.size() - 1))) {
-            com.google.common.collect.Sets.SetView diff = com.google.common.collect.Sets.difference(allColumns, keyColumns);
-            for (Object obj : diff) {
-                ColumnMetadata col = (ColumnMetadata) obj;
-                isKeyOnlyTable = col.getName().isEmpty();
-                break;
+            for (ColumnMetadata col : allColumns) {
+                if (!keyColumns.contains(col)) {
+                    isKeyOnlyTable = col.getName().isEmpty();
+                    break;
+                }
             }
         }
 
@@ -702,11 +601,6 @@ public class StressProfile implements Serializable {
                             break;
                         default:
                             client = settings.getJavaDriverClient();
-                            try {
-                                thriftInsertId = settings.getThriftClient().prepare_cql3_query(query, Compression.NONE);
-                            } catch (TException e) {
-                                throw new RuntimeException(e);
-                            }
                     }
 
                     insertStatement = client.prepare(query);
@@ -716,7 +610,7 @@ public class StressProfile implements Serializable {
             }
         }
 
-        return new SchemaInsert(timer, settings, generator, seedManager, partitions.get(), selectchance.get(), rowPopulation.get(), thriftInsertId, insertStatement, batchType);
+        return new SchemaInsert(timer, settings, generator, seedManager, partitions.get(), selectchance.get(), rowPopulation.get(), insertStatement, batchType);
     }
 
     public List<ValidatingSchemaQuery> getValidate(Timer timer, PartitionGenerator generator, SeedManager seedManager, StressSettings settings) {
@@ -778,7 +672,7 @@ public class StressProfile implements Serializable {
         private GeneratorFactory(StressSettings settings) {
             List<ColumnInfo> unsupportedColumns = new ArrayList<>();
             List<ColumnInfo> unsupportedCriticalColumns = new ArrayList<>();
-            Set<ColumnMetadata> keyColumns = com.google.common.collect.Sets.newHashSet(tableMetaData.getPrimaryKey());
+            Set<ColumnMetadata> keyColumns = new HashSet<>(tableMetaData.getPrimaryKey());
 
             for (ColumnMetadata metadata : tableMetaData.getPartitionKey())
                 pushColumnInfo(metadata, partitionKeys, true, unsupportedColumns, unsupportedCriticalColumns);
@@ -915,7 +809,7 @@ public class StressProfile implements Serializable {
             profile.init(profileYaml);
 
             return profile;
-        } catch (YAMLException | IOException | RequestValidationException e) {
+        } catch (YAMLException | IOException e) {
             throw new IOError(e);
         }
     }

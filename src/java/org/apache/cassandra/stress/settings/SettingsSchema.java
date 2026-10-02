@@ -30,15 +30,11 @@ import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.thrift.*;
-import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.cassandra.stress.util.ByteBufferUtil;
 import org.apache.cassandra.stress.StressProfile;
 
 public class SettingsSchema implements Serializable
 {
-
-    public static final String DEFAULT_VALIDATOR  = "BytesType";
-
     private final String replicationStrategy;
     private final Map<String, String> replicationStrategyOptions;
 
@@ -70,15 +66,7 @@ public class SettingsSchema implements Serializable
 
     public void createKeySpaces(StressSettings settings)
     {
-        switch (settings.mode.api) {
-            case THRIFT:
-            case THRIFT_SMART:
-                createKeySpacesThrift(settings);
-                break;
-            default:
-                createKeySpacesNative(settings);
-                break;
-        }
+        createKeySpacesNative(settings);
     }
 
     /**
@@ -97,18 +85,18 @@ public class SettingsSchema implements Serializable
         try
         {
             //Keyspace
-            client.execute(createKeyspaceStatementCQL3(), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
+            client.execute(createKeyspaceStatementCQL3(), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
 
-            client.execute("USE \""+keyspace+"\"", org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
+            client.execute("USE \""+keyspace+"\"", org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
 
             //Add standard1
-            client.execute(createStandard1StatementCQL3(settings), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
+            client.execute(createStandard1StatementCQL3(settings), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
 
 
             if (cmd_type == Command.COUNTER_WRITE)
             {
                 //Add counter1
-                client.execute(createCounter1StatementCQL3(settings), org.apache.cassandra.db.ConsistencyLevel.LOCAL_QUORUM);
+                client.execute(createCounter1StatementCQL3(settings), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
             }
 
             System.out.println(String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
@@ -231,66 +219,6 @@ public class SettingsSchema implements Serializable
         return b.toString();
     }
 
-    /**
-     * Create Keyspace with Standard and Super/Counter column families
-     */
-    public void createKeySpacesThrift(StressSettings settings) {
-        KsDef ksdef = new KsDef();
-
-        // column family for standard columns
-        CfDef standardCfDef = new CfDef(keyspace, "standard1");
-        Map<String, String> compressionOptions = new HashMap<>();
-        if (compression != null)
-            compressionOptions.put("sstable_compression", compression);
-
-        String comparator = settings.columns.comparator;
-        standardCfDef.setComparator_type(comparator)
-                .setDefault_validation_class(DEFAULT_VALIDATOR)
-                .setCompression_options(compressionOptions);
-
-        for (int i = 0; i < settings.columns.names.size(); i++)
-            standardCfDef.addToColumn_metadata(new ColumnDef(settings.columns.names.get(i), "BytesType"));
-
-        // column family for standard counters
-        CfDef counterCfDef = new CfDef(keyspace, "counter1")
-                .setComparator_type(comparator)
-                .setDefault_validation_class("CounterColumnType")
-                .setCompression_options(compressionOptions);
-
-        ksdef.setName(keyspace);
-        ksdef.setStrategy_class(replicationStrategy);
-
-        if (!replicationStrategyOptions.isEmpty()) {
-            ksdef.setStrategy_options(replicationStrategyOptions);
-        }
-
-        if (compactionStrategy != null) {
-            standardCfDef.setCompaction_strategy(compactionStrategy);
-            counterCfDef.setCompaction_strategy(compactionStrategy);
-            if (!compactionStrategyOptions.isEmpty()) {
-                standardCfDef.setCompaction_strategy_options(compactionStrategyOptions);
-                counterCfDef.setCompaction_strategy_options(compactionStrategyOptions);
-            }
-        }
-
-        ksdef.setCf_defs(new ArrayList<>(Arrays.asList(standardCfDef, counterCfDef)));
-
-        Cassandra.Client client = settings.getRawThriftClient(false);
-
-        try {
-            client.system_add_keyspace(ksdef);
-            client.set_keyspace(keyspace);
-
-            System.out.println(String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
-            Thread.sleep(settings.node.nodes.size() * 1000L); // seconds
-        } catch (InvalidRequestException e) {
-            System.err.println("Unable to create stress keyspace: " + e.getWhy());
-        } catch (Exception e) {
-            System.err.println("!!!! " + e.getMessage());
-        }
-    }
-
-
     // Option Declarations
 
     private static final class Options extends GroupedOptions {
@@ -341,12 +269,7 @@ public class SettingsSchema implements Serializable
     }
 
     public static Runnable helpPrinter() {
-        return new Runnable() {
-            @Override
-            public void run() {
-                printHelp();
-            }
-        };
+        return () -> printHelp();
     }
 
 }

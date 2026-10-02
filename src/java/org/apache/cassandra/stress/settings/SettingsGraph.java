@@ -24,13 +24,13 @@ package org.apache.cassandra.stress.settings;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.io.UncheckedIOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.stress.util.ResultLogger;
 
 public class SettingsGraph implements Serializable
@@ -55,11 +55,23 @@ public class SettingsGraph implements Serializable
 
         if (inGraphMode())
         {
-            temporaryLogFile = FileUtils.createTempFile("cassandra-stress", ".log");
+            temporaryLogFile = createTemporaryLogFile();
         }
         else
         {
             temporaryLogFile = null;
+        }
+    }
+
+    private static File createTemporaryLogFile()
+    {
+        try
+        {
+            return File.createTempFile("cassandra-stress", ".log");
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -117,14 +129,7 @@ public class SettingsGraph implements Serializable
 
     public static Runnable helpPrinter()
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                printHelp();
-            }
-        };
+        return () -> printHelp();
     }
 }
 

@@ -24,7 +24,7 @@ package org.apache.cassandra.stress.generate.values;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.apache.cassandra.db.marshal.SetType;
+import org.apache.cassandra.stress.marshal.SetType;
 
 public class Sets<T> extends Generator<Set<T>>
 {

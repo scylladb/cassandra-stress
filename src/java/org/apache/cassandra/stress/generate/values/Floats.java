@@ -20,7 +20,7 @@
  */
 package org.apache.cassandra.stress.generate.values;
 
-import org.apache.cassandra.db.marshal.FloatType;
+import org.apache.cassandra.stress.marshal.FloatType;
 
 public class Floats extends Generator<Float>
 {

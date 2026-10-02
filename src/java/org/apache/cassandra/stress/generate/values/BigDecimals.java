@@ -20,7 +20,7 @@
  */
 package org.apache.cassandra.stress.generate.values;
 
-import org.apache.cassandra.db.marshal.DecimalType;
+import org.apache.cassandra.stress.marshal.DecimalType;
 
 import java.math.BigDecimal;
 

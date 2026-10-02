@@ -31,7 +31,7 @@ import org.apache.cassandra.stress.core.BatchStatementType;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.RatioDistributionFactory;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.db.ConsistencyLevel;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
 
 public class SettingsInsert implements Serializable
 {
@@ -147,14 +147,7 @@ public class SettingsInsert implements Serializable
 
     public static Runnable helpPrinter()
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                printHelp();
-            }
-        };
+        return () -> printHelp();
     }
 }
 

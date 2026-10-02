@@ -1,12 +1,12 @@
 ## Commands
 
 ```bash
-# Compile check (compile main and tests, as CI does)
+# Compile check (compile main and tests)
 ant build-test
-# Test (stress unit tests)
-ant testold -Dtest.name='stress/**/*Test'
+# Test (all unit tests, as CI does)
+ant test
 # One test class
-ant testsome -Dtest.name=<FQCN>
+ant test -Dtest.name=<SimpleClassName>
 ```
 
 <!-- qatools-sdlc:begin -->

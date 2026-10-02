@@ -29,9 +29,6 @@ import org.apache.cassandra.stress.settings.SettingsLog;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.thrift.InvalidRequestException;
-import org.apache.cassandra.transport.SimpleClient;
 
 public abstract class Operation
 {
@@ -71,18 +68,6 @@ public abstract class Operation
     public boolean isWrite()
     {
         return false;
-    }
-
-    /**
-     * Run operation
-     * @param client Cassandra Thrift client connection
-     * @throws IOException on any I/O error.
-     */
-    public abstract void run(ThriftClient client) throws IOException;
-
-    public void run(SimpleClient client) throws IOException
-    {
-        throw new UnsupportedOperationException();
     }
 
     public void run(JavaDriverClient client) throws IOException
@@ -171,7 +156,7 @@ public abstract class Operation
     protected String getExceptionMessage(Exception e)
     {
         String className = e.getClass().getSimpleName();
-        String message = (e instanceof InvalidRequestException) ? ((InvalidRequestException) e).getWhy() : e.getMessage();
+        String message = e.getMessage();
         return (message == null) ? "(" + className + ")" : String.format("(%s): %s", className, message);
     }
 

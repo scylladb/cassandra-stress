@@ -26,15 +26,13 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.DistributionFixed;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.utils.ByteBufferUtil;
 
 /**
  * For parsing column options
@@ -45,7 +43,6 @@ public class SettingsColumn implements Serializable
     public final int maxColumnsPerKey;
     public transient List<ByteBuffer> names;
     public final List<String> namestrs;
-    public final String comparator;
     public final String timestamp;
     public final boolean variableColumnCount;
     public final boolean slice;
@@ -63,49 +60,16 @@ public class SettingsColumn implements Serializable
     public SettingsColumn(Options options, NameOptions name, CountOptions count)
     {
         sizeDistribution = options.size.get();
-        {
-            timestamp = options.timestamp.value();
-            comparator = options.comparator.value();
-            AbstractType parsed = null;
-
-            try
-            {
-                parsed = TypeParser.parse(comparator);
-            }
-            catch (Exception e)
-            {
-                System.err.println(e.getMessage());
-                System.exit(1);
-            }
-
-            if (!(parsed instanceof TimeUUIDType || parsed instanceof AsciiType || parsed instanceof UTF8Type))
-            {
-                System.err.println("Currently supported types are: TimeUUIDType, AsciiType, UTF8Type.");
-                System.exit(1);
-            }
-        }
+        timestamp = options.timestamp.value();
         if (name != null)
         {
             assert count == null;
 
-            AbstractType comparator;
-            try
-            {
-                comparator = TypeParser.parse(this.comparator);
-            } catch (Exception e)
-            {
-                throw new IllegalArgumentException(this.comparator + " is not a valid type");
-            }
-
-            final String[] names = name.name.value().split(",");
-            this.names = new ArrayList<>(names.length);
-
-            for (String columnName : names)
-                this.names.add(comparator.fromString(columnName));
-            Collections.sort(this.names, BytesType.instance);
-            this.namestrs = new ArrayList<>();
-            for (ByteBuffer columnName : this.names)
-                this.namestrs.add(comparator.getString(columnName));
+            List<ByteBuffer> sortedNames = new ArrayList<>();
+            for (String columnName : name.name.value().split(","))
+                sortedNames.add(ByteBuffer.wrap(columnName.getBytes(StandardCharsets.UTF_8)));
+            this.names = sortedByUnsignedBytes(sortedNames);
+            this.namestrs = decode(this.names);
 
             final int nameCount = this.names.size();
             countDistribution = new DistributionFactory()
@@ -122,34 +86,42 @@ public class SettingsColumn implements Serializable
         else
         {
             this.countDistribution = count.count.get();
-            ByteBuffer[] names = new ByteBuffer[(int) countDistribution.get().maxValue()];
-            String[] namestrs = new String[(int) countDistribution.get().maxValue()];
-            for (int i = 0 ; i < names.length ; i++)
-                names[i] = ByteBufferUtil.bytes("C" + i);
-            Arrays.sort(names, BytesType.instance);
-            try
-            {
-                for (int i = 0 ; i < names.length ; i++)
-                    namestrs[i] = ByteBufferUtil.string(names[i]);
-            }
-            catch (CharacterCodingException e)
-            {
-                throw new RuntimeException(e);
-            }
-            this.names = Arrays.asList(names);
-            this.namestrs = Arrays.asList(namestrs);
+            List<ByteBuffer> generatedNames = new ArrayList<>();
+            for (int i = 0 ; i < (int) countDistribution.get().maxValue() ; i++)
+                generatedNames.add(ByteBuffer.wrap(("C" + i).getBytes(StandardCharsets.UTF_8)));
+            this.names = sortedByUnsignedBytes(generatedNames);
+            this.namestrs = decode(this.names);
         }
         maxColumnsPerKey = (int) countDistribution.get().maxValue();
         variableColumnCount = countDistribution.get().minValue() < maxColumnsPerKey;
         slice = options.slice.setByUser();
     }
 
+    private static List<ByteBuffer> sortedByUnsignedBytes(List<ByteBuffer> names)
+    {
+        names.sort((left, right) -> Arrays.compareUnsigned(bytesOf(left), bytesOf(right)));
+        return names;
+    }
+
+    private static byte[] bytesOf(ByteBuffer buffer)
+    {
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.duplicate().get(bytes);
+        return bytes;
+    }
+
+    private static List<String> decode(List<ByteBuffer> names)
+    {
+        List<String> decoded = new ArrayList<>(names.size());
+        for (ByteBuffer columnName : names)
+            decoded.add(new String(bytesOf(columnName), StandardCharsets.UTF_8));
+        return decoded;
+    }
+
     // Option Declarations
 
     private static abstract class Options extends GroupedOptions
     {
-        final OptionSimple superColumns = new OptionSimple("super=", "[0-9]+", "0", "Number of super columns to use (no super columns used if not specified)", false);
-        final OptionSimple comparator = new OptionSimple("comparator=", "TimeUUIDType|AsciiType|UTF8Type", "AsciiType", "Column Comparator to use", false);
         final OptionSimple slice = new OptionSimple("slice", "", null, "If set, range slices will be used for reads, otherwise a names query will be", false);
         final OptionSimple timestamp = new OptionSimple("timestamp=", "[0-9]+", null, "If set, all columns will be written with the given timestamp", false);
         final OptionDistribution size = new OptionDistribution("size=", "FIXED(34)", "Cell size distribution");
@@ -162,7 +134,7 @@ public class SettingsColumn implements Serializable
         @Override
         public List<? extends Option> options()
         {
-            return Arrays.asList(name, slice, superColumns, comparator, timestamp, size);
+            return Arrays.asList(name, slice, timestamp, size);
         }
     }
 
@@ -173,7 +145,7 @@ public class SettingsColumn implements Serializable
         @Override
         public List<? extends Option> options()
         {
-            return Arrays.asList(count, slice, superColumns, comparator, timestamp, size);
+            return Arrays.asList(count, slice, timestamp, size);
         }
     }
 
@@ -182,7 +154,6 @@ public class SettingsColumn implements Serializable
     {
         out.printf("  Max Columns Per Key: %d%n",maxColumnsPerKey);
         out.printf("  Column Names: %s%n",namestrs);
-        out.printf("  Comparator: %s%n", comparator);
         out.printf("  Timestamp: %s%n", timestamp);
         out.printf("  Variable Column Count: %b%n", variableColumnCount);
         out.printf("  Slice: %b%n", slice);
@@ -218,27 +189,15 @@ public class SettingsColumn implements Serializable
 
     static Runnable helpPrinter()
     {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                printHelp();
-            }
-        };
+        return () -> printHelp();
     }
-
-    /* Custom serializaiton invoked here to make legacy thrift based table creation work with StressD. This code requires
-     * the names attribute to be populated. Since the names attribute is set as a List[ByteBuffer] we switch it
-     * to an array on the way out and back to a buffer when it's being read in.
-     */
 
     private void writeObject(ObjectOutputStream oos) throws IOException
     {
         oos.defaultWriteObject();
         ArrayList<byte[]> namesBytes = new ArrayList<>();
         for (ByteBuffer buffer : this.names)
-            namesBytes.add(ByteBufferUtil.getArray(buffer));
+            namesBytes.add(bytesOf(buffer));
         oos.writeObject(namesBytes);
     }
 

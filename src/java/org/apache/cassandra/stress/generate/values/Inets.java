@@ -23,7 +23,7 @@ package org.apache.cassandra.stress.generate.values;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import org.apache.cassandra.db.marshal.InetAddressType;
+import org.apache.cassandra.stress.marshal.InetAddressType;
 
 
 public class Inets extends Generator<InetAddress>

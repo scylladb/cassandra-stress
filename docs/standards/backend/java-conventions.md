@@ -29,6 +29,13 @@ groups with one blank line:
 
 ### Java 21
 
-Write code for Java 21. `build.xml` sets the source and target version to
-21. CI compiles the code and the unit tests on Java 21. CI does not run the
-unit tests, so run them locally.
+Write code for Java 21. `build.xml` compiles with `release="21"` and
+`-proc:none`, so a build on JDK 25 still writes Java 21 bytecode. CI builds
+and runs the unit tests and the integration tests on JDK 21 and 25.
+
+### No sun.misc.Unsafe
+
+Do not call `sun.misc.Unsafe`, and do not add a dependency that calls it.
+JDK 24 and later warn on each call, and a later JDK removes the methods.
+Use the `jctools` atomic queues. The JDK 25 integration tests run with
+`--sun-misc-unsafe-memory-access=deny`, so an `Unsafe` call fails CI.

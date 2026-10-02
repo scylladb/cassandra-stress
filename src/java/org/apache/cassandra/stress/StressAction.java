@@ -35,10 +35,8 @@ import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.transport.SimpleClient;
-import org.jctools.queues.SpscArrayQueue;
-import org.jctools.queues.SpscUnboundedArrayQueue;
+import org.jctools.queues.atomic.SpscAtomicArrayQueue;
+import org.jctools.queues.atomic.SpscUnboundedAtomicArrayQueue;
 
 import com.google.common.util.concurrent.Uninterruptibles;
 
@@ -433,8 +431,8 @@ public class StressAction implements Runnable
             this.anyFailed = anyFailed;
             this.metrics = metrics;
             this.opStream = new StreamOfOperations(opDistribution, rateLimiter, workManager);
-            this.measurementsRecycling =  new SpscArrayQueue<OpMeasurement>(8*1024);
-            this.measurementsReporting =  new SpscUnboundedArrayQueue<OpMeasurement>(2048);
+            this.measurementsRecycling =  new SpscAtomicArrayQueue<OpMeasurement>(8*1024);
+            this.measurementsReporting =  new SpscUnboundedAtomicArrayQueue<OpMeasurement>(2048);
             metrics.add(this);
         }
 
@@ -443,8 +441,6 @@ public class StressAction implements Runnable
         {
             try
             {
-                SimpleClient sclient = null;
-                ThriftClient tclient = null;
                 JavaDriverClient jclient = null;
                 JavaDriverV4Client jv4client = null;
                 final ConnectionAPI clientType = settings.mode.api;
@@ -456,13 +452,6 @@ public class StressAction implements Runnable
                             break;
                         case JAVA_DRIVER4_NATIVE:
                             jv4client = settings.getJavaDriverV4Client();
-                            break;
-                        case SIMPLE_NATIVE:
-                            sclient = settings.getSimpleNativeClient();
-                            break;
-                        case THRIFT:
-                        case THRIFT_SMART:
-                            tclient = settings.getThriftClient();
                             break;
                         default:
                             throw new IllegalStateException();
@@ -492,13 +481,8 @@ public class StressAction implements Runnable
                             case JAVA_DRIVER_NATIVE:
                                 op.run(jclient);
                                 break;
-                            case SIMPLE_NATIVE:
-                                op.run(sclient);
-                                break;
-                            case THRIFT:
-                            case THRIFT_SMART:
                             default:
-                                op.run(tclient);
+                                throw new IllegalStateException();
                         }
                     }
                     catch (NoSuchElementException e) {

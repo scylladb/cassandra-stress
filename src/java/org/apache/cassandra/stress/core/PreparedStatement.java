@@ -1,6 +1,6 @@
 package org.apache.cassandra.stress.core;
 
-import org.apache.cassandra.db.ConsistencyLevel;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
 
 import java.util.List;
 import java.util.stream.Collectors;
