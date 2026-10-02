@@ -59,6 +59,7 @@ public class SettingsTransport implements Serializable
                 encOptions.keystore_password = encOptions.truststore_password;
             }
             encOptions.algorithm = options.alg.value();
+            encOptions.store_type = options.storeType.value();
             encOptions.protocol = options.protocol.value();
             encOptions.cipher_suites = options.ciphers.value().split(",");
             encOptions.hostname_verification = Boolean.parseBoolean(options.hostnameVerification.value());
