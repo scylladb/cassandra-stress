@@ -25,14 +25,14 @@ stays in every plan built from a spec.
 - Modify: `S/settings/SettingsMode.java:64,155,202` (the `thrift` option groups), `S/settings/StressSettings.java:36-44,97-130` (the Thrift client getters), `S/settings/SettingsSchema.java:33,71-76,237-300` (`createKeySpacesThrift`), `S/settings/SettingsPort.java:50` (`thrift=`), `S/settings/SettingsTransport.java:41-77,133` (`ITransportFactory`, `factory=`), `S/settings/Legacy.java`, `S/settings/CliOption.java`, `S/settings/SettingsCommandPreDefined.java`, `S/operations/predefined/PredefinedOperation.java`, `S/operations/predefined/CqlOperation.java:356-360,379-383,505-545` (`Cql3CassandraClientWrapper`), `S/operations/userdefined/SchemaQuery.java`, `S/operations/userdefined/ValidatingSchemaQuery.java`, `S/operations/userdefined/SchemaStatement.java`, `S/operations/userdefined/TokenRangeQuery.java`, `S/StressProfile.java:69,467,706` (`thriftInsertId`, `Compression.NONE`), `S/Operation.java`, `S/StressAction.java`, `S/generate/PartitionIterator.java`, `bin/cassandra-stress:74` (`$classes/thrift`)
 - Test: `T/settings/SettingsModeTest.java`
 
-**Internals:** `SettingsMode` throws `IllegalArgumentException("Mode thrift was removed. Use -mode native or -mode native 4x.")` when the `-mode` arguments hold `thrift`. `SettingsTransport` keeps the SSL options and builds no transport factory.
+**Internals:** `SettingsMode` throws `IllegalArgumentException("Mode thrift was removed. Use -mode native or -mode 4x.")` when the `-mode` arguments hold `thrift`. `SettingsTransport` keeps the SSL options and builds no transport factory.
 
-- [ ] Write `SettingsModeTest`: `-mode thrift` and `-mode thrift smart` throw with the message above. `-mode native cql3` and `-mode native 4x cql3` parse.
-- [ ] Run it and confirm the failure.
-- [ ] Delete the Thrift classes and remove every Thrift branch from the files above. Remove `-port thrift=` and `-transport factory=`.
-- [ ] Run `grep -rn "org.apache.cassandra.thrift\|org.apache.thrift" S` and confirm no match.
-- [ ] Run the verify sequence.
-- [ ] Commit `feat(mode)!: QATOOLS-123 remove the thrift mode`, with the boxes of this task checked.
+- [x] Write `SettingsModeTest`: `-mode thrift` and `-mode thrift smart` throw with the message above. `-mode cql3 native` and `-mode cql3 4x` parse.
+- [x] Run it and confirm the failure.
+- [x] Delete the Thrift classes and remove every Thrift branch from the files above. Remove `-port thrift=` and `-transport factory=`.
+- [x] Run `grep -rn "org.apache.cassandra.thrift\|org.apache.thrift" S` and confirm no match.
+- [x] Run the verify sequence.
+- [x] Commit `feat(mode)!: QATOOLS-123 remove the thrift mode`, with the boxes of this task checked.
 
 ## Task 2 — Remove the simplenative mode
 
@@ -40,7 +40,7 @@ stays in every plan built from a spec.
 - Modify: `S/settings/SettingsMode.java:188-200` (the `simplenative` group), `S/settings/StressSettings.java:42` (`SimpleClient`), `S/StressAction.java`, `S/Operation.java`, `S/operations/predefined/CqlOperation.java:45,362-366,394-396,472-503` (`SimpleClientWrapper`, `ResultMessage`)
 - Test: `T/settings/SettingsModeTest.java`
 
-- [ ] Add a case to `SettingsModeTest`: `-mode cql3 simplenative` throws `Mode simplenative was removed. Use -mode native or -mode native 4x.`
+- [ ] Add a case to `SettingsModeTest`: `-mode cql3 simplenative` throws `Mode simplenative was removed. Use -mode native or -mode 4x.`
 - [ ] Run it and confirm the failure.
 - [ ] Remove the `simplenative` group, the `SimpleClient` getter and every `SimpleClient` path.
 - [ ] Run `grep -rn "transport.SimpleClient\|ResultMessage" S` and confirm no match.

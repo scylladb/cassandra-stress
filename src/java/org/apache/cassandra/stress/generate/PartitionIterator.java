@@ -801,10 +801,4 @@ public abstract class PartitionIterator implements Iterator<Row>
         }
         return new String(bytes, java.nio.charset.StandardCharsets.US_ASCII);
     }
-
-    // used for thrift smart routing - if it's a multi-part key we don't try to route correctly right now
-    public ByteBuffer getToken()
-    {
-        return generator.partitionKey.get(0).type.decompose(partitionKey[0]);
-    }
 }

@@ -71,7 +71,7 @@ fi
 
 if [ -d "$CASSANDRA_STRESS_HOME/build" ]; then
   classes="$CASSANDRA_STRESS_HOME/build/classes"
-  CLASSPATH="$classes/thrift:$classes/main:$(find_all_jars "$CASSANDRA_STRESS_HOME/build/lib")"
+  CLASSPATH="$classes/main:$(find_all_jars "$CASSANDRA_STRESS_HOME/build/lib")"
 
   CLASSPATH="${CLASSPATH#:}"
 fi

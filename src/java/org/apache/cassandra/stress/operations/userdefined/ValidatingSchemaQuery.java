@@ -40,13 +40,7 @@ import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.thrift.Compression;
-import org.apache.cassandra.thrift.CqlResult;
-import org.apache.cassandra.thrift.CqlRow;
-import org.apache.cassandra.thrift.ThriftConversion;
 import org.apache.cassandra.utils.Pair;
-import org.apache.thrift.TException;
 
 public class ValidatingSchemaQuery extends PartitionOperation
 {
@@ -260,69 +254,6 @@ public class ValidatingSchemaQuery extends PartitionOperation
         }
     }
 
-    private class ThriftRun extends Runner
-    {
-        final ThriftClient client;
-
-        private ThriftRun(ThriftClient client, PartitionIterator iter)
-        {
-            super(iter);
-            this.client = client;
-        }
-
-        public boolean run() throws Exception
-        {
-            CqlResult rs = client.execute_prepared_cql3_query(statements[statementIndex].thriftId, partitions.get(0).getToken(), thriftArgs(), ThriftConversion.toThrift(cl));
-            int[] valueIndex = new int[rs.getSchema().name_types.size()];
-                for (int i = 0 ; i < valueIndex.length ; i++)
-                    valueIndex[i] = spec.partitionGenerator.indexOf(rs.fieldForId(i).getFieldName());
-            int r = 0;
-            if (!statements[statementIndex].inclusiveStart && iter.hasNext())
-                iter.next();
-            while (iter.hasNext())
-            {
-                Row expectedRow = iter.next();
-                if (!statements[statementIndex].inclusiveEnd && !iter.hasNext())
-                    break;
-
-                if (r == rs.num)
-                {
-                    validationError = String.format(
-                        "Data returned was not validated: expected row %d but result set exhausted (row empty/missing)",
-                        rowCount + 1);
-                    return false;
-                }
-
-                rowCount++;
-                CqlRow actualRow = rs.getRows().get(r++);
-                for (int i = 0 ; i < actualRow.getColumnsSize() ; i++)
-                {
-                    ByteBuffer expectedValue = spec.partitionGenerator.convert(valueIndex[i], expectedRow.get(valueIndex[i]));
-                    ByteBuffer actualValue = actualRow.getColumns().get(i).value;
-                    if (!expectedValue.equals(actualValue))
-                    {
-                        int expectedSize = (expectedValue != null) ? expectedValue.remaining() : -1;
-                        int actualSize = (actualValue != null) ? actualValue.remaining() : -1;
-                        String diff;
-                        if (actualSize < 0)
-                            diff = String.format("got null (expected %d bytes)", expectedSize);
-                        else if (actualSize != expectedSize)
-                            diff = String.format("expected %d bytes, got %d bytes", expectedSize, actualSize);
-                        else
-                            diff = String.format("same size (%d bytes) but content differs", expectedSize);
-                        validationError = String.format(
-                            "Data returned was not validated: row %d, column %d: %s",
-                            rowCount, i, diff);
-                        return false;
-                    }
-                }
-            }
-            assert r == rs.num;
-            partitionCount = Math.min(1, rowCount);
-            return true;
-        }
-    }
-
     BoundStatement bind(int statementIndex)
     {
         int pkc = bounds.left.partitionKey.length;
@@ -331,20 +262,6 @@ public class ValidatingSchemaQuery extends PartitionOperation
         System.arraycopy(bounds.left.row, 0, bindBuffer, pkc, ccc);
         System.arraycopy(bounds.right.row, 0, bindBuffer, pkc + ccc, ccc);
         return statements[statementIndex].statement.bind(bindBuffer);
-    }
-
-    List<ByteBuffer> thriftArgs()
-    {
-        List<ByteBuffer> args = new ArrayList<>();
-        int pkc = bounds.left.partitionKey.length;
-        for (int i = 0 ; i < pkc ; i++)
-            args.add(spec.partitionGenerator.convert(-i, bounds.left.partitionKey[i]));
-        int ccc = bounds.left.row.length;
-        for (int i = 0 ; i < ccc ; i++)
-            args.add(spec.partitionGenerator.convert(i, bounds.left.get(i)));
-        for (int i = 0 ; i < ccc ; i++)
-            args.add(spec.partitionGenerator.convert(i, bounds.right.get(i)));
-        return args;
     }
 
     @Override
@@ -357,12 +274,6 @@ public class ValidatingSchemaQuery extends PartitionOperation
     public void run(JavaDriverV4Client client) throws IOException
     {
         timeWithRetry(new JavaDriverV4Run(client, partitions.get(0)));
-    }
-
-    @Override
-    public void run(ThriftClient client) throws IOException
-    {
-        timeWithRetry(new ThriftRun(client, partitions.get(0)));
     }
 
     public static class Factory
@@ -447,17 +358,14 @@ public class ValidatingSchemaQuery extends PartitionOperation
     private static class ValidatingStatement
     {
         final PreparedStatement statement;
-        final Integer thriftId;
         final boolean inclusiveStart;
         final boolean inclusiveEnd;
         private ValidatingStatement(
             PreparedStatement statement,
-            Integer thriftId,
             boolean inclusiveStart,
             boolean inclusiveEnd)
         {
             this.statement = statement;
-            this.thriftId = thriftId;
             this.inclusiveStart = inclusiveStart;
             this.inclusiveEnd = inclusiveEnd;
         }
@@ -466,19 +374,10 @@ public class ValidatingSchemaQuery extends PartitionOperation
     private static ValidatingStatement prepare(StressSettings settings, String cql, boolean incLb, boolean incUb) {
         switch (settings.mode.api) {
             case JAVA_DRIVER4_NATIVE:
-                return new ValidatingStatement(settings.getJavaDriverV4Client().prepare(cql), null, incLb, incUb);
+                return new ValidatingStatement(settings.getJavaDriverV4Client().prepare(cql), incLb, incUb);
             case JAVA_DRIVER_NATIVE:
             case SIMPLE_NATIVE:
-                return new ValidatingStatement(settings.getJavaDriverClient().prepare(cql), null, incLb, incUb);
-            case THRIFT:
-            case THRIFT_SMART:
-                ThriftClient tclient = settings.getThriftClient();
-                try {
-                    Integer thriftId = tclient.prepare_cql3_query(cql, Compression.NONE);
-                    return new ValidatingStatement(null, thriftId, incLb, incUb);
-                } catch (TException e) {
-                    throw new RuntimeException(e);
-                }
+                return new ValidatingStatement(settings.getJavaDriverClient().prepare(cql), incLb, incUb);
             default:
                 throw new RuntimeException("Unknown client type: " + settings.mode.api);
         }

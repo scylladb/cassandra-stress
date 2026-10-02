@@ -65,10 +65,7 @@ import org.apache.cassandra.stress.util.MetadataProvider;
 import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.QueryPrepare;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.thrift.Compression;
 import org.apache.cassandra.db.ConsistencyLevel;
-import org.apache.thrift.TException;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
@@ -102,12 +99,10 @@ public class StressProfile implements Serializable {
     transient volatile ConsistencyLevel serialConsistencyLevel;
     transient volatile PreparedStatement insertStatement;
     transient volatile String query;
-    transient volatile Integer thriftInsertId;
     transient volatile List<ValidatingSchemaQuery.Factory> validationFactories;
 
     transient volatile Map<String, SchemaQuery.ArgSelect> argSelects;
     transient volatile Map<String, PreparedStatement> queryStatements;
-    transient volatile Map<String, Integer> thriftQueryIds;
 
     private static final Pattern lowercaseAlphanumeric = Pattern.compile("[a-z0-9_]+");
 
@@ -428,61 +423,50 @@ public class StressProfile implements Serializable {
         if (queryStatements == null) {
             synchronized (this) {
                 if (queryStatements == null) {
-                    try {
-                        ThriftClient tclient = null;
-                        QueryPrepare client;
-                        switch (settings.mode.api) {
-                            case JAVA_DRIVER_NATIVE:
-                                client = settings.getJavaDriverClient();
-                                break;
-                            case JAVA_DRIVER4_NATIVE:
-                                client = settings.getJavaDriverV4Client();
-                                break;
-                            default:
-                                client = settings.getJavaDriverClient();
-                                tclient = settings.getThriftClient();
-                        }
-
-                        Map<String, PreparedStatement> stmts = new HashMap<>();
-                        Map<String, Integer> tids = new HashMap<>();
-                        Map<String, SchemaQuery.ArgSelect> args = new HashMap<>();
-                        for (Map.Entry<String, StressYaml.QueryDef> e : queries.entrySet()) {
-                            StressYaml.QueryDef query = e.getValue();
-                            PreparedStatement stmt = client.prepare(query.cql);
-                            String queryName = e.getKey().toLowerCase();
-
-                            if (query.consistencyLevel != null) {
-                                stmt.setConsistencyLevel(ConsistencyLevel.valueOf(query.consistencyLevel.toUpperCase()));
-                            } else {
-                                stmt.setConsistencyLevel(settings.command.consistencyLevel);
-                            }
-
-                            if (query.serialConsistencyLevel != null) {
-                                stmt.setSerialConsistencyLevel(ConsistencyLevel.valueOf(query.serialConsistencyLevel.toUpperCase()));
-                            } else {
-                                stmt.setSerialConsistencyLevel(settings.command.serialConsistencyLevel);
-                            }
-
-                            if (tclient != null)
-                                tids.put(queryName, tclient.prepare_cql3_query(query.cql, Compression.NONE));
-
-                            stmts.put(queryName, stmt);
-                            args.put(queryName, query.fields == null
-                                    ? SchemaQuery.ArgSelect.MULTIROW
-                                    : SchemaQuery.ArgSelect.valueOf(query.fields.toUpperCase()));
-
-                        }
-                        thriftQueryIds = tids;
-                        queryStatements = stmts;
-                        argSelects = args;
-                    } catch (TException e) {
-                        throw new RuntimeException(e);
+                    QueryPrepare client;
+                    switch (settings.mode.api) {
+                        case JAVA_DRIVER_NATIVE:
+                            client = settings.getJavaDriverClient();
+                            break;
+                        case JAVA_DRIVER4_NATIVE:
+                            client = settings.getJavaDriverV4Client();
+                            break;
+                        default:
+                            client = settings.getJavaDriverClient();
                     }
+
+                    Map<String, PreparedStatement> stmts = new HashMap<>();
+                    Map<String, SchemaQuery.ArgSelect> args = new HashMap<>();
+                    for (Map.Entry<String, StressYaml.QueryDef> e : queries.entrySet()) {
+                        StressYaml.QueryDef query = e.getValue();
+                        PreparedStatement stmt = client.prepare(query.cql);
+                        String queryName = e.getKey().toLowerCase();
+
+                        if (query.consistencyLevel != null) {
+                            stmt.setConsistencyLevel(ConsistencyLevel.valueOf(query.consistencyLevel.toUpperCase()));
+                        } else {
+                            stmt.setConsistencyLevel(settings.command.consistencyLevel);
+                        }
+
+                        if (query.serialConsistencyLevel != null) {
+                            stmt.setSerialConsistencyLevel(ConsistencyLevel.valueOf(query.serialConsistencyLevel.toUpperCase()));
+                        } else {
+                            stmt.setSerialConsistencyLevel(settings.command.serialConsistencyLevel);
+                        }
+
+                        stmts.put(queryName, stmt);
+                        args.put(queryName, query.fields == null
+                                ? SchemaQuery.ArgSelect.MULTIROW
+                                : SchemaQuery.ArgSelect.valueOf(query.fields.toUpperCase()));
+
+                    }
+                    queryStatements = stmts;
+                    argSelects = args;
                 }
             }
         }
 
-        return new SchemaQuery(timer, settings, generator, seeds, thriftQueryIds.get(name), queryStatements.get(name),
+        return new SchemaQuery(timer, settings, generator, seeds, queryStatements.get(name),
                 argSelects.get(name));
     }
 
@@ -568,7 +552,7 @@ public class StressProfile implements Serializable {
         String tableCreate = tableCql.replaceFirst("\\s+\"?" + tableName + "\"?\\s+", " \"" + keyspaceName + "\".\"" + tableName + "\" ");
 
 
-        return new SchemaInsert(timer, settings, generator, seedManager, selectchance.get(), rowPopulation.get(), thriftInsertId, statement, tableCreate);
+        return new SchemaInsert(timer, settings, generator, seedManager, selectchance.get(), rowPopulation.get(), statement, tableCreate);
     }
 
     public void prepareQuery(PartitionGenerator generator, StressSettings settings) {
@@ -702,11 +686,6 @@ public class StressProfile implements Serializable {
                             break;
                         default:
                             client = settings.getJavaDriverClient();
-                            try {
-                                thriftInsertId = settings.getThriftClient().prepare_cql3_query(query, Compression.NONE);
-                            } catch (TException e) {
-                                throw new RuntimeException(e);
-                            }
                     }
 
                     insertStatement = client.prepare(query);
@@ -716,7 +695,7 @@ public class StressProfile implements Serializable {
             }
         }
 
-        return new SchemaInsert(timer, settings, generator, seedManager, partitions.get(), selectchance.get(), rowPopulation.get(), thriftInsertId, insertStatement, batchType);
+        return new SchemaInsert(timer, settings, generator, seedManager, partitions.get(), selectchance.get(), rowPopulation.get(), insertStatement, batchType);
     }
 
     public List<ValidatingSchemaQuery> getValidate(Timer timer, PartitionGenerator generator, SeedManager seedManager, StressSettings settings) {

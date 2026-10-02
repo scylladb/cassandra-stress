@@ -36,8 +36,6 @@ import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.thrift.ThriftConversion;
 import shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement;
 
 public class SchemaInsert extends SchemaStatement
@@ -47,9 +45,9 @@ public class SchemaInsert extends SchemaStatement
     private final String insertStatement;
     private final BatchStatementType batchType;
 
-    public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, Distribution batchSize, RatioDistribution useRatio, RatioDistribution rowPopulation, Integer thriftId, PreparedStatement statement, BatchStatementType batchType)
+    public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, Distribution batchSize, RatioDistribution useRatio, RatioDistribution rowPopulation, PreparedStatement statement, BatchStatementType batchType)
     {
-        super(timer, settings, new DataSpec(generator, seedManager, batchSize, useRatio, rowPopulation), statement, statement.getColumnNames(), thriftId);
+        super(timer, settings, new DataSpec(generator, seedManager, batchSize, useRatio, rowPopulation), statement, statement.getColumnNames());
         this.batchType = batchType;
         this.insertStatement = null;
         this.tableSchema = null;
@@ -58,9 +56,9 @@ public class SchemaInsert extends SchemaStatement
     /**
      * Special constructor for offline use
      */
-    public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, RatioDistribution useRatio, RatioDistribution rowPopulation, Integer thriftId, String statement, String tableSchema)
+    public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, RatioDistribution useRatio, RatioDistribution rowPopulation, String statement, String tableSchema)
     {
-        super(timer, settings, new DataSpec(generator, seedManager, new DistributionFixed(1), useRatio, rowPopulation), null, generator.getColumnNames(), thriftId);
+        super(timer, settings, new DataSpec(generator, seedManager, new DistributionFixed(1), useRatio, rowPopulation), null, generator.getColumnNames());
         this.batchType = BatchStatementType.UNLOGGED;
         this.insertStatement = statement;
         this.tableSchema = tableSchema;
@@ -158,29 +156,6 @@ public class SchemaInsert extends SchemaStatement
         }
     }
 
-    private class ThriftRun extends Runner
-    {
-        final ThriftClient client;
-
-        private ThriftRun(ThriftClient client)
-        {
-            this.client = client;
-        }
-
-        public boolean run() throws Exception
-        {
-            for (PartitionIterator iterator : partitions)
-            {
-                while (iterator.hasNext())
-                {
-                    client.execute_prepared_cql3_query(thriftId, iterator.getToken(), thriftRowArgs(iterator.next()), ThriftConversion.toThrift(settings.command.consistencyLevel));
-                    rowCount += 1;
-                }
-            }
-            return true;
-        }
-    }
-
     private class OfflineRun extends Runner
     {
         final StressCQLSSTableWriter writer;
@@ -221,12 +196,6 @@ public class SchemaInsert extends SchemaStatement
     public boolean isWrite()
     {
         return true;
-    }
-
-    @Override
-    public void run(ThriftClient client) throws IOException
-    {
-        timeWithRetry(new ThriftRun(client));
     }
 
     public StressCQLSSTableWriter createWriter(ColumnFamilyStore cfs, int bufferSize, boolean makeRangeAware)

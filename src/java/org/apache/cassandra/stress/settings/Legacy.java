@@ -51,7 +51,7 @@ public class Legacy implements Serializable
         availableOptions.addOption("s",  "stdev",                true,   "Standard Deviation for gaussian read key generation, default:0.1");
         availableOptions.addOption("r",  "random",               false,  "Use random key generator for read key generation (STDEV will have no effect), default:false");
         availableOptions.addOption("f",  "file",                 true,   "Write output to given file");
-        availableOptions.addOption("p",  "port",                 true,   "Thrift port, default:9160");
+        availableOptions.addOption("p",  "port",                 true,   "Native port, default:9042");
         availableOptions.addOption("o",  "operation",            true,   "Operation to perform (WRITE, READ, READWRITE, RANGE_SLICE, INDEXED_RANGE_SLICE, MULTI_GET, COUNTERWRITE, COUNTER_GET), default:WRITE");
         availableOptions.addOption("u",  "supercolumns",         true,   "Number of super columns per key, default:1");
         availableOptions.addOption("y",  "family-type",          true,   "Column Family Type (Super, Standard), default:Standard");
@@ -73,7 +73,6 @@ public class Legacy implements Serializable
         availableOptions.addOption("Q",  "query-names",          true,   "Comma-separated list of column names to retrieve from each row.");
         availableOptions.addOption("Z",  "compaction-strategy",  true,   "CompactionStrategy to use.");
         availableOptions.addOption("U",  "comparator",           true,   "Column Comparator to use. Currently supported types are: TimeUUIDType, AsciiType, UTF8Type.");
-        availableOptions.addOption("tf", "transport-factory",    true,   "Fully-qualified TTransportFactory class name for creating a connection. Note: For Thrift over SSL, use org.apache.cassandra.stress.SSLTransportFactory.");
         availableOptions.addOption("ns", "no-statistics",        false,  "Turn off the aggegate statistics that is normally output after completion.");
         availableOptions.addOption("ts", SSL_TRUSTSTORE,         true, "SSL: full path to truststore");
         availableOptions.addOption("tspw", SSL_TRUSTSTORE_PW,    true, "SSL: full path to truststore");
@@ -201,7 +200,7 @@ public class Legacy implements Serializable
                 r.add("-log", "file=" + cmd.getOptionValue("f"));
 
             if (cmd.hasOption("p"))
-                r.add("-port", cmd.getOptionValue("p"));
+                r.add("-port", "native=" + cmd.getOptionValue("p"));
 
             if (cmd.hasOption("i"))
                 r.add("-log", "interval=" + cmd.getOptionValue("i"));
@@ -233,8 +232,6 @@ public class Legacy implements Serializable
 
             if (cmd.hasOption("L3"))
                 r.add("-mode", (cmd.hasOption("P") ? "prepared" : "") + (cmd.hasOption("b") ? "native" : "") +  "cql3");
-            else
-                r.add("-mode", "thrift");
 
             if (cmd.hasOption("I"))
                 r.add("-schema", "compression=" + cmd.getOptionValue("I"));
@@ -255,8 +252,6 @@ public class Legacy implements Serializable
             if (cmd.hasOption("ns"))
                 r.add("-log", "no-summary");
 
-            if (cmd.hasOption("tf"))
-                r.add("-transport", "factory=" + cmd.getOptionValue("tf"));
 
             if(cmd.hasOption(SSL_TRUSTSTORE))
                 r.add("-transport", "truststore=" + cmd.getOptionValue(SSL_TRUSTSTORE));

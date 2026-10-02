@@ -17,8 +17,8 @@ The change deletes the Cassandra server tree and the stress features that run on
 
 | Area | Today | After |
 |---|---|---|
-| `-mode` | `native`, `native 4x`, `cql3 simplenative`, `thrift [smart]` | `native`, `native 4x` |
-| `-mode thrift`, `-mode cql3 simplenative` | Run | Stop at argument parsing: `Mode <name> was removed. Use -mode native or -mode native 4x.` |
+| `-mode` | `cql3 native`, `cql3 4x`, `cql3 simplenative`, `thrift [smart]` | `cql3 native`, `cql3 4x` |
+| `-mode thrift`, `-mode cql3 simplenative` | Run | Stop at argument parsing: `Mode <name> was removed. Use -mode native or -mode 4x.` |
 | `-port` | `native=`, `thrift=`, `jmx=` | `native=`. The other two stop at argument parsing with the usual unknown-option error |
 | `-transport` | `factory=` and the SSL options | The SSL options. `factory=` stops at argument parsing |
 | `-schema replication(strategy=X)` | Any class on the classpath that extends `AbstractReplicationStrategy` | `NetworkTopologyStrategy` or `EverywhereStrategy`, short or full name. Other names stop with `Invalid replication strategy: X` |
@@ -73,7 +73,7 @@ The server tree, the server tests, the Thrift and ANTLR sources, and the build f
 The command line, after this change. Every other option keeps its form.
 
 ```
--mode native [4x] cql3 [prepared|unprepared] [protocolVersion=N] [compression=none|lz4|snappy] [user= password= ...]
+-mode cql3 native|4x [unprepared] [protocolVersion=N] [compression=none|lz4|snappy] [user= password= ...]
 -port native=9042
 -transport [truststore= truststore-password= keystore= keystore-password= hostname-verification= ssl-protocol= ssl-alg= store-type= ssl-ciphers=]
 -col [names=|n=] [slice] [timestamp=] [size=]
@@ -157,6 +157,7 @@ public enum CompactionStrategy {
 - `-col super=` and `comparator=` go, because only Thrift column families used them. `-col slice` stays, because the CQL read uses it. (review)
 - `version.properties` and its `createVersionPropFile` target go. `cassandra-stress version` keeps its lines and reads the jar manifest and the drivers. (review)
 - The replication allow-list leaves out `SimpleStrategy`, `LocalStrategy` and `OldNetworkTopologyStrategy`. Only two SCT provision tests against Cassandra use `SimpleStrategy`, and SCT moves them to `NetworkTopologyStrategy` before the image bump. Only system keyspaces use `LocalStrategy`, and Cassandra 4.0 removed `OldNetworkTopologyStrategy`. (review)
+- `-mode` selects driver 4.x with the `4x` token, not `native 4x`, so the removal message and the Inputs contract name `-mode 4x`. (build)
 - One pull request carries the removal, because stress does not compile until the removals and the ports are both in. (spec)
 - CI tests on JDK 21 and 25, and this pull request fixes any driver failure on JDK 25. (review)
 - JDK 27 joins CI after its GA. (review)

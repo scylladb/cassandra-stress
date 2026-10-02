@@ -103,7 +103,6 @@ public class SettingsNode implements Serializable
                 for (Node host : settings.getJavaDriverV4Client().getSession().getMetadata().getNodes().values())
                     r.add(host.getBroadcastRpcAddress().get().getHostName());
                 break;
-            case THRIFT_SMART:
             case JAVA_DRIVER_NATIVE:
                 if (!isWhiteList)
                 {
@@ -111,7 +110,6 @@ public class SettingsNode implements Serializable
                         r.add(host.getAddress().getHostName());
                     break;
                 }
-            case THRIFT:
             case SIMPLE_NATIVE:
                 for (InetAddress address : resolveAllSpecified())
                     r.add(address.getHostName());

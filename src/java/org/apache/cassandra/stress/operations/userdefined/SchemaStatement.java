@@ -37,7 +37,6 @@ import org.apache.cassandra.stress.settings.StressSettings;
 public abstract class SchemaStatement extends PartitionOperation
 {
     final PreparedStatement statement;
-    final Integer thriftId;
     final int[] argumentIndex;
     final Object[] bindBuffer;
     final ColumnDefinitions definitions;
@@ -45,11 +44,10 @@ public abstract class SchemaStatement extends PartitionOperation
     static final DataType.Name v3DateTypeName = DataType.date().getName();
 
     public SchemaStatement(Timer timer, StressSettings settings, DataSpec spec,
-                           PreparedStatement statement, List<String> bindNames, Integer thriftId)
+                           PreparedStatement statement, List<String> bindNames)
     {
         super(timer, settings, spec);
         this.statement = statement;
-        this.thriftId = thriftId;
         argumentIndex = new int[bindNames.size()];
         bindBuffer = new Object[argumentIndex.length];
         definitions = statement != null ? statement.getVariables() : null;
