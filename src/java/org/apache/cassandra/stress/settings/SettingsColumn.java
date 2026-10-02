@@ -199,11 +199,6 @@ public class SettingsColumn implements Serializable
         };
     }
 
-    /* Custom serializaiton invoked here to make legacy thrift based table creation work with StressD. This code requires
-     * the names attribute to be populated. Since the names attribute is set as a List[ByteBuffer] we switch it
-     * to an array on the way out and back to a buffer when it's being read in.
-     */
-
     private void writeObject(ObjectOutputStream oos) throws IOException
     {
         oos.defaultWriteObject();

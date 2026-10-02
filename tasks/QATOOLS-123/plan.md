@@ -214,7 +214,7 @@ stays in every plan built from a spec.
 
 ## Task 14 — Close the spec checks
 
-- [ ] Confirm the spec Contracts against the jar: `bin/cassandra-stress help` lists no removed option, `-mode thrift` and `-mode cql3 simplenative` print the removal message, the interval header ends at `errors`, and `version` prints three lines.
-- [ ] Update the spec in the same commit when the build changed a design point, with a `(build)` line in `Decisions`.
-- [ ] Update the pull request body: the removed options, the jar changes from Task 12, and `refs QATOOLS-123` as the last line, because the Gradle pull request under the same key finishes the task.
-- [ ] Commit the checked boxes of this plan.
+- [x] Confirm the spec Contracts against the jar: `bin/cassandra-stress help` lists no removed option, `-mode thrift` and `-mode cql3 simplenative` print the removal message, the interval header ends at `errors`, and `version` prints three lines.
+- [x] Update the spec in the same commit when the build changed a design point, with a `(build)` line in `Decisions`.
+- [x] Update the pull request body: the removed options, the jar changes from Task 12, and `refs QATOOLS-123` as the last line, because the Gradle pull request under the same key finishes the task.
+- [x] Commit the checked boxes of this plan.
