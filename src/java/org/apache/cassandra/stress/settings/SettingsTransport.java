@@ -26,7 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.cassandra.config.EncryptionOptions;
+import org.apache.cassandra.stress.util.EncryptionOptions;
 import org.apache.cassandra.stress.util.ResultLogger;
 
 public class SettingsTransport implements Serializable
@@ -39,9 +39,9 @@ public class SettingsTransport implements Serializable
         this.options = options;
     }
 
-    public EncryptionOptions.ClientEncryptionOptions getEncryptionOptions()
+    public EncryptionOptions getEncryptionOptions()
     {
-        EncryptionOptions.ClientEncryptionOptions encOptions = new EncryptionOptions.ClientEncryptionOptions();
+        EncryptionOptions encOptions = new EncryptionOptions();
         if (options.trustStore.present())
         {
             encOptions.enabled = true;

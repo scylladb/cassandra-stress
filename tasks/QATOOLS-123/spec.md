@@ -45,8 +45,8 @@ The user profile flow stays as it is. `StressProfile` creates the keyspace and t
 | `TypeParser` | `-col comparator=` | Removed |
 | `AbstractReplicationStrategy`, `CFMetaData.createCompactionStrategy` | `OptionReplication`, `OptionCompaction` | `ReplicationStrategy` and `CompactionStrategy` allow-lists |
 | `DatabaseDescriptor.clientInitialization` | `Stress` | Removed |
-| `ByteBufferUtil`, `FBUtilities`, `Pair`, `UUIDGen`, `MurmurHash`, `DynamicList`, `LockedDynamicList`, `ConsistencyLevel`, `EncryptionOptions`, `SSLFactory`, `FileUtils` | many | Trimmed copies in `stress.util` |
-| `WindowsTimer`, `NamedThreadFactory` | `Stress`, `StressServer` | Removed, or replaced with JDK classes |
+| `ByteBufferUtil`, `Pair`, `UUIDGen`, `MurmurHash`, `DynamicList`, `LockedDynamicList`, `ConsistencyLevel`, `EncryptionOptions`, `SSLFactory` | many | Trimmed copies in `stress.util` |
+| `WindowsTimer`, `FBUtilities`, `NamedThreadFactory`, `FileUtils` | `Stress`, `StressServer`, `SettingsGraph` | Removed, or replaced with JDK classes |
 
 A file that comes from a Cassandra original starts with `// SPDX-License-Identifier: Apache-2.0`. A unit test compares the serialized bytes of each `stress.marshal` type with fixed bytes from two sources: bytes that master produces, and bytes from a snapshot that SCT restores through `defaults/manager_restore_benchmark_snapshots.yaml`.
 

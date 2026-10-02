@@ -31,7 +31,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import com.datastax.driver.core.*;
 import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.core.BoundStatement;
-import org.apache.cassandra.db.ConsistencyLevel;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.apache.cassandra.stress.generate.*;
 import org.apache.cassandra.stress.generate.Row;
 import org.apache.cassandra.stress.core.TableMetadata;
@@ -40,7 +40,7 @@ import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.utils.Pair;
+import org.apache.cassandra.stress.util.Pair;
 
 public class ValidatingSchemaQuery extends PartitionOperation
 {

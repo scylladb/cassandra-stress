@@ -60,7 +60,7 @@ import org.apache.cassandra.stress.util.MetadataProvider;
 import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.QueryPrepare;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.db.ConsistencyLevel;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
@@ -287,7 +287,7 @@ public class StressProfile implements Serializable {
         }
         assert settings.command.truncate != SettingsCommand.TruncateWhen.NEVER;
         String cql = String.format("TRUNCATE %s.%s", keyspaceName, tableName);
-        client.execute(cql, org.apache.cassandra.db.ConsistencyLevel.ONE);
+        client.execute(cql, org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
         System.out.println(String.format("Truncated %s.%s. Sleeping %ss for propagation.",
                 keyspaceName, tableName, settings.node.nodes.size()));
         Uninterruptibles.sleepUninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);

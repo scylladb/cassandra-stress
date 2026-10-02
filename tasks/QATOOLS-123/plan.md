@@ -110,16 +110,17 @@ stays in every plan built from a spec.
 ## Task 7 — Port the utility helpers to `stress.util`
 
 **Files:**
-- Create: `S/util/FBUtilities.java`, `S/util/Pair.java`, `S/util/MurmurHash.java`, `S/util/DynamicList.java`, `S/util/LockedDynamicList.java`, `S/util/ConsistencyLevel.java`, `S/util/EncryptionOptions.java`, `S/util/SSLFactory.java`, `S/util/FileUtils.java`. Each one keeps only the members that stress calls.
+- Create: `S/util/Pair.java`, `S/util/MurmurHash.java`, `S/util/DynamicList.java`, `S/util/LockedDynamicList.java`, `S/util/ConsistencyLevel.java`, `S/util/EncryptionOptions.java`, `S/util/SSLFactory.java`. Each one keeps only the members that stress calls.
+- Modify: `S/settings/SettingsGraph.java` (`File.createTempFile` replaces `FileUtils.createTempFile`)
 - Modify: the importers that `grep -rln "org.apache.cassandra.utils\|org.apache.cassandra.db.ConsistencyLevel\|org.apache.cassandra.config.EncryptionOptions\|org.apache.cassandra.security\|org.apache.cassandra.io.util.FileUtils\|org.apache.cassandra.concurrent" S` lists, `S/Stress.java:27-31,65-73` (`DatabaseDescriptor.clientInitialization`, `WindowsTimer`), `S/StressServer.java` (`NamedThreadFactory`)
 
-**Internals:** `Stress` drops the Windows timer calls. `StressServer` uses `Executors.newCachedThreadPool` with a thread factory that sets the name. `ConsistencyLevel` keeps the constants and the driver conversion that stress uses.
+**Internals:** `Stress` drops the Windows timer calls and `DatabaseDescriptor.clientInitialization`. `StressServer` uses `Executors.newCachedThreadPool` with a thread factory that sets the name. `ConsistencyLevel` keeps the constants and the driver conversion that stress uses.
 
-- [ ] Run the existing tests: `DistributionSequenceTest` covers `DynamicList` through `Seed`, and `SettingsNodeTest` covers the settings. They pass before the change.
-- [ ] Create the trimmed copies and switch every import.
-- [ ] Run the grep above and confirm no match.
-- [ ] Run the verify sequence.
-- [ ] Commit `refactor(util): QATOOLS-123 port the utility helpers into stress`, with the boxes of this task checked.
+- [x] Run the existing tests: `DistributionSequenceTest` covers `DynamicList` through `Seed`, and `SettingsNodeTest` covers the settings. They pass before the change.
+- [x] Create the trimmed copies and switch every import.
+- [x] Run the grep above and confirm no match.
+- [x] Run the verify sequence.
+- [x] Commit `refactor(util): QATOOLS-123 port the utility helpers into stress`, with the boxes of this task checked.
 
 ## Task 8 — Read the profile names with `CqlNames`
 

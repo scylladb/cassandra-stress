@@ -24,7 +24,7 @@ package org.apache.cassandra.stress.settings;
 import java.io.Serializable;
 import java.util.*;
 
-import org.apache.cassandra.config.EncryptionOptions;
+import org.apache.cassandra.stress.util.EncryptionOptions;
 import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
@@ -105,11 +105,11 @@ public class StressSettings implements Serializable
                 if (client != null)
                     return client;
 
-                EncryptionOptions.ClientEncryptionOptions encOptions = transport.getEncryptionOptions();
+                EncryptionOptions encOptions = transport.getEncryptionOptions();
                 JavaDriverClient c = new JavaDriverClient(this, node.nodes, port.nativePort, encOptions);
                 c.connect(mode.compression());
                 if (setKeyspace && schema.keyspace != null)
-                    c.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.db.ConsistencyLevel.ONE);
+                    c.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
 
                 return client = c;
             }
@@ -143,11 +143,11 @@ public class StressSettings implements Serializable
                 if (v4Client != null)
                     return v4Client;
 
-                EncryptionOptions.ClientEncryptionOptions encOptions = transport.getEncryptionOptions();
+                EncryptionOptions encOptions = transport.getEncryptionOptions();
                 JavaDriverV4Client c = new JavaDriverV4Client(this, node.nodes, port.nativePort, encOptions);
                 c.connect(mode.compression());
                 if (setKeyspace && schema.keyspace != null)
-                    c.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.db.ConsistencyLevel.ONE);
+                    c.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
 
                 return v4Client = c;
             }

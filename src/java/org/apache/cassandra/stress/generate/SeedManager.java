@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.cassandra.stress.Operation;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.utils.LockedDynamicList;
+import org.apache.cassandra.stress.util.LockedDynamicList;
 
 public class SeedManager
 {

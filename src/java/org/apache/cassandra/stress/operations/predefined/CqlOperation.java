@@ -37,7 +37,7 @@ import org.apache.cassandra.stress.settings.ConnectionStyle;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.cassandra.stress.util.ByteBufferUtil;
 
 public abstract class CqlOperation<V> extends PredefinedOperation
 {

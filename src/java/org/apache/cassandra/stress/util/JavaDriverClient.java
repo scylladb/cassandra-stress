@@ -40,8 +40,6 @@ import com.datastax.driver.core.policies.WhiteListPolicy;
 import com.datastax.shaded.netty.channel.socket.SocketChannel;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
-import org.apache.cassandra.config.EncryptionOptions;
-import org.apache.cassandra.security.SSLFactory;
 import org.apache.cassandra.stress.core.BoundStatement;
 import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.core.TableMetadata;
@@ -66,7 +64,7 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
     public final int requestTimeout;
 
     private final ProtocolVersion protocolVersion;
-    private final EncryptionOptions.ClientEncryptionOptions encryptionOptions;
+    private final EncryptionOptions encryptionOptions;
     private Cluster cluster;
     private Session session;
     private final LoadBalancingPolicy loadBalancingPolicy;
@@ -76,10 +74,10 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
 
     public JavaDriverClient(StressSettings settings, List<String> hosts, int port)
     {
-        this(settings, hosts, port, new EncryptionOptions.ClientEncryptionOptions());
+        this(settings, hosts, port, new EncryptionOptions());
     }
 
-    public JavaDriverClient(StressSettings settings, List<String> hosts, int port, EncryptionOptions.ClientEncryptionOptions encryptionOptions)
+    public JavaDriverClient(StressSettings settings, List<String> hosts, int port, EncryptionOptions encryptionOptions)
     {
         this.protocolVersion = settings.mode.protocolVersion.ToJavaDriverV3();
         this.hosts = hosts;
@@ -248,15 +246,15 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
         return session;
     }
 
-    public void execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency)
+    public void execute(String query, org.apache.cassandra.stress.util.ConsistencyLevel consistency)
     {
         SimpleStatement stmt = new SimpleStatement(query);
         stmt.setConsistencyLevel(consistency.ToV3Value());
         session.execute(stmt);
     }
 
-    public ResultSet execute(String query, org.apache.cassandra.db.ConsistencyLevel consistency,
-                             org.apache.cassandra.db.ConsistencyLevel serialConsistency)
+    public ResultSet execute(String query, org.apache.cassandra.stress.util.ConsistencyLevel consistency,
+                             org.apache.cassandra.stress.util.ConsistencyLevel serialConsistency)
     {
         SimpleStatement stmt = new SimpleStatement(query);
         if (consistency != null)
@@ -266,7 +264,7 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
         return getSession().execute(stmt);
     }
 
-    public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency)
+    public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.stress.util.ConsistencyLevel consistency)
     {
         if (stmt.getConsistencyLevel() == null)
             stmt.setConsistencyLevel(consistency);
@@ -274,7 +272,7 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
         return getSession().execute(bstmt.ToV3Value());
     }
 
-    public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.db.ConsistencyLevel consistency, org.apache.cassandra.db.ConsistencyLevel serialConsistency )
+    public ResultSet executePrepared(PreparedStatement stmt, List<Object> queryParams, org.apache.cassandra.stress.util.ConsistencyLevel consistency, org.apache.cassandra.stress.util.ConsistencyLevel serialConsistency )
     {
         if (stmt.getConsistencyLevel() == null)
             stmt.setConsistencyLevel(consistency);
