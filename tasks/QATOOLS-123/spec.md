@@ -23,7 +23,7 @@ The change deletes the Cassandra server tree and the stress features that run on
 | `-transport` | `factory=` and the SSL options | The SSL options. `factory=` stops at argument parsing |
 | `-schema replication(strategy=X)` | Any class on the classpath that extends `AbstractReplicationStrategy` | `NetworkTopologyStrategy` or `EverywhereStrategy`, short or full name. Other names stop with `Invalid replication strategy: X` |
 | `-schema compaction(strategy=X)` | Any compaction class that `CFMetaData` loads | The five compaction classes of the vendored tree. Other names stop with `Invalid compaction strategy: X` |
-| GC columns and `Total GC` lines | Values over JMX, or zero when JMX fails | Removed |
+| GC columns and the GC summary lines | Values over JMX, or zero when JMX fails | Removed |
 | `-col` | `names=` or `n=`, `slice`, `super=`, `comparator=`, `timestamp=`, `size=` | `names=` or `n=`, `slice`, `timestamp=`, `size=`. Column names are ASCII. `super=` and `comparator=` stop at argument parsing |
 | `CompactionStress`, offline `SchemaInsert` | Write SSTables with server code | Removed |
 | User profiles, other commands, workloads | | Unchanged |
@@ -84,7 +84,7 @@ User profiles keep their YAML format. `bin/cassandra-stress` adds the flags of `
 
 ### Outputs
 
-The interval and summary header loses the five GC fields, and the summary loses the three `Total GC` lines:
+The interval and summary header loses the five GC fields. The summary loses its five GC lines: `Total GC count`, `Total GC memory`, `Total GC time`, `Avg GC time` and `StdDev GC time`:
 
 ```
 type, total ops, op/s, pk/s, row/s, mean, med, .95, .99, .999, max, time, stderr, errors
@@ -153,7 +153,7 @@ public enum CompactionStrategy {
 
 - Thrift, `simplenative`, offline SSTable writing, `CompactionStress` and JMX go with no replacement. Each one runs on server code, and Cassandra 4.0 removed Thrift. (spec)
 - SCT moves to every breaking change of the command line and the output when it bumps the image. This pull request keeps no option or output field for SCT alone. (review)
-- JMX goes completely, the GC fields and the `Total GC` lines included. SCT adapts its output parser when it moves to this release. (review)
+- JMX goes completely, the GC fields and the GC summary lines included. SCT adapts its output parser when it moves to this release. (review)
 - `-col super=` and `comparator=` go, because only Thrift column families used them. `-col slice` stays, because the CQL read uses it. (review)
 - `version.properties` and its `createVersionPropFile` target go. `cassandra-stress version` keeps its lines and reads the jar manifest and the drivers. (review)
 - The replication allow-list leaves out `SimpleStrategy`, `LocalStrategy` and `OldNetworkTopologyStrategy`. Only two SCT provision tests against Cassandra use `SimpleStrategy`, and SCT moves them to `NetworkTopologyStrategy` before the image bump. Only system keyspaces use `LocalStrategy`, and Cassandra 4.0 removed `OldNetworkTopologyStrategy`. (review)

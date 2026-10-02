@@ -32,12 +32,10 @@ public class SettingsPort implements Serializable
 {
 
     public final int nativePort;
-    public final int jmxPort;
 
     public SettingsPort(PortOptions options)
     {
         nativePort = Integer.parseInt(options.nativePort.value());
-        jmxPort = Integer.parseInt(options.jmxPort.value());
     }
 
     // Option Declarations
@@ -45,12 +43,11 @@ public class SettingsPort implements Serializable
     private static final class PortOptions extends GroupedOptions
     {
         final OptionSimple nativePort = new OptionSimple("native=", "[0-9]+", "9042", "Use this port for the Cassandra native protocol", false);
-        final OptionSimple jmxPort = new OptionSimple("jmx=", "[0-9]+", "7199", "Use this port for retrieving statistics over jmx", false);
 
         @Override
         public List<? extends Option> options()
         {
-            return Arrays.asList(nativePort, jmxPort);
+            return Arrays.asList(nativePort);
         }
     }
 
@@ -58,7 +55,6 @@ public class SettingsPort implements Serializable
     public void printSettings(ResultLogger out)
     {
         out.printf("  Native Port: %d%n", nativePort);
-        out.printf("  JMX Port: %d%n", jmxPort);
     }
 
 

@@ -94,7 +94,7 @@ Java matrix to `["21"]`, and the `Dockerfile` builds on
   only. The Thrift mode needs the server class `ThriftConversion`, and
   Cassandra 4.0 removed the Thrift protocol.
 - JMX is gone: the collector `stress/util/JmxCollector`, `-port jmx=`, the
-  GC columns and the `Total GC` summary lines.
+  GC columns and the GC summary lines.
 - The stress code keeps the `org.apache.cassandra.stress` package and the
   main class `org.apache.cassandra.stress.Stress`.
 - The build and the tests succeed on JDK 21 and 25. The CI test matrix runs

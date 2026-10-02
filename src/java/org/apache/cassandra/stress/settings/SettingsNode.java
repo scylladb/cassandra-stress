@@ -27,7 +27,6 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.*;
 
-import com.datastax.driver.core.Host;
 import org.apache.cassandra.stress.util.ResultLogger;
 import shaded.com.datastax.oss.driver.api.core.metadata.Node;
 
@@ -92,29 +91,6 @@ public class SettingsNode implements Serializable
         {
             usedHostsPerRemoteDc = null;
         }
-    }
-
-    public Set<String> resolveAllPermitted(StressSettings settings)
-    {
-        Set<String> r = new HashSet<>();
-        switch (settings.mode.api)
-        {
-            case JAVA_DRIVER4_NATIVE:
-                for (Node host : settings.getJavaDriverV4Client().getSession().getMetadata().getNodes().values())
-                    r.add(host.getBroadcastRpcAddress().get().getHostName());
-                break;
-            case JAVA_DRIVER_NATIVE:
-                if (!isWhiteList)
-                {
-                    for (Host host : settings.getJavaDriverClient().getCluster().getMetadata().getAllHosts())
-                        r.add(host.getAddress().getHostName());
-                    break;
-                }
-            default:
-                for (InetAddress address : resolveAllSpecified())
-                    r.add(address.getHostName());
-        }
-        return r;
     }
 
     public Set<InetAddress> resolveAllSpecified()

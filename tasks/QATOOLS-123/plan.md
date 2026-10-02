@@ -63,17 +63,17 @@ stays in every plan built from a spec.
 
 **Files:**
 - Delete: `S/util/JmxCollector.java`
-- Modify: `S/report/StressMetrics.java:49,61-66,104-119,228-237,251-257,345,354-374,397-399` (the `GcStats` fields, the GC columns of `HEADMETRICS`, `printRow`, the three `Total GC` lines), `S/settings/SettingsPort.java:51` (`jmx=`)
+- Modify: `S/report/StressMetrics.java:49,61-66,104-119,228-237,251-257,345,354-374,397-399` (the `GcStats` fields, the GC columns of `HEADMETRICS`, `printRow`, the five GC summary lines), `S/settings/SettingsPort.java:51` (`jmx=`)
 - Test: `T/report/StressMetricsTest.java`
 
 **Internals:** `StressMetrics.HEADMETRICS` ends at `"errors"`. `printRow` drops its `GcStats` parameter.
 
-- [ ] Write `StressMetricsTest`: `HEADMETRICS` equals the fourteen fields of the spec Outputs contract, in order.
-- [ ] Run it and confirm the failure.
-- [ ] Delete `JmxCollector`, the GC fields, the GC columns, the `Total GC` lines and `-port jmx=`.
-- [ ] Run `grep -rn "GcStats\|JmxCollector\|NodeProbe\|jmxPort" S` and confirm no match.
-- [ ] Run the verify sequence.
-- [ ] Commit `feat(report)!: QATOOLS-123 remove jmx and the gc output`, with the boxes of this task checked.
+- [x] Write `StressMetricsTest`: `HEADMETRICS` equals the fourteen fields of the spec Outputs contract, in order.
+- [x] Run it and confirm the failure.
+- [x] Delete `JmxCollector`, the GC fields, the GC columns, the GC summary lines, `SettingsNode.resolveAllPermitted` and `-port jmx=`.
+- [x] Run `grep -rn "GcStats\|JmxCollector\|NodeProbe\|jmxPort" S` and confirm no match.
+- [x] Run the verify sequence.
+- [x] Commit `feat(report)!: QATOOLS-123 remove jmx and the gc output`, with the boxes of this task checked.
 
 ## Task 5 — Remove `-col super=` and `-col comparator=`
 

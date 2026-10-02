@@ -26,13 +26,11 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import java.io.FileNotFoundException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.TreeMap;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
@@ -42,13 +40,9 @@ import org.HdrHistogram.HistogramLogWriter;
 import org.apache.cassandra.stress.StressAction.Consumer;
 import org.apache.cassandra.stress.StressAction.MeasurementSink;
 import org.apache.cassandra.stress.StressAction.OpMeasurement;
-import org.apache.cassandra.stress.settings.SettingsLog.Level;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JmxCollector;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.stress.util.JmxCollector.GcStats;
 import org.apache.cassandra.stress.util.Uncertainty;
-import org.apache.cassandra.utils.FBUtilities;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 
 public class StressMetrics implements MeasurementSink
@@ -58,12 +52,10 @@ public class StressMetrics implements MeasurementSink
     private final Thread thread;
     private final Uncertainty rowRateUncertainty = new Uncertainty();
     private final CountDownLatch stopped = new CountDownLatch(1);
-    private final Callable<JmxCollector.GcStats> gcStatsCollector;
     private final HistogramLogWriter histogramWriter;
     private final long epochNs = System.nanoTime();
     private final long epochMs = System.currentTimeMillis();
 
-    private volatile JmxCollector.GcStats totalGcStats = new GcStats(0);
 
     private volatile boolean stop = false;
     private volatile boolean cancelled = false;
@@ -101,22 +93,6 @@ public class StressMetrics implements MeasurementSink
         {
             histogramWriter = null;
         }
-        Callable<JmxCollector.GcStats> gcStatsCollector;
-        totalGcStats = new JmxCollector.GcStats(0);
-        try
-        {
-            gcStatsCollector = new JmxCollector(settings.node.resolveAllPermitted(settings), settings.port.jmxPort);
-        }
-        catch (Throwable t)
-        {
-            if (settings.log.level == Level.VERBOSE)
-            {
-                t.printStackTrace();
-            }
-            System.err.println("Failed to connect over JMX; not collecting these stats");
-            gcStatsCollector = () -> totalGcStats;
-        }
-        this.gcStatsCollector = gcStatsCollector;
         this.totalCurrentInterval = new TimingInterval(settings.rate.isFixed);
         this.totalSummaryInterval = new TimingInterval(settings.rate.isFixed);
         printHeader("", output);
@@ -225,17 +201,6 @@ public class StressMetrics implements MeasurementSink
 
         drainConsumerMeasurements(intervalEnd, parkIntervalNs);
 
-        GcStats gcStats = null;
-        try
-        {
-            gcStats = gcStatsCollector.call();
-        }
-        catch (Exception e)
-        {
-            gcStats = new GcStats(0);
-        }
-        totalGcStats = JmxCollector.GcStats.aggregate(Arrays.asList(totalGcStats, gcStats));
-
         rowRateUncertainty.update(totalCurrentInterval.adjustedRowRate());
         if (totalCurrentInterval.operationCount() != 0)
         {
@@ -248,13 +213,13 @@ public class StressMetrics implements MeasurementSink
                 final TimingInterval opInterval = type.getValue();
                 if (logPerOpSummaryLine)
                 {
-                    printRow("", opName, opInterval, opTypeToSummaryTimingInterval.get(opName), gcStats, rowRateUncertainty, output);
+                    printRow("", opName, opInterval, opTypeToSummaryTimingInterval.get(opName), rowRateUncertainty, output);
                 }
                 logHistograms(opName, opInterval);
                 opInterval.reset();
             }
 
-            printRow("", "total", totalCurrentInterval, totalSummaryInterval, gcStats, rowRateUncertainty, output);
+            printRow("", "total", totalCurrentInterval, totalSummaryInterval, rowRateUncertainty, output);
             totalCurrentInterval.reset();
         }
     }
@@ -340,9 +305,9 @@ public class StressMetrics implements MeasurementSink
 
     // PRINT FORMATTING
 
-    public static final String HEADFORMAT = "%-10s%10s,%8s,%8s,%8s,%8s,%8s,%8s,%8s,%8s,%8s,%7s,%9s,%7s,%7s,%8s,%8s,%8s,%8s";
-    public static final String ROWFORMAT =  "%-10s%10d,%8.0f,%8.0f,%8.0f,%8.1f,%8.1f,%8.1f,%8.1f,%8.1f,%8.1f,%7.1f,%9.5f,%7d,%7.0f,%8.0f,%8.0f,%8.0f,%8.0f";
-    public static final String[] HEADMETRICS = new String[]{"type", "total ops","op/s","pk/s","row/s","mean","med",".95",".99",".999","max","time","stderr", "errors", "gc: #", "max ms", "sum ms", "sdv ms", "mb"};
+    public static final String HEADFORMAT = "%-10s%10s,%8s,%8s,%8s,%8s,%8s,%8s,%8s,%8s,%8s,%7s,%9s,%7s";
+    public static final String ROWFORMAT =  "%-10s%10d,%8.0f,%8.0f,%8.0f,%8.1f,%8.1f,%8.1f,%8.1f,%8.1f,%8.1f,%7.1f,%9.5f,%7d";
+    public static final String[] HEADMETRICS = new String[]{"type", "total ops","op/s","pk/s","row/s","mean","med",".95",".99",".999","max","time","stderr", "errors"};
     public static final String HEAD = String.format(HEADFORMAT, (Object[]) HEADMETRICS);
 
     private static void printHeader(String prefix, ResultLogger output)
@@ -351,7 +316,7 @@ public class StressMetrics implements MeasurementSink
     }
 
     private static void printRow(String prefix, String type, TimingInterval interval, TimingInterval total,
-                                 JmxCollector.GcStats gcStats, Uncertainty opRateUncertainty, ResultLogger output)
+                                 Uncertainty opRateUncertainty, ResultLogger output)
     {
         output.println(prefix + String.format(ROWFORMAT,
                 type + ",",
@@ -367,12 +332,7 @@ public class StressMetrics implements MeasurementSink
                 interval.maxLatencyMs(),
                 total.runTimeMs() / 1000f,
                 opRateUncertainty.getUncertainty(),
-                interval.errorCount,
-                gcStats.count,
-                gcStats.maxms,
-                gcStats.summs,
-                gcStats.sdvms,
-                gcStats.bytes / (1 << 20)
+                interval.errorCount
         ));
     }
 
@@ -394,11 +354,6 @@ public class StressMetrics implements MeasurementSink
         output.println(String.format("Latency max               : %6.1f ms %s", history.maxLatencyMs(), opHistory.maxLatencies()));
         output.println(String.format("Total partitions          : %,10d %s",   history.partitionCount, opHistory.partitionCounts()));
         output.println(String.format("Total errors              : %,10d %s",   history.errorCount, opHistory.errorCounts()));
-        output.println(String.format("Total GC count            : %,1.0f", totalGcStats.count));
-        output.println(String.format("Total GC memory           : %s", FBUtilities.prettyPrintMemory((long)totalGcStats.bytes, true)));
-        output.println(String.format("Total GC time             : %,6.1f seconds", totalGcStats.summs / 1000));
-        output.println(String.format("Avg GC time               : %,6.1f ms", totalGcStats.summs / totalGcStats.count));
-        output.println(String.format("StdDev GC time            : %,6.1f ms", totalGcStats.sdvms));
         output.println("Total operation time      : " + DurationFormatUtils.formatDuration(
                 history.runTimeMs(), "HH:mm:ss", true));
         output.println(""); // Newline is important here to separate the aggregates section from the END or the next stress iteration
@@ -419,7 +374,6 @@ public class StressMetrics implements MeasurementSink
                          type.getKey(),
                          type.getValue(),
                          type.getValue(),
-                         summarise.get(i).totalGcStats,
                          summarise.get(i).rowRateUncertainty,
                          out);
             }
@@ -428,7 +382,6 @@ public class StressMetrics implements MeasurementSink
                     "total",
                     hist,
                     hist,
-                    summarise.get(i).totalGcStats,
                     summarise.get(i).rowRateUncertainty,
                     out
             );
