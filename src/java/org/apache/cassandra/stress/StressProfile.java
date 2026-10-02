@@ -30,7 +30,6 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntUnaryOperator;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -38,12 +37,8 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.AlreadyExistsException;
 import org.antlr.runtime.RecognitionException;
-import org.apache.cassandra.config.CFMetaData;
-import org.apache.cassandra.config.ColumnDefinition;
 import org.apache.cassandra.cql3.CQLFragmentParser;
 import org.apache.cassandra.cql3.CqlParser;
-import org.apache.cassandra.cql3.QueryProcessor;
-import org.apache.cassandra.cql3.statements.CreateTableStatement;
 import org.apache.cassandra.exceptions.RequestValidationException;
 import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.cassandra.stress.core.BatchStatementType;
@@ -478,82 +473,6 @@ public class StressProfile implements Serializable {
         return new TokenRangeQuery(timer, settings, tableMetaData, tokenRangeIterator, def, isWarmup);
     }
 
-
-    public PartitionGenerator getOfflineGenerator() {
-        CFMetaData cfMetaData = CFMetaData.compile(tableCql, keyspaceName);
-
-        //Add missing column configs
-        Iterator<ColumnDefinition> it = cfMetaData.allColumnsInSelectOrder();
-        while (it.hasNext()) {
-            ColumnDefinition c = it.next();
-            if (!columnConfigs.containsKey(c.name.toString().toLowerCase()))
-                columnConfigs.put(c.name.toString().toLowerCase(), new GeneratorConfig(seedStr + c.name.toString(), null, null, null));
-        }
-
-        List<Generator> partitionColumns = cfMetaData.partitionKeyColumns().stream()
-                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
-                .map(c -> c.getGenerator())
-                .collect(Collectors.toList());
-
-        List<Generator> clusteringColumns = cfMetaData.clusteringColumns().stream()
-                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
-                .map(c -> c.getGenerator())
-                .collect(Collectors.toList());
-
-        List<Generator> regularColumns = com.google.common.collect.Lists.newArrayList(cfMetaData.partitionColumns().selectOrderIterator()).stream()
-                .map(c -> new ColumnInfo(c.name.toString(), c.type.asCQL3Type().toString(), "", columnConfigs.get(c.name.toString())))
-                .map(c -> c.getGenerator())
-                .collect(Collectors.toList());
-
-        return new PartitionGenerator(partitionColumns, clusteringColumns, regularColumns, PartitionGenerator.Order.ARBITRARY);
-    }
-
-    public CreateTableStatement.RawStatement getCreateStatement() {
-        CreateTableStatement.RawStatement createStatement = QueryProcessor.parseStatement(tableCql, CreateTableStatement.RawStatement.class, "CREATE TABLE");
-        createStatement.prepareKeyspace(keyspaceName);
-
-        return createStatement;
-    }
-
-    public SchemaInsert getOfflineInsert(Timer timer, PartitionGenerator generator, SeedManager seedManager, StressSettings settings) {
-        assert tableCql != null;
-
-        CFMetaData cfMetaData = CFMetaData.compile(tableCql, keyspaceName);
-
-        List<ColumnDefinition> allColumns = com.google.common.collect.Lists.newArrayList(cfMetaData.allColumnsInSelectOrder());
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("INSERT INTO ").append(quoteIdentifier(keyspaceName)).append(".").append(quoteIdentifier(tableName)).append(" (");
-        StringBuilder value = new StringBuilder();
-        for (ColumnDefinition c : allColumns) {
-            sb.append(quoteIdentifier(c.name.toString())).append(", ");
-            value.append("?, ");
-        }
-        sb.delete(sb.lastIndexOf(","), sb.length());
-        value.delete(value.lastIndexOf(","), value.length());
-        sb.append(") ").append("values(").append(value).append(')');
-
-        if (insert == null)
-            insert = new HashMap<>();
-        lowerCase(insert);
-
-        partitions = select(settings.insert.batchsize, "partitions", "fixed(1)", insert, OptionDistribution.BUILDER);
-        selectchance = select(settings.insert.selectRatio, "select", "fixed(1)/1", insert, OptionRatioDistribution.BUILDER);
-        rowPopulation = select(settings.insert.rowPopulationRatio, "row-population", "fixed(1)/1", insert, OptionRatioDistribution.BUILDER);
-        consistencyLevel = selectConsistency(settings.insert.consistencyLevel, "consistencyLevel", settings.command.consistencyLevel, insert);
-        serialConsistencyLevel = selectConsistency(settings.insert.serialConsistencyLevel, "serialConsistencyLevel", settings.command.serialConsistencyLevel, insert);
-
-        if (generator.maxRowCount > 100 * 1000 * 1000)
-            System.err.printf("WARNING: You have defined a schema that permits very large partitions (%.0f max rows (>100M))%n", generator.maxRowCount);
-
-        String statement = sb.toString();
-
-        //CQLTableWriter requires the keyspace name be in the create statement
-        String tableCreate = tableCql.replaceFirst("\\s+\"?" + tableName + "\"?\\s+", " \"" + keyspaceName + "\".\"" + tableName + "\" ");
-
-
-        return new SchemaInsert(timer, settings, generator, seedManager, selectchance.get(), rowPopulation.get(), statement, tableCreate);
-    }
 
     public void prepareQuery(PartitionGenerator generator, StressSettings settings) {
         if (query != null) {

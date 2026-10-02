@@ -11,7 +11,7 @@ stays in every plan built from a spec.
 
 - Paths below are relative to the repository root. `S` is `src/java/org/apache/cassandra/stress`. `T` is `test/unit/org/apache/cassandra/stress`.
 - Each task ends with a green build. Tasks 1 to 10 keep the server tree in place, so the build compiles at every commit. Task 11 deletes the tree only after no stress file imports it.
-- Verify sequence, from `CLAUDE.md`: `ant build-test`, then `ant testold -Dtest.name='stress/**/*Test'`.
+- Verify sequence, from `CLAUDE.md`: `ant build-test`, then `ant testold -Dtest.name='stress/**/*Test'`. Run `ant clean` first after a task that deletes a class, because Ant compiles only the changed sources and a stale class file hides a broken reference.
 - Follow `docs/standards/`: Allman braces and four spaces, the four import groups, JUnit 4 with `org.junit.Assert`, the test for `S/<pkg>/<Class>.java` in `T/<pkg>/<Class>Test.java`.
 - A file copied from a Cassandra original keeps its ASF license header.
 - Commit subjects: `type(scope): QATOOLS-123 <subject>`, with `!` on a commit that removes a user-facing option or output field.
@@ -50,14 +50,14 @@ stays in every plan built from a spec.
 ## Task 3 — Remove offline SSTable writing and CompactionStress
 
 **Files:**
-- Delete: `S/CompactionStress.java`, `src/java/org/apache/cassandra/io/sstable/StressCQLSSTableWriter.java`
+- Delete: `S/CompactionStress.java`, `src/java/org/apache/cassandra/io/sstable/StressCQLSSTableWriter.java`, `test/unit/org/apache/cassandra/tools/CompactionStressTest.java`
 - Modify: `S/operations/userdefined/SchemaInsert.java` (keep the online insert path only), `S/StressProfile.java:497-570` (`getOfflineGenerator`, `getCreateStatement`, `getOfflineInsert`), `bin/` and `build.xml` entries that name `CompactionStress`
 
-- [ ] Run `grep -rn "CompactionStress\|getOfflineInsert\|getOfflineGenerator\|getCreateStatement\|StressCQLSSTableWriter" S bin build.xml` and record the hits.
-- [ ] Delete the two files and the three `StressProfile` methods. Remove the offline branch of `SchemaInsert`.
-- [ ] Run the grep again and confirm no match.
-- [ ] Run the verify sequence. `StressProfileTest` must pass, because it covers the online profile path.
-- [ ] Commit `feat!: QATOOLS-123 remove offline sstable writing and CompactionStress`, with the boxes of this task checked.
+- [x] Run `grep -rn "CompactionStress\|getOfflineInsert\|getOfflineGenerator\|getCreateStatement\|StressCQLSSTableWriter" S bin build.xml` and record the hits.
+- [x] Delete the two files and the three `StressProfile` methods. Remove the offline branch of `SchemaInsert`.
+- [x] Run the grep again and confirm no match.
+- [x] Run the verify sequence. `StressProfileTest` must pass, because it covers the online profile path.
+- [x] Commit `feat!: QATOOLS-123 remove offline sstable writing and CompactionStress`, with the boxes of this task checked.
 
 ## Task 4 — Remove JMX and the GC output
 

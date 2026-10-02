@@ -20,8 +20,6 @@ package org.apache.cassandra.stress.operations.userdefined;
  * 
  */
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 
 import com.datastax.driver.core.DataType;
@@ -74,14 +72,6 @@ public abstract class SchemaStatement extends PartitionOperation
                 throw new IllegalStateException();
         }
         return statement.bind(bindBuffer);
-    }
-
-    List<ByteBuffer> thriftRowArgs(Row row)
-    {
-        List<ByteBuffer> args = new ArrayList<>();
-        for (int i : argumentIndex)
-            args.add(spec.partitionGenerator.convert(i, row.get(i)));
-        return args;
     }
 
     abstract class Runner implements RunOp

@@ -26,9 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.apache.cassandra.db.ColumnFamilyStore;
-import org.apache.cassandra.io.sstable.StressCQLSSTableWriter;
-import org.apache.cassandra.stress.WorkManager;
 import org.apache.cassandra.stress.core.BatchStatementType;
 import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.generate.*;
@@ -41,27 +38,12 @@ import shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement;
 public class SchemaInsert extends SchemaStatement
 {
 
-    private final String tableSchema;
-    private final String insertStatement;
     private final BatchStatementType batchType;
 
     public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, Distribution batchSize, RatioDistribution useRatio, RatioDistribution rowPopulation, PreparedStatement statement, BatchStatementType batchType)
     {
         super(timer, settings, new DataSpec(generator, seedManager, batchSize, useRatio, rowPopulation), statement, statement.getColumnNames());
         this.batchType = batchType;
-        this.insertStatement = null;
-        this.tableSchema = null;
-    }
-
-    /**
-     * Special constructor for offline use
-     */
-    public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, RatioDistribution useRatio, RatioDistribution rowPopulation, String statement, String tableSchema)
-    {
-        super(timer, settings, new DataSpec(generator, seedManager, new DistributionFixed(1), useRatio, rowPopulation), null, generator.getColumnNames());
-        this.batchType = BatchStatementType.UNLOGGED;
-        this.insertStatement = statement;
-        this.tableSchema = tableSchema;
     }
 
     private class JavaDriverRun extends Runner
@@ -156,31 +138,6 @@ public class SchemaInsert extends SchemaStatement
         }
     }
 
-    private class OfflineRun extends Runner
-    {
-        final StressCQLSSTableWriter writer;
-
-        OfflineRun(StressCQLSSTableWriter writer)
-        {
-            this.writer = writer;
-        }
-
-        public boolean run() throws Exception
-        {
-            for (PartitionIterator iterator : partitions)
-            {
-                while (iterator.hasNext())
-                {
-                    Row row = iterator.next();
-                    writer.rawAddRow(thriftRowArgs(row));
-                    rowCount += 1;
-                }
-            }
-
-            return true;
-        }
-    }
-
     @Override
     public void run(JavaDriverClient client) throws IOException
     {
@@ -198,24 +155,4 @@ public class SchemaInsert extends SchemaStatement
         return true;
     }
 
-    public StressCQLSSTableWriter createWriter(ColumnFamilyStore cfs, int bufferSize, boolean makeRangeAware)
-    {
-        return StressCQLSSTableWriter.builder()
-                                     .withCfs(cfs)
-                                     .withBufferSizeInMB(bufferSize)
-                                     .forTable(tableSchema)
-                                     .using(insertStatement)
-                                     .rangeAware(makeRangeAware)
-                                     .build();
-    }
-
-    public void runOffline(StressCQLSSTableWriter writer, WorkManager workManager) throws Exception
-    {
-        OfflineRun offline = new OfflineRun(writer);
-
-        while (ready(workManager) != 0)
-        {
-            offline.run();
-        }
-    }
 }
