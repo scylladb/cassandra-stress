@@ -172,19 +172,21 @@ stays in every plan built from a spec.
 **Files:**
 - Delete: every directory under `src/java/org/apache/cassandra/` except `stress/`, `src/java/com/datastax/`, `src/antlr/`, `src/gen-java/`, `interface/`, `src/resources/org/apache/cassandra/cql3/`, `test/distributed`, `test/long`, `test/burn`, `test/microbench`, `test/data`, `test/conf`, `test/resources` except the files that Task 6 adds, every directory under `test/unit/org/apache/cassandra/` except `stress/`, `.build/dependency-check-suppressions.xml`, `eclipse_compiler.properties`, `ide/idea-iml-file.xml`, `NEWS.txt`, `README-cassandra.asc`
 - Keep: `src/resources/org/apache/cassandra/stress/graph/graph.html`, `ide/idea/`
+- Modify: `build.xml` `build_java` (the `gen-java` and Thrift source paths), `build-project` (the `gen-cql3-grammar` dependency and the `hotspot_compiler` copy), `cassandra-stress.classpath` (the Thrift classes), and `testmacrohelper` (Ant `<junit>` with the `xml` and `brief` formatters, because `JStackJUnitTask` and the Cassandra formatters lived in `test/unit/org/apache/cassandra/`)
 
-- [ ] Run `grep -rnE "import (static )?org\.apache\.cassandra\.[a-z]+" S T | grep -v "org.apache.cassandra.stress"` and confirm no match. Stop and go back to the task that owns a hit.
-- [ ] Delete the paths above with `git rm -r`.
-- [ ] Run the verify sequence. `build.xml` still declares the server jars, so only the source set changes here.
-- [ ] Commit `chore!: QATOOLS-123 delete the vendored cassandra source`, with the boxes of this task checked.
+- [x] Run `grep -rnE "import (static )?org\.apache\.cassandra\.[a-z]+" S T | grep -v "org.apache.cassandra.stress"` and confirm no match. Stop and go back to the task that owns a hit.
+- [x] Delete the paths above with `git rm -r`.
+- [x] Make the `build.xml` changes above, so `build-test`, `testold`, `testsome` and `artifacts` run on the stress tree only.
+- [x] Run the verify sequence. `build.xml` still declares the server jars, so only the source set changes here.
+- [x] Commit `chore!: QATOOLS-123 delete the vendored cassandra source`, with the boxes of this task checked.
 
 ## Task 12 — Trim `build.xml` to the stress dependencies and targets
 
 **Files:**
-- Modify: `bin/cassandra-stress:83-86,148` (`CONFIG_FILE_REALPATH` and `-Dcassandra.config`, which only `DatabaseDescriptor` read), `build.xml:550-984` (`maven-declare-dependencies`), `build.xml:169-170` (`java11-jvmargs`), `build.xml:176-181` (`build.classes.thrift`), `build.xml:1088-1110` (`build_java`), `build.xml:1036-1083,1296-1375` (the test macros: `storage-config`, jamm, the Cassandra system properties), `build.xml:1120-1131` (the POMs), `conf/jvm-clients.options`, `.github/workflows/test.yml:18,30,43,55,106`
+- Modify: `bin/cassandra-stress:83-86,148` (`CONFIG_FILE_REALPATH` and `-Dcassandra.config`, which only `DatabaseDescriptor` read), `build.xml:550-984` (`maven-declare-dependencies`), `build.xml:169-170` (`java11-jvmargs`), `build.xml:176-181` (`build.classes.thrift`), `build.xml:1088-1110` (`build_java`), `build.xml:1120-1131` (the POMs), `conf/jvm-clients.options`, `.github/workflows/test.yml:18,30,43,55,106`
 - Delete targets: `check-gen-cql3-grammar`, `gen-cql3-grammar`, `maven-ant-tasks-*`, `maven-ant-tasks-retrieve-build`, `echo-base-version` when nothing calls it, `check-gen-thrift-java`, `gen-thrift-java`, `gen-thrift-py`, `test-run`, `test-cdc`, `msg-ser-*`, `cql-test`, `cql-test-some`, `test-jvm-dtest`, `test-jvm-upgrade-dtest`, `mvn-install`, `generate-idea-files`
 
-**Internals:** one POM `cassandra-stress` with the coordinates of the spec table, HdrHistogram at 2.2.2. `<javac>` sets `release="21"` and `<compilerarg value="-proc:none"/>`, and takes no `--add-exports` or `--add-opens`. The `build` target loses the `hotspot_compiler` copy, and `artifacts` loses its exclude. The test macro keeps `-ea`, `-Djava.io.tmpdir` and `-Djava.awt.headless=true`.
+**Internals:** one POM `cassandra-stress` with the coordinates of the spec table, HdrHistogram at 2.2.2. `<javac>` sets `release="21"` and `<compilerarg value="-proc:none"/>`, and takes no `--add-exports` or `--add-opens`. `artifacts` loses its `hotspot_compiler` exclude.
 
 - [ ] Run `grep -rn "ant \|make " .github Makefile Dockerfile scripts dist` and list every target that they call. Each one must stay.
 - [ ] Rewrite `maven-declare-dependencies` to the spec table and remove the other coordinates and the `parent`, `all` and `thrift` POMs.

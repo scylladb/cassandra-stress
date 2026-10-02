@@ -173,7 +173,6 @@
         path="${build.dir}/scylla-driver-core-${base.javaDriverVersion}-shaded.jar" />
     <path id="cassandra-stress.classpath">
         <pathelement location="${build.classes.main}" />
-        <pathelement location="${build.classes.thrift}" />
         <fileset dir="${build.dir.lib}">
             <include name="**/*.jar" />
         </fileset>
@@ -1083,8 +1082,6 @@
             target="${target.version}"
             memorymaximumsize="512M">
             <src path="${build.src.java}" />
-            <src path="${build.src.gen-java}" />
-            <src path="${interface.thrift.gen-java}" />
             <compilerarg value="-XDignore.symbol.file" />
             <compilerarg line="${java11-jvmargs}" />
             <classpath>
@@ -1092,14 +1089,13 @@
             </classpath>
         </javac>
     </target>
-    <target depends="init,gen-cql3-grammar"
+    <target depends="init"
         name="build-project">
         <echo message="${ant.project.name}: ${ant.file}" />
         <antcall target="build_java" />
         <copy todir="${build.classes.main}">
             <fileset dir="${build.src.resources}" />
         </copy>
-        <copy todir="${basedir}/conf" file="${build.classes.main}/META-INF/hotspot_compiler" />
     </target>
 
     <target name="_write-poms" depends="maven-declare-dependencies">
@@ -1289,86 +1285,35 @@
         <attribute name="showoutput" default="false" />
 
         <sequential>
-            <taskdef name="junit-timeout" classname="org.apache.cassandra.JStackJUnitTask">
-                <classpath>
-                    <path refid="cassandra-stress.classpath" />
-                    <path refid="cassandra-stress.classpath.test" />
-                    <pathelement location="${test.classes}" />
-                </classpath>
-            </taskdef>
-            <mkdir dir="${build.test.dir}/cassandra" />
             <mkdir dir="${build.test.dir}/output" />
             <mkdir dir="${build.test.dir}/output/@{testtag}" />
-            <junit-timeout fork="on" forkmode="@{forkmode}" failureproperty="testfailed"
+            <junit fork="on" forkmode="@{forkmode}" failureproperty="testfailed"
                 maxmemory="1024m"
                 timeout="@{timeout}" showoutput="@{showoutput}">
-                <formatter classname="org.apache.cassandra.CassandraXMLJUnitResultFormatter"
-                    extension=".xml"
-                    usefile="true" />
-                <formatter classname="org.apache.cassandra.CassandraBriefJUnitResultFormatter"
-                    usefile="false" />
-                <jvmarg value="-Dstorage-config=${test.conf}" />
+                <formatter type="xml" usefile="true" />
+                <formatter type="brief" usefile="false" />
                 <jvmarg value="-Djava.awt.headless=true" />
-                <!-- Cassandra 3.0+ needs <jvmarg line="... ${additionalagent}" /> here! (not
-                value=) -->
-                <jvmarg line="-javaagent:${build.lib}/jamm-${jamm.version}.jar" />
                 <jvmarg value="-ea" />
                 <jvmarg value="-Djava.io.tmpdir=${tmp.dir}" />
-                <jvmarg value="-Dcassandra.debugrefcount=true" />
-                <jvmarg value="-Xss256k" />
-                <!-- When we do classloader manipulation SoftReferences can cause memory leaks
-                     that can OOM our test runs. The next two settings informs our GC
-                     algorithm to limit the metaspace size and clean up SoftReferences
-                     more aggressively rather than waiting. See CASSANDRA-14922 for more details.
-                -->
-                <jvmarg value="-XX:MaxMetaspaceSize=384M" />
-                <jvmarg value="-XX:SoftRefLRUPolicyMSPerMB=0" />
-                <jvmarg value="-Dcassandra.memtable_row_overhead_computation_step=100" />
-                <jvmarg value="-Dcassandra.test.use_prepared=${cassandra.test.use_prepared}" />
-                <jvmarg value="-Dcassandra.test.sstableformatdevelopment=true" />
-                <!-- The first time SecureRandom initializes can be slow if it blocks on /dev/random -->
                 <jvmarg value="-Djava.security.egd=file:/dev/urandom" />
-                <jvmarg value="-Dcassandra.testtag=@{testtag}" />
-                <jvmarg value="-Dcassandra.keepBriefBrief=${cassandra.keepBriefBrief}" />
-                <jvmarg value="-Dcassandra.strict.runtime.checks=true" />
-                <jvmarg line="${java11-jvmargs}" />
-                <!-- disable shrinks in quicktheories CASSANDRA-15554 -->
-                <jvmarg value="-DQT_SHRINKS=0" />
                 <optjvmargs />
-                <!-- Uncomment to debug unittest, attach debugger to port 1416 -->
-                <!--
-                <jvmarg line="-agentlib:jdwp=transport=dt_socket,address=localhost:1416,server=y,suspend=y" />
-                -->
                 <classpath>
                     <pathelement path="${java.class.path}" />
                     <path refid="cassandra-stress.classpath" />
                     <path refid="cassandra-stress.classpath.test" />
                     <pathelement location="${test.classes}" />
-                    <pathelement location="${test.conf}" />
                 </classpath>
                 <batchtest todir="${build.test.dir}/output/@{testtag}">
                     <fileset dir="@{inputdir}" includes="@{filter}" excludes="@{exclude}" />
                     <filelist dir="@{inputdir}" files="@{filelist}" />
                 </batchtest>
-            </junit-timeout>
+            </junit>
 
-            <delete quiet="true" failonerror="false" dir="${build.test.dir}/cassandra/commitlog" />
-            <delete quiet="true" failonerror="false" dir="${build.test.dir}/cassandra/cdc_raw" />
-            <delete quiet="true" failonerror="false" dir="${build.test.dir}/cassandra/data" />
-            <delete quiet="true" failonerror="false" dir="${build.test.dir}/cassandra/saved_caches" />
-            <delete quiet="true" failonerror="false" dir="${build.test.dir}/cassandra/hints" />
         </sequential>
     </macrodef>
 
     <target name="testold" depends="build-test" description="Execute unit tests">
-        <testmacro inputdir="${test.unit.src}" timeout="${test.timeout}">
-            <jvmarg value="-Dlegacy-sstable-root=${test.data}/legacy-sstables" />
-            <jvmarg value="-Dinvalid-legacy-sstable-root=${test.data}/invalid-legacy-sstables" />
-            <jvmarg value="-Dmigration-sstable-root=${test.data}/migration-sstables" />
-            <jvmarg value="-Dcassandra.ring_delay_ms=1000" />
-            <jvmarg value="-Dcassandra.tolerate_sstable_size=true" />
-            <jvmarg value="-Dcassandra.skip_sync=true" />
-        </testmacro>
+        <testmacro inputdir="${test.unit.src}" timeout="${test.timeout}" />
         <fileset dir="${test.unit.src}" />
     </target>
 
@@ -1439,12 +1384,6 @@
                 outfile="build/test/output/TEST-${test.name}-${test.methods}" />
             <test if:blank="${test.methods}" name="${test.name}"
                 outfile="build/test/output/TEST-${test.name}" />
-            <jvmarg value="-Dlegacy-sstable-root=${test.data}/legacy-sstables" />
-            <jvmarg value="-Dinvalid-legacy-sstable-root=${test.data}/invalid-legacy-sstables" />
-            <jvmarg value="-Dmigration-sstable-root=${test.data}/migration-sstables" />
-            <jvmarg value="-Dcassandra.ring_delay_ms=1000" />
-            <jvmarg value="-Dcassandra.tolerate_sstable_size=true" />
-            <jvmarg value="-Dcassandra.skip_sync=true" />
         </testmacro>
     </target>
 
