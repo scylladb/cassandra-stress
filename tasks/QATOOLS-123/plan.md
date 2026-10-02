@@ -208,7 +208,7 @@ stays in every plan built from a spec.
 - [x] Start Scylla 2025.1 in Docker with port 9042 published, then run each script in `integration-tests/` with the 3.x and the 4.x driver on JDK 21 and on JDK 25.
 - [x] For each failure on JDK 25, add the smallest flag to `conf/jvm-clients.options`, or move to a driver version that runs on JDK 25. Run the step again.
 - [x] Run a write with `-log hdrfile=` on JDK 25, and read the log with the HdrHistogram 2.1.12 reader.
-- [ ] Run a write with `-transport truststore=` on JDK 25. The local Scylla has no client encryption, so the SCT run with `client_encrypt: true` from the spec risks covers this step.
+- [x] Run a write with `-transport truststore=` on JDK 25 against a Scylla with client encryption, with a JKS and a PKCS12 trust store and both drivers.
 - [x] Run the verify sequence on JDK 21 again.
 - [x] Commit `fix: QATOOLS-123 run the drivers on JDK 25`, with the boxes of this task checked. Skip the commit when no file changed, and check this box.
 

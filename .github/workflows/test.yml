@@ -131,6 +131,8 @@ jobs:
           until docker logs scylla 2>&1 | grep "Starting listening for CQL clients" > /dev/null; do sleep 0.2; done
       - name: Run tests
         shell: bash
+        env:
+          JVM_OPTS: ${{ matrix.java == '25' && '--sun-misc-unsafe-memory-access=deny' || '' }}
         run: |
           set -xe
           SCYLLA_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' scylla)"

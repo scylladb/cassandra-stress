@@ -104,4 +104,5 @@ appender reference in the root level section below.
         It is cheaper to ignore them, instead of reconstructing whole statement list
     -->
     <logger name="com.datastax.driver.core.DefaultBatchStatement" level="ERROR"/>
+    <logger name="shaded.com.datastax.oss.driver.internal.core.os.Native" level="WARN"/>
 </configuration>

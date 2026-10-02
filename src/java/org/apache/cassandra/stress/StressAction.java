@@ -35,8 +35,8 @@ import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.jctools.queues.SpscArrayQueue;
-import org.jctools.queues.SpscUnboundedArrayQueue;
+import org.jctools.queues.atomic.SpscAtomicArrayQueue;
+import org.jctools.queues.atomic.SpscUnboundedAtomicArrayQueue;
 
 import com.google.common.util.concurrent.Uninterruptibles;
 
@@ -431,8 +431,8 @@ public class StressAction implements Runnable
             this.anyFailed = anyFailed;
             this.metrics = metrics;
             this.opStream = new StreamOfOperations(opDistribution, rateLimiter, workManager);
-            this.measurementsRecycling =  new SpscArrayQueue<OpMeasurement>(8*1024);
-            this.measurementsReporting =  new SpscUnboundedArrayQueue<OpMeasurement>(2048);
+            this.measurementsRecycling =  new SpscAtomicArrayQueue<OpMeasurement>(8*1024);
+            this.measurementsReporting =  new SpscUnboundedAtomicArrayQueue<OpMeasurement>(2048);
             metrics.add(this);
         }
 

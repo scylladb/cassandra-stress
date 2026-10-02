@@ -56,11 +56,13 @@ A file that comes from a Cassandra original starts with `// SPDX-License-Identif
 
 | Scope | Coordinates |
 |---|---|
-| runtime | `scylla-driver-core` 3.x, `java-driver-core` 4.x (shaded by jarjar), guava, commons-math3, commons-lang3, commons-cli, snakeyaml, json-simple, jctools-core, netty-common, HdrHistogram 2.2.2, config, slf4j-api, logback-classic, lz4-java, snappy-java |
+| runtime | `scylla-driver-core` 3.x, `java-driver-core` 4.x (shaded by jarjar), guava, commons-math3, commons-lang3, commons-cli, snakeyaml, json-simple, jctools-core 4.0.7, netty-common, HdrHistogram 2.2.2, config, slf4j-api, logback-classic, lz4-java, snappy-java |
 | test | junit 4, hamcrest |
 | build | `maven-resolver-ant-tasks`, jarjar |
 
 Every other coordinate goes, `compile-command-annotations` and joda-time included. `<javac>` sets `--release 21` and `-proc:none`. With no annotation processor, the `build` target stops copying `META-INF/hotspot_compiler`, and the `artifacts` target stops excluding it. `conf/jvm-clients.options` keeps only the flags that the drivers need. The integration tests on JDK 21 and 25 decide that list.
+
+No class on the classpath calls `sun.misc.Unsafe`. The 3.x driver comes without `jnr-ffi` and `jnr-posix`, so both drivers use the Java clock and `jffi` leaves the classpath. The work queues of `StressAction` are the `jctools` atomic queues. `conf/jvm-clients.options` sets `-Dcom.datastax.shaded.netty.noUnsafe=true` and `-Dshaded.com.datastax.oss.driver.shaded.netty.noUnsafe=true`, the relocated names of the Netty property in the two driver jars. The JDK 25 integration tests run with `--sun-misc-unsafe-memory-access=deny`, so an `Unsafe` call fails CI.
 
 `build.xml` keeps the targets that CI, the Makefile, the Dockerfile and packaging call: `init`, `clean`, `realclean`, `resolver-init`, `resolver-retrieve-build`, `java-driver-core.get`, `java-driver-core.shade`, `scylla-driver-core.override`, `build`, `jar`, `artifacts`, `build-test` and `test`. `test` runs every unit test in one forked JVM, or one class with `-Dtest.name=ClassNameTest`, and CI runs it on JDK 21 and 25. The `jar` target writes the stress version to the `Implementation-Version` attribute of the jar manifest. The CI build, unit test and integration test matrices are `["21", "25"]`. The deb and rpm package tests stay on JDK 21, the runtime of the packages. The build workflow passes no `source.version` or `target.version`, so a JDK 25 build still writes Java 21 bytecode.
 
@@ -163,6 +165,8 @@ public enum CompactionStrategy {
 - `build.xml` writes no POM and uses no maven-ant-tasks. The POMs only fed the resolver, and two resolver `<dependencies>` sets do that without a generated file. (build)
 - `SimpleDateSerializer` formats with `java.time` and drops the string parser, because stress only serializes and prints dates, and joda-time left with the server dependencies. (build)
 - One `test` target replaces `testold` and `testsome`, which kept the per-test fork and the Cassandra test harness. CI runs `ant test`, so the unit tests run on every pull request. (review)
+- No class calls `sun.misc.Unsafe`, because JDK 24 and later warn on each such call and a future JDK removes the methods. Six interleaved runs on a laptop showed no throughput change beyond the run-to-run noise of 15 percent. (review)
+- `-transport store-type=` reaches the key stores, so a PKCS12 trust store works. (build)
 - One pull request carries the removal, because stress does not compile until the removals and the ports are both in. (spec)
 - CI tests on JDK 21 and 25, and this pull request fixes any driver failure on JDK 25. (review)
 - JDK 27 joins CI after its GA. (review)
