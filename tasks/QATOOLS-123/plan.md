@@ -274,3 +274,16 @@ stays in every plan built from a spec.
 - [x] Fix what they found: the static driver clients, the static statement caches, `help version`, the unused code.
 - [x] Run `ant test`, `ant integration-test` and `ant coverage-all`.
 
+## Task 19 — Close the CodeQL alerts and trim the runtime
+
+**Files:**
+- Modify: `S/StressServer.java`, `S/Stress.java`, the settings and generator classes that implemented `Serializable`, `S/generate/Distribution.java`, `S/settings/SettingsMode.java`, `S/settings/SettingsPort.java`, `build.xml`, `.github/workflows/{test,build,dockerhub-description}.yml`, `NOTICE.txt`, `docs/standards/global/conventions.md`
+- Test: `T/StressServerTest.java`, `T/settings/SettingsModeTest.java`, `T/settings/SettingsPortTest.java`
+
+**Internals:** `StressServer.writeCommand` writes the argument count and each argument with `writeUTF`. `StressServer.readCommand` rejects a count below 0 or above 1024. `Distribution.average` steps with `d = (float) (d + 0.02d)`. The Thrift names leave the removed-option guards.
+
+- [x] Replace Java serialization in stressd with the argument protocol, and remove `Serializable`, `transient` and the `SettingsColumn` hooks.
+- [x] Set `contents: read` on the workflows and the explicit cast in `Distribution`.
+- [x] Exclude `j2objc-annotations` and `metrics-core`, and remove the remaining Thrift references.
+- [x] Run `ant test` and `ant integration-test`.
+

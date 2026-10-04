@@ -18,8 +18,9 @@ The change deletes the Cassandra server tree and the stress features that run on
 | Area | Today | After |
 |---|---|---|
 | `-mode` | `cql3 native`, `cql3 4x`, `cql3 simplenative`, `thrift [smart]` | `cql3 native`, `cql3 4x` |
-| `-mode thrift`, `-mode cql3 simplenative` | Run | Stop at argument parsing: `Mode <name> was removed. Use -mode cql3 native or -mode cql3 4x.` |
-| `-port` | `native=`, `thrift=`, `jmx=` | `native=`. The other two stop at argument parsing: `Port option <name>= was removed. Use -port native=.` |
+| `-mode thrift` | Run | Stops at argument parsing: `Invalid parameter thrift` |
+| `-mode cql3 simplenative` | Run | Stops at argument parsing: `Mode simplenative was removed. Use -mode cql3 native or -mode cql3 4x.` |
+| `-port` | `native=`, `thrift=`, `jmx=` | `native=`. `jmx=` stops with `Port option jmx= was removed. Use -port native=.` and `thrift=` with `Invalid parameter thrift=9160` |
 | `-transport` | `factory=` and the SSL options | The SSL options. `factory=` stops at argument parsing |
 | `-schema replication(strategy=X)` | Any class on the classpath that extends `AbstractReplicationStrategy` | `NetworkTopologyStrategy` or `EverywhereStrategy`, short or full name. Other names stop with `Invalid replication strategy: X` |
 | `-schema compaction(strategy=X)` | Any compaction class that `CFMetaData` loads | The five compaction classes of the vendored tree. Other names stop with `Invalid compaction strategy: X` |
@@ -28,7 +29,7 @@ The change deletes the Cassandra server tree and the stress features that run on
 | `CompactionStress`, offline `SchemaInsert` | Write SSTables with server code | Removed |
 | `cassandra-stress legacy` | Translates the pre-2.1 command line | Stops at argument parsing: `Command legacy was removed. Run cassandra-stress help to see the commands.` |
 | `-graph` without `title=` | Title is null, because the default checks `revision=` | Title is `cassandra-stress - <yyyy-MM-dd HH:mm:ss>`, as the help text states |
-| `-send-to` and stressd | The client fails with `NotSerializableException` before it sends the settings | The settings reach stressd. stressd reads only stress classes and a fixed list of JDK classes |
+| `-send-to` and stressd | The client fails with `NotSerializableException` before it sends the settings | The client sends its command-line arguments as text, and stressd parses them. An older client cannot talk to a new stressd |
 | User profiles, other commands, workloads | | Unchanged |
 
 A profile that names a strategy in its own `CREATE KEYSPACE` text passes it to the cluster unchanged.
@@ -177,7 +178,7 @@ public enum CompactionStrategy {
 - A unit test fixes the bytes of each ported serializer against master. Data that the 3.21.1 image writes in the shape of the SCT restore snapshots validates with the new build, because the snapshots themselves are terabytes in S3. (build)
 - `build.xml` declares HdrHistogram 2.2.2, because stress imports it directly and the 3.x driver declares the range `[2.2,3)`. 2.1.12 and 2.2.2 write byte-identical logs, and each reads the log of the other. (review)
 - The `legacy` command goes, because it translated the pre-2.1 Thrift-era command line and it was the only user of commons-cli besides stressd. (review)
-- stressd stays. Its server reads the settings through an `ObjectInputFilter` that admits stress classes and a fixed list of JDK classes only, because it deserializes bytes from any client on its port. (review)
+- stressd stays. The client sends the argument count and each argument as a UTF-8 string, and stressd parses them with `StressSettings.parse`, because Java deserialization of bytes from any client on port 2159 is a remote code execution risk. The settings classes are no longer `Serializable`. (review)
 - The driver 4.x jars come through the resolver without jarjar. The relocation to `shaded.com.datastax` kept the 4.x classes apart from the jars of the server tree, and no jar left on the classpath shares a class path with them. (review)
 - `TimestampSerializer` and `TimestampCodec` keep `SimpleDateFormat`, because `java.time` uses the proleptic Gregorian calendar and would print other strings for dates before 1582. Stress writes those strings as CQL literals in unprepared mode. (review)
 - `sun.misc.Signal` stays in `Stress`, because a shutdown hook cannot see the signal name and cannot keep the exit codes 130, 134 and 143. (review)
@@ -187,4 +188,7 @@ public enum CompactionStrategy {
 - The profile loader rejects a missing `keyspace`, `table` or `queries` with an exception. The other profile checks stay `assert` statements, because the launcher runs without `-ea` and an exception would stop profiles that run today. (review)
 - The integration tests start ScyllaDB through Testcontainers and run stress in-process through `Stress.run`, so JaCoCo measures the driver clients, the operations and `StressAction`. The shell scripts in `integration-tests/` stay, because they test the packaged launcher. (review)
 - `StressSettings` holds its driver clients and its failure count per instance, and `disconnect()` closes both clients. Static fields made every later run in one JVM, such as each stressd request, reuse the first connection and keyspace. (review)
+- The code keeps no Thrift name, the removal messages included, so `-mode thrift` and `-port thrift=` fail as unknown options. (review)
+- The runtime leaves out `j2objc-annotations` and `metrics-core`. Guava needs the annotations only at compile time, driver 3.x bundles its own metrics, and driver 4.x uses metrics-core only when stress turns on driver metrics. Both drivers pass the integration tests without them. (review)
+- Every workflow sets `permissions: contents: read`, and `build.yml` drops `contents: write`, because it only uploads artifacts. The release workflow keeps its own write permission. (review)
 
