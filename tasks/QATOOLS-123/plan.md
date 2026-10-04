@@ -25,7 +25,7 @@ stays in every plan built from a spec.
 - Modify: `S/settings/SettingsMode.java:64,155,202` (the `thrift` option groups), `S/settings/StressSettings.java:36-44,97-130` (the Thrift client getters), `S/settings/SettingsSchema.java:33,71-76,237-300` (`createKeySpacesThrift`), `S/settings/SettingsPort.java:50` (`thrift=`), `S/settings/SettingsTransport.java:41-77,133` (`ITransportFactory`, `factory=`), `S/settings/Legacy.java`, `S/settings/CliOption.java`, `S/settings/SettingsCommandPreDefined.java`, `S/operations/predefined/PredefinedOperation.java`, `S/operations/predefined/CqlOperation.java:356-360,379-383,505-545` (`Cql3CassandraClientWrapper`), `S/operations/userdefined/SchemaQuery.java`, `S/operations/userdefined/ValidatingSchemaQuery.java`, `S/operations/userdefined/SchemaStatement.java`, `S/operations/userdefined/TokenRangeQuery.java`, `S/StressProfile.java:69,467,706` (`thriftInsertId`, `Compression.NONE`), `S/Operation.java`, `S/StressAction.java`, `S/generate/PartitionIterator.java`, `bin/cassandra-stress:74` (`$classes/thrift`)
 - Test: `T/settings/SettingsModeTest.java`
 
-**Internals:** `SettingsMode` throws `IllegalArgumentException("Mode thrift was removed. Use -mode native or -mode 4x.")` when the `-mode` arguments hold `thrift`. `SettingsTransport` keeps the SSL options and builds no transport factory.
+**Internals:** `SettingsMode` throws `IllegalArgumentException("Mode thrift was removed. Use -mode cql3 native or -mode cql3 4x.")` when the `-mode` arguments hold `thrift`. `SettingsTransport` keeps the SSL options and builds no transport factory.
 
 - [x] Write `SettingsModeTest`: `-mode thrift` and `-mode thrift smart` throw with the message above. `-mode cql3 native` and `-mode cql3 4x` parse.
 - [x] Run it and confirm the failure.
@@ -40,7 +40,7 @@ stays in every plan built from a spec.
 - Modify: `S/settings/SettingsMode.java:188-200` (the `simplenative` group), `S/settings/StressSettings.java:42` (`SimpleClient`), `S/StressAction.java`, `S/Operation.java`, `S/operations/predefined/CqlOperation.java:45,362-366,394-396,472-503` (`SimpleClientWrapper`, `ResultMessage`)
 - Test: `T/settings/SettingsModeTest.java`
 
-- [x] Add a case to `SettingsModeTest`: `-mode cql3 simplenative` throws `Mode simplenative was removed. Use -mode native or -mode 4x.`
+- [x] Add a case to `SettingsModeTest`: `-mode cql3 simplenative` throws `Mode simplenative was removed. Use -mode cql3 native or -mode cql3 4x.`
 - [x] Run it and confirm the failure.
 - [x] Remove the `simplenative` group, the `SimpleClient` getter and every `SimpleClient` path.
 - [x] Run `grep -rn "transport.SimpleClient\|ResultMessage" S` and confirm no match.
@@ -158,7 +158,7 @@ stays in every plan built from a spec.
 - Modify: `.gitignore` (the `src/resources/org/apache/cassandra/config/` entry), `S/settings/SettingsMisc.java:128-168` (`maybePrintVersion`, `parseVersionFile`), `build.xml:1026-1034` (`createVersionPropFile`), `build.xml:1113` (its `antcall`), `build.xml:1138-1140` (the `jar` manifest), `build.xml:1204` (the exclude), `build.xml:91,387` (`version.properties.dir`)
 - Test: `T/settings/SettingsMiscTest.java`
 
-**Internals:** `SettingsMisc.versionLines(String stressVersion, String driver3Version, String driver4Version)` returns the three lines of the spec Outputs contract. `maybePrintVersion` passes `SettingsMisc.class.getPackage().getImplementationVersion()` and the `driver.version` key of each driver's `Driver.properties` resource, read by `driver3Version()` and `driver4Version()`. The `jar` target adds `<manifest><attribute name="Implementation-Version" value="${version}"/></manifest>`.
+**Internals:** `SettingsMisc.versionLines(String stressVersion, String driver3Version, String driver4Version)` returns the three lines of the spec Outputs contract. `maybePrintVersion` passes `stressVersion()`, which reads the `org/apache/cassandra/stress/stress.version` resource that `build-project` writes, and the `driver.version` key of each driver's `Driver.properties` resource, read by `driver3Version()` and `driver4Version()`. The `jar` target adds `<manifest><attribute name="Implementation-Version" value="${version}"/></manifest>`.
 
 - [x] Write `SettingsMiscTest`: `versionLines("1.0.0", "3.11.5.18", "4.19.2.1")` equals the three lines.
 - [x] Run it and confirm the failure.
@@ -218,3 +218,59 @@ stays in every plan built from a spec.
 - [x] Update the spec in the same commit when the build changed a design point, with a `(build)` line in `Decisions`.
 - [x] Update the pull request body: the removed options, the jar changes from Task 12, and `refs QATOOLS-123` as the last line, because the Gradle pull request under the same key finishes the task.
 - [x] Commit the checked boxes of this plan.
+
+## Task 15 — Close the second review
+
+**Files:**
+- Modify: `README.md` (`-mode`), `conf/logback.xml` (the `com.thinkaurelius.thrift` logger), `S/settings/SettingsMode.java`, `S/settings/SettingsPort.java`, `S/util/CqlNames.java`, `S/settings/SettingsMisc.java`, `build.xml` (`build-project`, the test classpath)
+- Test: `T/settings/SettingsModeTest.java`, `T/settings/SettingsPortTest.java`, `T/util/CqlNamesTest.java`, `T/settings/SettingsMiscTest.java`
+
+**Internals:** `SettingsPort.get` throws `IllegalArgumentException("Port option jmx= was removed. Use -port native=.")` for `jmx=` and `thrift=`. The `CqlNames` patterns skip leading whitespace, `--` and `//` line comments, and `/* */` block comments. The test classpath leaves out `build/lib/cassandra-stress.jar`, so an old jar does not hide the compiled classes.
+
+- [x] Add the cases to the four tests and run them.
+- [x] Make the changes above.
+- [x] Run `bin/cassandra-stress version` from the source checkout and confirm the real version.
+- [x] Run the verify sequence.
+
+## Task 16 — Remove the old libraries, `legacy` and the jarjar step
+
+**Files:**
+- Delete: `S/settings/Legacy.java`, `S/settings/LoadBalanceStrategyProvidable.java`, `jarjar.rules`
+- Create: `S/util/Sleep.java`
+- Modify: `build.xml` (runtime set, the jarjar targets, `artifacts`), `conf/jvm-clients.options`, `conf/logback.xml`, `README.md`, `S/StressGraph.java`, `S/StressServer.java`, `S/settings/SettingsGraph.java`, the files that import `shaded.com.datastax`
+- Test: `T/StressGraphTest.java`, `T/StressServerTest.java`, `T/settings/SettingsGraphTest.java`, `T/settings/StressSettingsTest.java`, `T/settings/LoadBalanceTypeTest.java`, `T/report/StressMetricsTest.java`
+
+**Internals:** `StressGraph` builds its JSON with Jackson and inserts it with `Matcher.quoteReplacement`. `StressServer` parses `-h`, `--host` and `--host=` and sets `SETTINGS_FILTER` on its stream. `AuthProvider`, `ProtocolVersion`, `StressYaml.QueryDef` and `StressYaml.TokenRangeQueryDef` implement `Serializable`. `SettingsGraph` selects the default title on `title=` and formats it with `uuuu-MM-dd HH:mm:ss`.
+
+- [x] Write the tests above and run them.
+- [x] Replace commons-lang3, commons-cli, json-simple, the Guava calls and the Netty thread-locals with JDK classes and Jackson.
+- [x] Remove `legacy`, netty-common, and the jarjar targets. Resolve `java-driver-core-shaded` through the resolver.
+- [x] Remove the comments and the ASF block headers. Compile with `-g:none` before and after, and confirm identical class files.
+- [x] Confirm that `build/lib/jars` lists the same jars as before the jarjar change.
+- [x] Run the verify sequence, and the integration scripts with both drivers on JDK 21 and on JDK 25 with `--sun-misc-unsafe-memory-access=deny`.
+
+## Task 17 — Java 21 APIs, JUnit 6 and coverage
+
+**Files:**
+- Modify: `build.xml` (`test-deps`, `coverage-deps`, `run-unit-tests`, `test`, `coverage-init`, `coverage`), `.github/workflows/test.yml`, `docs/standards/testing/test-writing.md`, `docs/INDEX.md`, `CLAUDE.md`, and the stress files that the internals name
+- Test: every class under `T/`, rewritten for Jupiter, plus `T/OperationTest.java`, `T/util/ByteBufferUtilTest.java`, `T/util/SleepTest.java`
+
+**Internals:** `toUpperCase` and `toLowerCase` take `Locale.ROOT`. `ByteBufferUtil.compareUnsigned` uses `ByteBuffer.mismatch`. `Operation.hexPreview` uses `HexFormat`. `Stream.toList`, `List.getFirst`, `Math.clamp`, `String.isBlank`, `Objects.requireNonNullElse`, `Thread.ofPlatform` and `removeIf` replace the older forms. `PredefinedOperation.ColumnSelection` is a record. `StressProfile` throws `IllegalArgumentException` for a missing `keyspace`, `table` or `queries`.
+
+- [x] Apply the changes above, without virtual threads.
+- [x] Rewrite each test for JUnit Jupiter: package-private classes, `assertThrows`, parameterized tests, `@TempDir`.
+- [x] Add the `coverage` target, and run it on JDK 21 and 25.
+- [x] Run the verify sequence, and the integration scripts with both drivers on JDK 21 and on JDK 25 with `--sun-misc-unsafe-memory-access=deny`.
+
+## Task 18 — Coverage and Testcontainers integration tests
+
+**Files:**
+- Create: `test/integration/org/apache/cassandra/stress/{ScyllaNode,CassandraStress,StressResult,PredefinedCommandsIT,UserProfileIT,OutputsIT}.java`, unit tests for `report`, `generate`, `marshal`, `util`, `util/codecs` and `settings`
+- Modify: `build.xml` (`integration-deps`, `build-integration-test`, `integration-test`, `coverage-all`), `.github/workflows/test.yml`, `S/settings/StressSettings.java`, `S/util/JavaDriverClient.java`, `S/util/JavaDriverV4Client.java`, `S/Stress.java`, `S/settings/Command.java`, `S/report/TimingIntervals.java`, `S/marshal/TimeSerializer.java`
+
+**Internals:** `ScyllaNode` starts one `ScyllaDBContainer` per JVM. `CassandraStress` calls `Stress.run` with `-node`, `-port`, `-mode` and `-log file=`, and returns a `StressResult`. The driver clients, their failure count and the prepared-statement caches are per instance. `help version` prints the description. The unused `TimingIntervals` bounds and `TimeSerializer` parser go.
+
+- [x] Write the unit tests and the integration tests.
+- [x] Fix what they found: the static driver clients, the static statement caches, `help version`, the unused code.
+- [x] Run `ant test`, `ant integration-test` and `ant coverage-all`.
+
