@@ -1,21 +1,4 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
 import java.io.IOException;
@@ -25,7 +8,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-
 import com.datastax.driver.core.PagingState;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
@@ -34,7 +16,6 @@ import com.datastax.driver.core.Statement;
 import org.apache.cassandra.stress.core.TableMetadata;
 import com.datastax.driver.core.Token;
 import com.datastax.driver.core.TokenRange;
-import io.netty.util.concurrent.FastThreadLocal;
 import org.apache.cassandra.stress.Operation;
 import org.apache.cassandra.stress.StressYaml;
 import org.apache.cassandra.stress.WorkManager;
@@ -46,7 +27,7 @@ import org.apache.cassandra.stress.util.JavaDriverV4Client;
 
 public class TokenRangeQuery extends Operation
 {
-    private final FastThreadLocal<State> currentState = new FastThreadLocal<>();
+    private final ThreadLocal<State> currentState = new ThreadLocal<>();
 
     private final TableMetadata tableMetadata;
     private final TokenRangeIterator tokenRangeIterator;
@@ -69,10 +50,6 @@ public class TokenRangeQuery extends Operation
         this.isWarmup = isWarmup;
     }
 
-    /**
-     * We need to specify the columns by name because we need to add token(partition_keys) in order to count
-     * partitions. So if the user specifies '*' then replace it with a list of all columns.
-     */
     private static String sanitizeColumns(String columns, TableMetadata tableMetadata)
     {
         if (!columns.equals("*"))
@@ -81,11 +58,6 @@ public class TokenRangeQuery extends Operation
         return String.join(", ", tableMetadata.getColumnNames());
     }
 
-    /**
-     * The state of a token range currently being retrieved.
-     * Here we store the paging state to retrieve more pages
-     * and we keep track of which partitions have already been retrieved,
-     */
     private final static class State
     {
         public final TokenRange tokenRange;
@@ -138,10 +110,10 @@ public class TokenRangeQuery extends Operation
         {
             State state = currentState.get();
             if (state == null)
-            { // start processing a new token range
+            {
                 TokenRange range = tokenRangeIterator.next();
                 if (range == null)
-                    return true; // no more token ranges to process
+                    return true;
 
                 state = new State(range, buildQuery(range));
                 currentState.set(state);
@@ -162,7 +134,6 @@ public class TokenRangeQuery extends Operation
 
             for (Row row : results)
             {
-                // this call will only succeed if we've added token(partition keys) to the query
                 Object partition = row.getPartitionKeyToken();
                 if (!state.partitions.contains(partition))
                 {
@@ -175,7 +146,7 @@ public class TokenRangeQuery extends Operation
             }
 
             if (results.isExhausted() || isWarmup)
-            { // no more pages to fetch or just warming up, ready to move on to another token range
+            {
                 currentState.set(null);
             }
 
@@ -186,8 +157,6 @@ public class TokenRangeQuery extends Operation
     private class JavaDriverV4Run extends Runner
     {
         final JavaDriverV4Client client;
-        // v4 exposes the token(...) column name as something like "system.token(pk)" or "token(pk)".
-        // Match case-insensitively and allow optional "system." prefix.
         private final Pattern TOKEN_COLUMN_NAME = Pattern.compile("(?i)(?:system\\.)?token\\(.*\\)");
 
         private JavaDriverV4Run(JavaDriverV4Client client)
@@ -195,9 +164,9 @@ public class TokenRangeQuery extends Operation
             this.client = client;
         }
 
-        private shaded.com.datastax.oss.driver.api.core.metadata.token.Token getPartitionKeyToken(shaded.com.datastax.oss.driver.api.core.cql.Row row)
+        private com.datastax.oss.driver.api.core.metadata.token.Token getPartitionKeyToken(com.datastax.oss.driver.api.core.cql.Row row)
         {
-            shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinitions metadata = row.getColumnDefinitions();
+            com.datastax.oss.driver.api.core.cql.ColumnDefinitions metadata = row.getColumnDefinitions();
             for (int i = 0; i < metadata.size(); i++)
             {
                 String colName = metadata.get(i).getName().asInternal();
@@ -212,30 +181,29 @@ public class TokenRangeQuery extends Operation
         {
             State state = currentState.get();
             if (state == null)
-            { // start processing a new token range
+            {
                 TokenRange range = tokenRangeIterator.next();
                 if (range == null)
-                    return true; // no more token ranges to process
+                    return true;
 
                 state = new State(range, buildQuery(range));
                 currentState.set(state);
             }
 
-            shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder statement = new shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder(state.query);
+            com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder statement = new com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder(state.query);
             statement.setFetchSize(pageSize);
 
             if (state.pagingStateV4 != null)
                 statement.setPagingState(state.pagingStateV4);
 
-            shaded.com.datastax.oss.driver.api.core.cql.ResultSet results = client.getSession().execute(statement.build());
+            com.datastax.oss.driver.api.core.cql.ResultSet results = client.getSession().execute(statement.build());
             state.pagingStateV4 = results.getExecutionInfo().getPagingState();
 
             int remaining = results.getAvailableWithoutFetching();
             rowCount += remaining;
 
-            for (shaded.com.datastax.oss.driver.api.core.cql.Row row : results)
+            for (com.datastax.oss.driver.api.core.cql.Row row : results)
             {
-                // this call will only succeed if we've added token(partition keys) to the query
                 Object partition = getPartitionKeyToken(row);
                 if (!state.partitions.contains(partition))
                 {
@@ -248,7 +216,7 @@ public class TokenRangeQuery extends Operation
             }
 
             if (results.isFullyFetched() || isWarmup)
-            { // no more pages to fetch or just warming up, ready to move on to another token range
+            {
                 currentState.set(null);
             }
 
@@ -265,7 +233,7 @@ public class TokenRangeQuery extends Operation
 
         StringBuilder ret = new StringBuilder();
         ret.append("SELECT ");
-        ret.append(tokenStatement); // add the token(pk) statement so that we can count partitions
+        ret.append(tokenStatement);
         ret.append(", ");
         ret.append(columns);
         ret.append(" FROM ");

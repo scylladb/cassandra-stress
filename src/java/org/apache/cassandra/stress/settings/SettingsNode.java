@@ -1,34 +1,16 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.io.*;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 
 import org.apache.cassandra.stress.util.ResultLogger;
-import shaded.com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.Node;
 
 public class SettingsNode implements Serializable
 {
@@ -47,7 +29,7 @@ public class SettingsNode implements Serializable
             {
                 String node;
                 List<String> tmpNodes = new ArrayList<>();
-                try (BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(options.file.value()))))
+                try (BufferedReader in = Files.newBufferedReader(Paths.get(options.file.value())))
                 {
                     while ((node = in.readLine()) != null)
                     {
@@ -135,8 +117,6 @@ public class SettingsNode implements Serializable
         return nodes.get(index);
     }
 
-    // Option Declarations
-
     public static final class Options extends GroupedOptions
     {
         final OptionSimple datacenter = new OptionSimple("datacenter=", ".*", null, "Datacenter used for DCAwareRoundRobinLoadPolicy", false);
@@ -154,7 +134,6 @@ public class SettingsNode implements Serializable
         }
     }
 
-    // CLI Utility Methods
     public void printSettings(ResultLogger out)
     {
         out.println("  Nodes: " + nodes);

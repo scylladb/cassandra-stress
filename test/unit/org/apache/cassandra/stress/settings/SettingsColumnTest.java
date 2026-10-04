@@ -1,57 +1,40 @@
 package org.apache.cassandra.stress.settings;
 
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class SettingsColumnTest
+class SettingsColumnTest
 {
     private static SettingsColumn parse(String... params)
     {
-        Map<String, String[]> clArgs = new HashMap<>();
-        clArgs.put("-col", params);
-        return SettingsColumn.get(clArgs);
-    }
-
-    private static void assertRejected(String param)
-    {
-        try
-        {
-            parse(param);
-            fail("-col " + param + " must be rejected");
-        }
-        catch (IllegalArgumentException e)
-        {
-            assertEquals("Invalid parameter " + param, e.getMessage());
-        }
+        return SettingsColumn.get(new HashMap<>(Map.of("-col", params)));
     }
 
     @Test
-    public void countGeneratesSortedNames()
+    void countGeneratesSortedNames()
     {
-        assertEquals(Arrays.asList("C0", "C1", "C2"), parse("n=FIXED(3)").namestrs);
+        assertEquals(List.of("C0", "C1", "C2"), parse("n=FIXED(3)").namestrs);
     }
 
     @Test
-    public void namesAreSorted()
+    void namesAreSorted()
     {
-        assertEquals(Arrays.asList("a", "b"), parse("names=b,a").namestrs);
+        assertEquals(List.of("a", "b"), parse("names=b,a").namestrs);
     }
 
-    @Test
-    public void superColumnsAreRejected()
+    @ParameterizedTest
+    @ValueSource(strings = { "super=1", "comparator=UTF8Type" })
+    void removedOptionsAreRejected(String param)
     {
-        assertRejected("super=1");
-    }
-
-    @Test
-    public void comparatorIsRejected()
-    {
-        assertRejected("comparator=UTF8Type");
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse(param));
+        assertEquals("Invalid parameter " + param, e.getMessage());
     }
 }

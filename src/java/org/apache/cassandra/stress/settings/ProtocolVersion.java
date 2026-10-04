@@ -1,6 +1,8 @@
 package org.apache.cassandra.stress.settings;
 
-public class ProtocolVersion {
+import java.io.Serializable;
+
+public class ProtocolVersion implements Serializable {
   int protocolVersion;
 
   private ProtocolVersion(int protocolVersion) {
@@ -25,28 +27,21 @@ public class ProtocolVersion {
     return com.datastax.driver.core.ProtocolVersion.fromInt(protocolVersion);
   }
 
-  public shaded.com.datastax.oss.driver.api.core.ProtocolVersion ToJavaDriverV4() {
+  public com.datastax.oss.driver.api.core.ProtocolVersion ToJavaDriverV4() {
     if (protocolVersion == SpecialVersions.DEFAULT.index) {
-      // Driver 4.x does not downgrade if protocol is set
-      // and fails after first retry if server does not support provided protocol
-      // So, best default is no protocol
       return null;
     } else if (protocolVersion == SpecialVersions.NEWEST_SUPPORTED.index) {
-      return shaded.com.datastax.oss.driver.api.core.ProtocolVersion.V5;
+      return com.datastax.oss.driver.api.core.ProtocolVersion.V5;
     } else if (protocolVersion <= 0) {
       throw new IllegalArgumentException("Invalid protocol version: " + protocolVersion);
     }
 
-    switch (protocolVersion) {
-      case 3:
-        return shaded.com.datastax.oss.driver.api.core.ProtocolVersion.V3;
-      case 4:
-        return shaded.com.datastax.oss.driver.api.core.ProtocolVersion.V4;
-      case 5:
-        return shaded.com.datastax.oss.driver.api.core.ProtocolVersion.V5;
-      default:
-        throw new IllegalArgumentException("Invalid protocol version: " + protocolVersion);
-    }
+    return switch (protocolVersion) {
+      case 3 -> com.datastax.oss.driver.api.core.ProtocolVersion.V3;
+      case 4 -> com.datastax.oss.driver.api.core.ProtocolVersion.V4;
+      case 5 -> com.datastax.oss.driver.api.core.ProtocolVersion.V5;
+      default -> throw new IllegalArgumentException("Invalid protocol version: " + protocolVersion);
+    };
   }
 
   @Override

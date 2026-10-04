@@ -17,68 +17,66 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.UUID;
 
-import org.junit.Test;
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.cassandra.stress.util.UUIDGen;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class AbstractTypeTest
+class AbstractTypeTest
 {
-    private static final class Sample
-    {
-        final AbstractType<Object> type;
-        final Object value;
+    private record Sample(AbstractType<Object> type, Object value) {}
 
-        @SuppressWarnings("unchecked")
-        Sample(AbstractType<?> type, Object value)
-        {
-            this.type = (AbstractType<Object>) type;
-            this.value = value;
-        }
+    @SuppressWarnings("unchecked")
+    private static Sample sample(AbstractType<?> type, Object value)
+    {
+        return new Sample((AbstractType<Object>) type, value);
     }
 
     private static Map<String, Sample> samples() throws IOException
     {
         Map<String, Sample> samples = new LinkedHashMap<>();
-        samples.put("ascii", new Sample(AsciiType.instance, "stress-1"));
-        samples.put("text", new Sample(UTF8Type.instance, "zażółć ✓"));
-        samples.put("blob", new Sample(BytesType.instance, ByteBuffer.wrap(new byte[]{ 0, (byte) 0xff, 0x10 })));
-        samples.put("boolean_true", new Sample(BooleanType.instance, true));
-        samples.put("boolean_false", new Sample(BooleanType.instance, false));
-        samples.put("tinyint", new Sample(ByteType.instance, (byte) -7));
-        samples.put("smallint", new Sample(ShortType.instance, (short) 1234));
-        samples.put("int", new Sample(Int32Type.instance, -123456));
-        samples.put("bigint", new Sample(LongType.instance, 1234567890123L));
-        samples.put("float", new Sample(FloatType.instance, 3.25f));
-        samples.put("double", new Sample(DoubleType.instance, -2.5e10));
-        samples.put("decimal", new Sample(DecimalType.instance, new BigDecimal("12345.6789")));
-        samples.put("varint", new Sample(IntegerType.instance, new BigInteger("-98765432109876543210")));
-        samples.put("inet4", new Sample(InetAddressType.instance, InetAddress.getByName("192.168.1.10")));
-        samples.put("inet6", new Sample(InetAddressType.instance, InetAddress.getByName("::1")));
-        samples.put("uuid", new Sample(UUIDType.instance, UUID.fromString("3f2504e0-4f89-11d3-9a0c-0305e82c3301")));
-        samples.put("timeuuid", new Sample(TimeUUIDType.instance, UUIDGen.getTimeUUID(1700000000123L, 0L, 0x8000123456789abcL)));
-        samples.put("timestamp", new Sample(DateType.instance, new Date(1700000000123L)));
-        samples.put("date", new Sample(SimpleDateType.instance, Integer.MIN_VALUE + 19675));
-        samples.put("time", new Sample(TimeType.instance, 45296789000000L));
-        samples.put("list_int", new Sample(ListType.getInstance(Int32Type.instance, true), Arrays.asList(1, 2, 3)));
-        samples.put("set_text", new Sample(SetType.getInstance(UTF8Type.instance, true), new LinkedHashSet<>(Arrays.asList("a", "bc"))));
-        samples.put("set_int", new Sample(SetType.getInstance(Int32Type.instance, true), new LinkedHashSet<>(Arrays.asList(3, -1, 2, 300))));
-        samples.put("set_bigint", new Sample(SetType.getInstance(LongType.instance, true), new LinkedHashSet<>(Arrays.asList(5L, -9000000000L, 7L))));
-        samples.put("set_smallint", new Sample(SetType.getInstance(ShortType.instance, true), new LinkedHashSet<>(Arrays.asList((short) 300, (short) -2, (short) 1))));
-        samples.put("set_tinyint", new Sample(SetType.getInstance(ByteType.instance, true), new LinkedHashSet<>(Arrays.asList((byte) 9, (byte) -9, (byte) 0))));
-        samples.put("set_text_unsorted", new Sample(SetType.getInstance(UTF8Type.instance, true), new LinkedHashSet<>(Arrays.asList("zz", "\u00e9", "a"))));
-        samples.put("set_boolean", new Sample(SetType.getInstance(BooleanType.instance, true), new LinkedHashSet<>(Arrays.asList(true, false))));
-        samples.put("set_float", new Sample(SetType.getInstance(FloatType.instance, true), new LinkedHashSet<>(Arrays.asList(2.5f, -1.0f, 0.25f))));
-        samples.put("set_double", new Sample(SetType.getInstance(DoubleType.instance, true), new LinkedHashSet<>(Arrays.asList(1e10, -3.5, 0.0))));
-        samples.put("set_decimal", new Sample(SetType.getInstance(DecimalType.instance, true), new LinkedHashSet<>(Arrays.asList(new BigDecimal("10.5"), new BigDecimal("-2"), new BigDecimal("3.14159")))));
-        samples.put("set_varint", new Sample(SetType.getInstance(IntegerType.instance, true), new LinkedHashSet<>(Arrays.asList(new BigInteger("100000000000000000000"), new BigInteger("-5"), new BigInteger("127"), new BigInteger("128")))));
-        samples.put("set_uuid", new Sample(SetType.getInstance(UUIDType.instance, true), new LinkedHashSet<>(Arrays.asList(UUID.fromString("ffffffff-ffff-4fff-bfff-ffffffffffff"), UUIDGen.getTimeUUID(1700000000999L, 0L, 0x8000123456789abcL), UUID.fromString("00000000-0000-4000-8000-000000000001"), UUIDGen.getTimeUUID(1600000000000L, 0L, 0x8000123456789abcL)))));
-        samples.put("set_timeuuid", new Sample(SetType.getInstance(TimeUUIDType.instance, true), new LinkedHashSet<>(Arrays.asList(UUIDGen.getTimeUUID(1700000000999L, 0L, 0x8000123456789abcL), UUIDGen.getTimeUUID(1600000000000L, 0L, 0x8000123456789abcL), UUIDGen.getTimeUUID(1600000000000L, 0L, 0x80ff123456789abcL)))));
-        samples.put("set_inet", new Sample(SetType.getInstance(InetAddressType.instance, true), new LinkedHashSet<>(Arrays.asList(InetAddress.getByName("10.0.0.2"), InetAddress.getByName("10.0.0.1")))));
-        samples.put("set_timestamp", new Sample(SetType.getInstance(DateType.instance, true), new LinkedHashSet<>(Arrays.asList(new Date(2000L), new Date(1000L)))));
-        samples.put("list_text", new Sample(ListType.getInstance(UTF8Type.instance, true), Arrays.asList("b", "a")));
+        samples.put("ascii", sample(AsciiType.instance, "stress-1"));
+        samples.put("text", sample(UTF8Type.instance, "zażółć ✓"));
+        samples.put("blob", sample(BytesType.instance, ByteBuffer.wrap(new byte[]{ 0, (byte) 0xff, 0x10 })));
+        samples.put("boolean_true", sample(BooleanType.instance, true));
+        samples.put("boolean_false", sample(BooleanType.instance, false));
+        samples.put("tinyint", sample(ByteType.instance, (byte) -7));
+        samples.put("smallint", sample(ShortType.instance, (short) 1234));
+        samples.put("int", sample(Int32Type.instance, -123456));
+        samples.put("bigint", sample(LongType.instance, 1234567890123L));
+        samples.put("float", sample(FloatType.instance, 3.25f));
+        samples.put("double", sample(DoubleType.instance, -2.5e10));
+        samples.put("decimal", sample(DecimalType.instance, new BigDecimal("12345.6789")));
+        samples.put("varint", sample(IntegerType.instance, new BigInteger("-98765432109876543210")));
+        samples.put("inet4", sample(InetAddressType.instance, InetAddress.getByName("192.168.1.10")));
+        samples.put("inet6", sample(InetAddressType.instance, InetAddress.getByName("::1")));
+        samples.put("uuid", sample(UUIDType.instance, UUID.fromString("3f2504e0-4f89-11d3-9a0c-0305e82c3301")));
+        samples.put("timeuuid", sample(TimeUUIDType.instance, UUIDGen.getTimeUUID(1700000000123L, 0L, 0x8000123456789abcL)));
+        samples.put("timestamp", sample(DateType.instance, new Date(1700000000123L)));
+        samples.put("date", sample(SimpleDateType.instance, Integer.MIN_VALUE + 19675));
+        samples.put("time", sample(TimeType.instance, 45296789000000L));
+        samples.put("list_int", sample(ListType.getInstance(Int32Type.instance, true), Arrays.asList(1, 2, 3)));
+        samples.put("set_text", sample(SetType.getInstance(UTF8Type.instance, true), new LinkedHashSet<>(Arrays.asList("a", "bc"))));
+        samples.put("set_int", sample(SetType.getInstance(Int32Type.instance, true), new LinkedHashSet<>(Arrays.asList(3, -1, 2, 300))));
+        samples.put("set_bigint", sample(SetType.getInstance(LongType.instance, true), new LinkedHashSet<>(Arrays.asList(5L, -9000000000L, 7L))));
+        samples.put("set_smallint", sample(SetType.getInstance(ShortType.instance, true), new LinkedHashSet<>(Arrays.asList((short) 300, (short) -2, (short) 1))));
+        samples.put("set_tinyint", sample(SetType.getInstance(ByteType.instance, true), new LinkedHashSet<>(Arrays.asList((byte) 9, (byte) -9, (byte) 0))));
+        samples.put("set_text_unsorted", sample(SetType.getInstance(UTF8Type.instance, true), new LinkedHashSet<>(Arrays.asList("zz", "\u00e9", "a"))));
+        samples.put("set_boolean", sample(SetType.getInstance(BooleanType.instance, true), new LinkedHashSet<>(Arrays.asList(true, false))));
+        samples.put("set_float", sample(SetType.getInstance(FloatType.instance, true), new LinkedHashSet<>(Arrays.asList(2.5f, -1.0f, 0.25f))));
+        samples.put("set_double", sample(SetType.getInstance(DoubleType.instance, true), new LinkedHashSet<>(Arrays.asList(1e10, -3.5, 0.0))));
+        samples.put("set_decimal", sample(SetType.getInstance(DecimalType.instance, true), new LinkedHashSet<>(Arrays.asList(new BigDecimal("10.5"), new BigDecimal("-2"), new BigDecimal("3.14159")))));
+        samples.put("set_varint", sample(SetType.getInstance(IntegerType.instance, true), new LinkedHashSet<>(Arrays.asList(new BigInteger("100000000000000000000"), new BigInteger("-5"), new BigInteger("127"), new BigInteger("128")))));
+        samples.put("set_uuid", sample(SetType.getInstance(UUIDType.instance, true), new LinkedHashSet<>(Arrays.asList(UUID.fromString("ffffffff-ffff-4fff-bfff-ffffffffffff"), UUIDGen.getTimeUUID(1700000000999L, 0L, 0x8000123456789abcL), UUID.fromString("00000000-0000-4000-8000-000000000001"), UUIDGen.getTimeUUID(1600000000000L, 0L, 0x8000123456789abcL)))));
+        samples.put("set_timeuuid", sample(SetType.getInstance(TimeUUIDType.instance, true), new LinkedHashSet<>(Arrays.asList(UUIDGen.getTimeUUID(1700000000999L, 0L, 0x8000123456789abcL), UUIDGen.getTimeUUID(1600000000000L, 0L, 0x8000123456789abcL), UUIDGen.getTimeUUID(1600000000000L, 0L, 0x80ff123456789abcL)))));
+        samples.put("set_inet", sample(SetType.getInstance(InetAddressType.instance, true), new LinkedHashSet<>(Arrays.asList(InetAddress.getByName("10.0.0.2"), InetAddress.getByName("10.0.0.1")))));
+        samples.put("set_timestamp", sample(SetType.getInstance(DateType.instance, true), new LinkedHashSet<>(Arrays.asList(new Date(2000L), new Date(1000L)))));
+        samples.put("list_text", sample(ListType.getInstance(UTF8Type.instance, true), Arrays.asList("b", "a")));
         return samples;
     }
 
@@ -107,36 +105,39 @@ public class AbstractTypeTest
         return HexFormat.of().formatHex(array);
     }
 
-    @Test
-    public void decomposeMatchesMasterBytes() throws IOException
+    static Stream<String> sampleNames() throws IOException
     {
-        Map<String, Sample> samples = samples();
-        Map<String, String> expected = fixture("master.txt");
-        assertEquals(samples.keySet(), expected.keySet());
-        for (Map.Entry<String, Sample> e : samples.entrySet())
-            assertEquals(e.getKey(), expected.get(e.getKey()), hex(e.getValue().type.decompose(e.getValue().value)));
+        return samples().keySet().stream();
     }
 
     @Test
-    public void composeReadsMasterBytes() throws IOException
+    void fixtureCoversEverySample() throws IOException
     {
-        Map<String, Sample> samples = samples();
-        for (Map.Entry<String, String> e : fixture("master.txt").entrySet())
-        {
-            Sample sample = samples.get(e.getKey());
-            ByteBuffer bytes = ByteBuffer.wrap(HexFormat.of().parseHex(e.getValue()));
-            Object composed = sample.type.compose(bytes);
-            if (sample.value instanceof ByteBuffer)
-                assertEquals(e.getKey(), hex((ByteBuffer) sample.value), hex((ByteBuffer) composed));
-            else if (sample.value instanceof LinkedHashSet)
-                assertEquals(e.getKey(), sample.value, composed);
-            else
-                assertEquals(e.getKey(), sample.value, composed);
-        }
+        assertEquals(samples().keySet(), fixture("master.txt").keySet());
+    }
+
+    @ParameterizedTest
+    @MethodSource("sampleNames")
+    void decomposeMatchesMasterBytes(String name) throws IOException
+    {
+        Sample sample = samples().get(name);
+        assertEquals(fixture("master.txt").get(name), hex(sample.type().decompose(sample.value())));
+    }
+
+    @ParameterizedTest
+    @MethodSource("sampleNames")
+    void composeReadsMasterBytes(String name) throws IOException
+    {
+        Sample sample = samples().get(name);
+        Object composed = sample.type().compose(ByteBuffer.wrap(HexFormat.of().parseHex(fixture("master.txt").get(name))));
+        if (sample.value() instanceof ByteBuffer expected)
+            assertEquals(hex(expected), hex((ByteBuffer) composed));
+        else
+            assertEquals(sample.value(), composed);
     }
 
     @Test
-    public void bytesPrintAsLowerCaseHex()
+    void bytesPrintAsLowerCaseHex()
     {
         assertEquals("00ff10", BytesType.instance.getString(ByteBuffer.wrap(new byte[]{ 0, (byte) 0xff, 0x10 })));
     }

@@ -1,20 +1,4 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
 import java.io.*;
@@ -33,28 +17,6 @@ import sun.misc.SignalHandler;
 public final class Stress
 {
 
-    /**
-     * Known issues:
-     * - uncertainty/stderr assumes op-rates are normally distributed. Due to GC (and possibly latency stepping from
-     * different media, though the variance of request ratio across media should be normally distributed), they are not.
-     * Should attempt to account for pauses in stderr calculation, possibly by assuming these pauses are a separate
-     * normally distributed occurrence
-     * - Under very mixed work loads, the uncertainty calculations and op/s reporting really don't mean much. Should
-     * consider breaking op/s down per workload, or should have a lower-bound on inspection interval based on clustering
-     * of operations and thread count.
-     *
-     *
-     * Future improvements:
-     * - Configurable connection compression
-     * - Java driver support
-     * - Per column data generators
-     * - Automatic column/schema detection if provided with a CF
-     * - target rate produces a very steady work rate, and if we want to simulate a real op rate for an
-     *   application we should have some variation in the actual op rate within any time-slice.
-     * - auto rate should vary the thread count based on performance improvement, potentially starting on a very low
-     *   thread count with a high error rate / low count to get some basic numbers
-     */
-
     private static volatile boolean stopped = false;
 
     public static void main(String[] arguments) throws Exception
@@ -66,8 +28,7 @@ public final class Stress
         System.exit(exitCode);
     }
 
-
-    private static int run(String[] arguments)
+    static int run(String[] arguments)
     {
         try
         {
@@ -76,7 +37,7 @@ public final class Stress
             {
                 settings = StressSettings.parse(arguments);
                 if (settings == null)
-                    return 0; // special settings action
+                    return 0;
             }
             catch (IllegalArgumentException e)
             {
@@ -153,9 +114,6 @@ public final class Stress
         return 0;
     }
 
-    /**
-     * Printing out help message
-     */
     public static void printHelpMessage()
     {
         StressSettings.printHelp();
@@ -206,16 +164,12 @@ public final class Stress
         SignalHandler handler = signal -> {
             System.out.println("Caught signal: " + signal.getName());
             System.out.println(threadDump(true, true));
-            switch (signal.getName()) {
-                case "ABRT":
-                    System.exit(128 + 6);
-                case "TERM":
-                    System.exit(128 + 15);
-                case "INT":
-                    System.exit(128 + 2);
-                default:
-                    System.exit(1);
-            }
+            System.exit(switch (signal.getName()) {
+                case "ABRT" -> 128 + 6;
+                case "TERM" -> 128 + 15;
+                case "INT" -> 128 + 2;
+                default -> 1;
+            });
         };
         Signal.handle(new Signal("ABRT"), handler);
         Signal.handle(new Signal("TERM"), handler);

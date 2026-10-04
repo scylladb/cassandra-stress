@@ -1,21 +1,4 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.predefined;
 
 import java.io.IOException;
@@ -95,9 +78,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         run(client, queryParams, ByteBuffer.wrap(key));
     }
 
-    // Classes to process Cql results
-
-    // Always succeeds so long as the query executes without error; provides a keyCount to increment on instantiation
     protected final class CqlRunOpAlwaysSucceed extends CqlRunOp<Integer>
     {
 
@@ -128,7 +108,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         }
     }
 
-    // Succeeds so long as the result set is nonempty, and the query executes without error
     protected final class CqlRunOpTestNonEmpty extends CqlRunOp<Integer>
     {
 
@@ -162,7 +141,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         final List<List<ByteBuffer>> expect;
         private String validationError;
 
-        // a null value for an item in expect means we just check the row is present
         protected CqlRunOpMatchResults(ClientWrapper client, String query, Object queryId, List<Object> params, ByteBuffer key, List<List<ByteBuffer>> expect)
         {
             super(client, query, queryId, RowsHandler.INSTANCE, params, key);
@@ -187,8 +165,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
             return validationError;
         }
 
-        // keep every validationError message single-line: SCT captures the whole matched log line as one event,
-        // so an embedded %n would silently split off part of the diagnostic detail.
         public boolean validate(ByteBuffer[][] result)
         {
             if (!settings.errors.skipReadValidation)
@@ -200,9 +176,9 @@ public abstract class CqlOperation<V> extends PredefinedOperation
                 {
                     long expectedBytes = 0;
                     int expectedColsPerRow = 0;
-                    if (expectedRows > 0 && expect.get(0) != null)
+                    if (expectedRows > 0 && expect.getFirst() != null)
                     {
-                        expectedColsPerRow = expect.get(0).size();
+                        expectedColsPerRow = expect.getFirst().size();
                         for (List<ByteBuffer> row : expect)
                             if (row != null) expectedBytes += totalBytes(row);
                     }
@@ -295,11 +271,10 @@ public abstract class CqlOperation<V> extends PredefinedOperation
             int available = Math.min(count, names.size());
             if (available <= 4)
                 return names.subList(0, available).toString();
-            return "[" + names.get(0) + ".." + names.get(available - 1) + "]";
+            return "[" + names.getFirst() + ".." + names.get(available - 1) + "]";
         }
     }
 
-    // Cql
     protected abstract class CqlRunOp<V> implements RunOp
     {
 
@@ -332,10 +307,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         public abstract boolean validate(V result);
 
     }
-
-
-    /// LOTS OF WRAPPING/UNWRAPPING NONSENSE
-
 
     @Override
     public void run(JavaDriverClient client) throws IOException
@@ -432,10 +403,9 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         }
     }
 
-    // interface for building functions to standardise results from each client
     protected static interface ResultHandler<V>
     {
-        Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, V> javaDriverV4Handler();
+        Function<com.datastax.oss.driver.api.core.cql.ResultSet, V> javaDriverV4Handler();
         Function<ResultSet, V> javaDriverHandler();
     }
 
@@ -444,11 +414,11 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         static final RowCountHandler INSTANCE = new RowCountHandler();
 
         @Override
-        public Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, Integer> javaDriverV4Handler() {
-            return new Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, Integer>()
+        public Function<com.datastax.oss.driver.api.core.cql.ResultSet, Integer> javaDriverV4Handler() {
+            return new Function<com.datastax.oss.driver.api.core.cql.ResultSet, Integer>()
             {
                 @Override
-                public Integer apply(shaded.com.datastax.oss.driver.api.core.cql.ResultSet rows)
+                public Integer apply(com.datastax.oss.driver.api.core.cql.ResultSet rows)
                 {
                     if (rows == null)
                         return 0;
@@ -474,25 +444,24 @@ public abstract class CqlOperation<V> extends PredefinedOperation
 
     }
 
-    // Processes results from each client into an array of all key bytes returned
     protected static final class RowsHandler implements ResultHandler<ByteBuffer[][]>
     {
         static final RowsHandler INSTANCE = new RowsHandler();
 
         @Override
-        public Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, ByteBuffer[][]> javaDriverV4Handler() {
+        public Function<com.datastax.oss.driver.api.core.cql.ResultSet, ByteBuffer[][]> javaDriverV4Handler() {
             {
-                return new Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, ByteBuffer[][]>() {
+                return new Function<com.datastax.oss.driver.api.core.cql.ResultSet, ByteBuffer[][]>() {
 
                     @Override
-                    public ByteBuffer[][] apply(shaded.com.datastax.oss.driver.api.core.cql.ResultSet result) {
+                    public ByteBuffer[][] apply(com.datastax.oss.driver.api.core.cql.ResultSet result) {
                         if (result == null)
                             return EMPTY_BYTE_BUFFERS;
-                        List<shaded.com.datastax.oss.driver.api.core.cql.Row> rows = result.all();
+                        List<com.datastax.oss.driver.api.core.cql.Row> rows = result.all();
 
                         ByteBuffer[][] r = new ByteBuffer[rows.size()][];
                         for (int i = 0; i < r.length; i++) {
-                            shaded.com.datastax.oss.driver.api.core.cql.Row row = rows.get(i);
+                            com.datastax.oss.driver.api.core.cql.Row row = rows.get(i);
                             r[i] = new ByteBuffer[row.getColumnDefinitions().size()];
                             for (int j = 0; j < row.getColumnDefinitions().size(); j++)
                                 r[i][j] = row.getByteBuffer(j);
@@ -502,7 +471,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
                 };
             }
         }
-
 
         @Override
         public Function<ResultSet, ByteBuffer[][]> javaDriverHandler()
@@ -531,21 +499,20 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         }
 
     }
-    // Processes results from each client into an array of all key bytes returned
     protected static final class KeysHandler implements ResultHandler<byte[][]>
     {
         static final KeysHandler INSTANCE = new KeysHandler();
 
         @Override
-        public Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, byte[][]> javaDriverV4Handler() {
-            return new Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, byte[][]>() {
+        public Function<com.datastax.oss.driver.api.core.cql.ResultSet, byte[][]> javaDriverV4Handler() {
+            return new Function<com.datastax.oss.driver.api.core.cql.ResultSet, byte[][]>() {
 
                 @Override
-                public byte[][] apply(shaded.com.datastax.oss.driver.api.core.cql.ResultSet result) {
+                public byte[][] apply(com.datastax.oss.driver.api.core.cql.ResultSet result) {
 
                     if (result == null)
                         return EMPTY_BYTE_ARRAYS;
-                    List<shaded.com.datastax.oss.driver.api.core.cql.Row> rows = result.all();
+                    List<com.datastax.oss.driver.api.core.cql.Row> rows = result.all();
                     byte[][] r = new byte[rows.size()][];
                     for (int i = 0; i < r.length; i++)
                         r[i] = rows.get(i).getByteBuffer(0).array();
@@ -582,14 +549,6 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         return "0x" + ByteBufferUtil.bytesToHex(term);
     }
 
-    /**
-     * Constructs a CQL query string by replacing instances of the character
-     * '?', with the corresponding parameter.
-     *
-     * @param query base query string to format
-     * @param parms sequence of string query parameters
-     * @return formatted CQL query string
-     */
     private static String formatCqlQuery(String query, List<Object> parms)
     {
         int marker, position = 0;
@@ -602,8 +561,8 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         {
             result.append(query.substring(position, marker));
 
-            if (parm instanceof ByteBuffer)
-                result.append(getUnQuotedCqlBlob((ByteBuffer) parm));
+            if (parm instanceof ByteBuffer buffer)
+                result.append(getUnQuotedCqlBlob(buffer));
             else if (parm instanceof Long)
                 result.append(parm);
             else throw new AssertionError();
@@ -624,10 +583,10 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         List<ByteBuffer> r = new ArrayList<>();
         for (Object param : params)
         {
-            if (param instanceof ByteBuffer)
-                r.add((ByteBuffer) param);
-            else if (param instanceof Long)
-                r.add(ByteBufferUtil.bytes((Long) param));
+            if (param instanceof ByteBuffer buffer)
+                r.add(buffer);
+            else if (param instanceof Long value)
+                r.add(ByteBufferUtil.bytes(value));
             else throw new AssertionError();
         }
         return r;

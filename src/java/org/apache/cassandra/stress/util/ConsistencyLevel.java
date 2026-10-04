@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
-import shaded.com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 
 public enum ConsistencyLevel
 {
@@ -39,7 +39,7 @@ public enum ConsistencyLevel
         return com.datastax.driver.core.ConsistencyLevel.valueOf(name());
     }
 
-    public shaded.com.datastax.oss.driver.api.core.ConsistencyLevel ToV4Value()
+    public com.datastax.oss.driver.api.core.ConsistencyLevel ToV4Value()
     {
         return DefaultConsistencyLevel.valueOf(name());
     }

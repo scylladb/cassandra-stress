@@ -1,24 +1,9 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.net.ssl.SSLContext;
@@ -38,8 +23,6 @@ import com.datastax.driver.core.policies.TokenAwarePolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy.ReplicaOrdering;
 import com.datastax.driver.core.policies.WhiteListPolicy;
 import com.datastax.shaded.netty.channel.socket.SocketChannel;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.cassandra.stress.core.BoundStatement;
 import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.core.TableMetadata;
@@ -48,11 +31,6 @@ import org.apache.cassandra.stress.settings.StressSettings;
 
 public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataProvider
 {
-
-    static
-    {
-        InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
-    }
 
     public final List<String> hosts;
     public final int port;
@@ -69,8 +47,7 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
     private Session session;
     private final LoadBalancingPolicy loadBalancingPolicy;
 
-
-    private static final ConcurrentMap<String, PreparedStatement> stmts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, PreparedStatement> stmts = new ConcurrentHashMap<>();
 
     public JavaDriverClient(StressSettings settings, List<String> hosts, int port)
     {
@@ -87,8 +64,8 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
         this.authProvider = settings.mode.authProvider.ToJavaDriverV3();
         this.encryptionOptions = encryptionOptions;
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
-        this.connectionsPerHost = settings.mode.connectionsPerHost == null ? 8 : settings.mode.connectionsPerHost;
-        this.requestTimeout = settings.mode.requestTimeout == null ? 12000 : settings.mode.requestTimeout;
+        this.connectionsPerHost = Objects.requireNonNullElse(settings.mode.connectionsPerHost, 8);
+        this.requestTimeout = Objects.requireNonNullElse(settings.mode.requestTimeout, 12000);
 
         int maxThreadCount = 0;
         if (settings.rate.auto)
@@ -96,8 +73,6 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
         else
             maxThreadCount = settings.rate.threadCount;
 
-        //Always allow enough pending requests so every thread can have a request pending
-        //See https://issues.apache.org/jira/browse/CASSANDRA-7217
         int requestsPerConnection = (maxThreadCount / connectionsPerHost) + connectionsPerHost;
 
         maxPendingPerConnection = settings.mode.maxPendingPerConnection;
@@ -107,11 +82,9 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
     {
         LoadBalancingPolicy ret;
         
-        // Check if loadbalance option is specified
         if (settings.node.loadBalance != null) {
             ret = settings.node.loadBalance.createPolicy(settings);
         } else {
-            // Default behavior: use rack-aware if rack is specified, otherwise dc-aware
             LoadBalanceType defaultStrategy = settings.node.rack != null ? LoadBalanceType.RACK_AWARE : LoadBalanceType.DC_AWARE;
             ret = defaultStrategy.createPolicy(settings);
         }
@@ -123,18 +96,7 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
 
     public PreparedStatement prepare(String query)
     {
-        PreparedStatement stmt = stmts.get(query);
-        if (stmt != null)
-            return stmt;
-        synchronized (stmts)
-        {
-            stmt = stmts.get(query);
-            if (stmt != null)
-                return stmt;
-            stmt = new PreparedStatement(getSession().prepare(query));
-            stmts.put(query, stmt);
-        }
-        return stmt;
+        return stmts.computeIfAbsent(query, q -> new PreparedStatement(getSession().prepare(q)));
     }
 
     public void connect(ProtocolCompression compression) throws Exception
@@ -156,7 +118,7 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
                 .withPoolingOptions(poolingOpts)
                 .withoutJMXReporting()
                 .withProtocolVersion(protocolVersion)
-                .withoutMetrics() // The driver uses metrics 3 with conflict with our version
+                .withoutMetrics()
                 .withSocketOptions(new SocketOptions().setReadTimeoutMillis(requestTimeout));
 
         if (loadBalancingPolicy != null)

@@ -1,29 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public enum Command
@@ -59,7 +40,6 @@ public enum Command
 
     HELP(false, null, "-?", "Print help for a command or option", null),
     PRINT(false, null, "Inspect the output of a distribution definition", null),
-    LEGACY(false, null, "Legacy support mode", null),
     VERSION(false, null, "Print the version of cassandra stress", null)
     ;
 
@@ -77,7 +57,7 @@ public enum Command
 
     public static Command get(String command)
     {
-        return LOOKUP.get(command.toLowerCase());
+        return LOOKUP.get(command.toLowerCase(Locale.ROOT));
     }
 
     public final boolean updates;
@@ -97,12 +77,12 @@ public enum Command
         this.updates = updates;
         this.category = category;
         List<String> names = new ArrayList<>();
-        names.add(this.toString().toLowerCase());
-        names.add(this.toString().replaceAll("_", "").toLowerCase());
+        names.add(this.toString().toLowerCase(Locale.ROOT));
+        names.add(this.toString().replaceAll("_", "").toLowerCase(Locale.ROOT));
         if (extra != null)
         {
-            names.add(extra.toLowerCase());
-            names.add(extra.replaceAll("_", "").toLowerCase());
+            names.add(extra.toLowerCase(Locale.ROOT));
+            names.add(extra.replaceAll("_", "").toLowerCase(Locale.ROOT));
         }
         this.names = List.copyOf(names);
         this.description = description;
@@ -115,25 +95,18 @@ public enum Command
 
     public final Runnable helpPrinter()
     {
-        switch (this)
+        if (this == PRINT)
+            return SettingsMisc.printHelpPrinter();
+        if (this == HELP)
+            return SettingsMisc.helpHelpPrinter();
+        if (category == null)
+            return () -> System.out.println("Usage: cassandra-stress " + names.getFirst() + "\n\n" + description);
+        return switch (category)
         {
-            case PRINT:
-                return SettingsMisc.printHelpPrinter();
-            case HELP:
-                return SettingsMisc.helpHelpPrinter();
-            case LEGACY:
-                return Legacy.helpPrinter();
-        }
-        switch (category)
-        {
-            case USER:
-                return SettingsCommandUser.helpPrinter();
-            case BASIC:
-                return SettingsCommandPreDefined.helpPrinter(this);
-            case MIXED:
-                return SettingsCommandPreDefinedMixed.helpPrinter();
-        }
-        throw new AssertionError();
+            case USER -> SettingsCommandUser.helpPrinter();
+            case BASIC -> SettingsCommandPreDefined.helpPrinter(this);
+            case MIXED -> SettingsCommandPreDefinedMixed.helpPrinter();
+        };
     }
 
 }

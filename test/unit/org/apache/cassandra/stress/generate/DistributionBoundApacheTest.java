@@ -1,26 +1,28 @@
 package org.apache.cassandra.stress.generate;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.cassandra.stress.settings.OptionDistribution;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class DistributionBoundApacheTest
+class DistributionBoundApacheTest
 {
-    private static Distribution uniform()
+    private static Distribution distribution(String spec)
     {
-        return OptionDistribution.get("uniform(1..1000000000)").get();
+        return OptionDistribution.get(spec).get();
     }
 
-    @Test
-    public void sampleAfterSeedDependsOnlyOnTheLastSeed()
+    @ParameterizedTest
+    @ValueSource(strings = { "uniform(1..1000000000)", "gauss(1..1000000)", "exp(1..1000000)", "extreme(1..1000000,2)" })
+    void sampleAfterSeedDependsOnlyOnTheLastSeed(String spec)
     {
-        Distribution reseededTwice = uniform();
-        Distribution reseededOnce = uniform();
-        assertTrue(reseededTwice instanceof DistributionBoundApache);
-
+        Distribution reseededTwice = distribution(spec);
+        Distribution reseededOnce = distribution(spec);
         for (long seed = 1; seed < 1000; seed += 7)
         {
             reseededTwice.setSeed(seed * 13);
@@ -32,31 +34,34 @@ public class DistributionBoundApacheTest
     }
 
     @Test
-    public void offsetSampleAfterSeedDependsOnlyOnTheLastSeed()
+    void uniformAndExponentialUseTheApacheAdapters()
     {
-        Distribution reseededTwice = OptionDistribution.get("exp(1..1000000)").get();
-        Distribution reseededOnce = OptionDistribution.get("exp(1..1000000)").get();
-        assertTrue(reseededTwice instanceof DistributionOffsetApache);
-
-        for (long seed = 1; seed < 1000; seed += 7)
-        {
-            reseededTwice.setSeed(seed * 13);
-            reseededTwice.setSeed(seed);
-            reseededOnce.setSeed(seed);
-            assertEquals(reseededOnce.next(), reseededTwice.next());
-        }
+        assertInstanceOf(DistributionBoundApache.class, distribution("uniform(1..1000000000)"));
+        assertInstanceOf(DistributionOffsetApache.class, distribution("exp(1..1000000)"));
     }
 
     @Test
-    public void sampleMatchesTheDelegateSeededDirectly()
+    void sampleMatchesTheDelegateSeededDirectly()
     {
-        DistributionBoundApache lazy = (DistributionBoundApache) uniform();
-        DistributionBoundApache direct = (DistributionBoundApache) uniform();
+        DistributionBoundApache lazy = (DistributionBoundApache) distribution("uniform(1..1000000000)");
+        DistributionBoundApache direct = (DistributionBoundApache) distribution("uniform(1..1000000000)");
         for (long seed = 1; seed < 1000; seed += 7)
         {
             lazy.setSeed(seed);
             direct.delegate.reseedRandomGenerator(seed);
             assertEquals((long) direct.delegate.sample(), lazy.next());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "uniform(1..1000)", "gauss(1..1000)", "exp(1..1000)", "fixed(7)" })
+    void samplesStayWithinTheBounds(String spec)
+    {
+        Distribution dist = distribution(spec);
+        for (int i = 0; i < 10_000; i++)
+        {
+            long value = dist.next();
+            assertTrue(value >= dist.minValue() && value <= dist.maxValue(), spec + " gave " + value);
         }
     }
 }

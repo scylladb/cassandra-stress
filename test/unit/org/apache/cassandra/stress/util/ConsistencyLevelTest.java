@@ -1,25 +1,25 @@
 package org.apache.cassandra.stress.util;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ConsistencyLevelTest
+class ConsistencyLevelTest
 {
-    @Test
-    public void mapsEveryLevelToTheSameNameInBothDrivers()
+    @ParameterizedTest
+    @EnumSource(ConsistencyLevel.class)
+    void mapsEachLevelToTheSameNameInBothDrivers(ConsistencyLevel level)
     {
-        for (ConsistencyLevel level : ConsistencyLevel.values())
-        {
-            assertEquals(level.name(), level.ToV3Value().name());
-            assertEquals(level.name(), level.ToV4Value().name());
-        }
+        assertEquals(level.name(), level.ToV3Value().name());
+        assertEquals(level.name(), level.ToV4Value().name());
     }
 
     @Test
-    public void marksSerialAndLocalLevels()
+    void marksSerialAndLocalLevels()
     {
         assertTrue(ConsistencyLevel.LOCAL_SERIAL.isSerialConsistency());
         assertFalse(ConsistencyLevel.QUORUM.isSerialConsistency());

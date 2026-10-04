@@ -1,47 +1,30 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * <p/>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p/>
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang3.StringUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.cassandra.stress.report.StressMetrics;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
 
 public class StressGraph
 {
+    private static final ObjectMapper JSON = new ObjectMapper();
+
     private StressSettings stressSettings;
     private enum ReadingMode
     {
@@ -60,14 +43,13 @@ public class StressGraph
 
     public void generateGraph()
     {
-        File htmlFile = new File(stressSettings.graph.file);
-        JSONObject stats;
-        if (htmlFile.isFile())
+        Path htmlFile = Paths.get(stressSettings.graph.file);
+        ObjectNode stats;
+        if (Files.isRegularFile(htmlFile))
         {
             try
             {
-                String html = new String(Files.readAllBytes(Paths.get(htmlFile.toURI())), StandardCharsets.UTF_8);
-                stats = parseExistingStats(html);
+                stats = parseExistingStats(Files.readString(htmlFile));
             }
             catch (IOException e)
             {
@@ -82,11 +64,9 @@ public class StressGraph
 
         try
         {
-            PrintWriter out = new PrintWriter(htmlFile);
-            String statsBlock = "/* stats start */\nstats = " + stats.toJSONString() + ";\n/* stats end */\n";
-            String html = getGraphHTML().replaceFirst("/\\* stats start \\*/\n\n/\\* stats end \\*/\n", statsBlock);
-            out.write(html);
-            out.close();
+            String statsBlock = "/* stats start */\nstats = " + JSON.writeValueAsString(stats) + ";\n/* stats end */\n";
+            String html = getGraphHTML().replaceFirst("/\\* stats start \\*/\n\n/\\* stats end \\*/\n", Matcher.quoteReplacement(statsBlock));
+            Files.writeString(htmlFile, html);
         }
         catch (IOException e)
         {
@@ -94,14 +74,14 @@ public class StressGraph
         }
     }
 
-    private JSONObject parseExistingStats(String html)
+    private ObjectNode parseExistingStats(String html) throws IOException
     {
-        JSONObject stats;
+        ObjectNode stats;
 
         Pattern pattern = Pattern.compile("(?s).*/\\* stats start \\*/\\nstats = (.*);\\n/\\* stats end \\*/.*");
         Matcher matcher = pattern.matcher(html);
         matcher.matches();
-        stats = (JSONObject) JSONValue.parse(matcher.group(1));
+        stats = (ObjectNode) JSON.readTree(matcher.group(1));
 
         return stats;
     }
@@ -112,7 +92,7 @@ public class StressGraph
         String graphHTML;
         try
         {
-            graphHTML = new String(graphHTMLRes.readAllBytes());
+            graphHTML = new String(graphHTMLRes.readAllBytes(), StandardCharsets.UTF_8);
         }
         catch (IOException e)
         {
@@ -121,11 +101,10 @@ public class StressGraph
         return graphHTML;
     }
 
-    /** Parse log and append to stats array */
-    private JSONArray parseLogStats(InputStream log, JSONArray stats) {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(log));
-        JSONObject json = new JSONObject();
-        JSONArray intervals = new JSONArray();
+    private ArrayNode parseLogStats(InputStream log, ArrayNode stats) {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(log, StandardCharsets.UTF_8));
+        ObjectNode json = JSON.createObjectNode();
+        ArrayNode intervals = JSON.createArrayNode();
         boolean runningMultipleThreadCounts = false;
         String currentThreadCount = null;
         Pattern threadCountMessage = Pattern.compile("Running ([A-Z]+) with ([0-9]+) threads .*");
@@ -136,13 +115,11 @@ public class StressGraph
             String line;
             while ((line = reader.readLine()) != null)
             {
-                // Detect if we are running multiple thread counts:
                 if (line.startsWith("Thread count was not specified"))
                     runningMultipleThreadCounts = true;
 
                 if (runningMultipleThreadCounts)
                 {
-                    // Detect thread count:
                     Matcher tc = threadCountMessage.matcher(line);
                     if (tc.matches())
                     {
@@ -150,7 +127,6 @@ public class StressGraph
                     }
                 }
                 
-                // Detect mode changes
                 if (line.equals(StressMetrics.HEAD))
                 {
                     mode = ReadingMode.METRICS;
@@ -170,15 +146,14 @@ public class StressGraph
                     break;
                 }
 
-                // Process lines
                 if (mode == ReadingMode.METRICS)
                 {
-                    JSONArray metrics = new JSONArray();
                     String[] parts = line.split(",");
                     if (parts.length != StressMetrics.HEADMETRICS.length)
                     {
                         continue;
                     }
+                    ArrayNode metrics = intervals.addArray();
                     for (String m : parts)
                     {
                         try
@@ -187,10 +162,9 @@ public class StressGraph
                         }
                         catch (NumberFormatException e)
                         {
-                            metrics.add(null);
+                            metrics.addNull();
                         }
                     }
-                    intervals.add(metrics);
                 }
                 else if (mode == ReadingMode.AGGREGATES)
                 {
@@ -199,26 +173,25 @@ public class StressGraph
                     {
                         continue;
                     }
-                    // the graphing js expects lower case names
-                    json.put(parts[0].trim().toLowerCase(), parts[1].trim());
+                    json.put(parts[0].trim().toLowerCase(Locale.ROOT), parts[1].trim());
                 }
                 else if (mode == ReadingMode.NEXTITERATION)
                 {
-                    //Wrap up the results of this test and append to the array.
-                    json.put("metrics", Arrays.asList(StressMetrics.HEADMETRICS));
+                    ArrayNode metricNames = json.putArray("metrics");
+                    for (String name : StressMetrics.HEADMETRICS)
+                        metricNames.add(name);
                     json.put("test", stressSettings.graph.operation);
                     if (currentThreadCount == null)
                         json.put("revision", stressSettings.graph.revision);
                     else
                         json.put("revision", String.format("%s - %s threads", stressSettings.graph.revision, currentThreadCount));
-                    String command = StringUtils.join(stressArguments, " ").replaceAll("password=.*? ", "password=******* ");
+                    String command = String.join(" ", stressArguments).replaceAll("password=.*? ", "password=******* ");
                     json.put("command", command);
-                    json.put("intervals", intervals);
+                    json.set("intervals", intervals);
                     stats.add(json);
 
-                    //Start fresh for next iteration:
-                    json = new JSONObject();
-                    intervals = new JSONArray();
+                    json = JSON.createObjectNode();
+                    intervals = JSON.createArrayNode();
                     mode = ReadingMode.START;
                 }
             }
@@ -231,25 +204,25 @@ public class StressGraph
         return stats;
     }
 
-    private JSONObject createJSONStats(JSONObject json)
+    private ObjectNode createJSONStats(ObjectNode json)
     {
-        try (InputStream logStream = new FileInputStream(stressSettings.graph.temporaryLogFile))
+        try (InputStream logStream = Files.newInputStream(stressSettings.graph.temporaryLogFile.toPath()))
         {
-            JSONArray stats;
+            ArrayNode stats;
             if (json == null)
             {
-                json = new JSONObject();
-                stats = new JSONArray();
+                json = JSON.createObjectNode();
+                stats = JSON.createArrayNode();
             }
             else
             {
-                stats = (JSONArray) json.get("stats");
+                stats = (ArrayNode) json.get("stats");
             }
 
             stats = parseLogStats(logStream, stats);
 
             json.put("title", stressSettings.graph.title);
-            json.put("stats", stats);
+            json.set("stats", stats);
             return json;
         }
         catch (IOException e)

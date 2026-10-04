@@ -3,60 +3,51 @@ package org.apache.cassandra.stress.settings;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class SettingsModeTest
+class SettingsModeTest
 {
     private static SettingsMode parse(String... params)
     {
-        Map<String, String[]> clArgs = new HashMap<>();
-        clArgs.put("-mode", params);
-        return SettingsMode.get(clArgs);
+        return SettingsMode.get(new HashMap<>(Map.of("-mode", params)));
     }
 
-    private static void assertRemoved(String mode, String... params)
+    @ParameterizedTest
+    @CsvSource({ "thrift, thrift", "thrift, thrift smart", "simplenative, cql3 simplenative" })
+    void removedModesAreRejected(String mode, String params)
     {
-        try
-        {
-            parse(params);
-            fail("-mode " + String.join(" ", params) + " must be rejected");
-        }
-        catch (IllegalArgumentException e)
-        {
-            assertEquals("Mode " + mode + " was removed. Use -mode native or -mode 4x.", e.getMessage());
-        }
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse(params.split(" ")));
+        assertEquals("Mode " + mode + " was removed. Use -mode cql3 native or -mode cql3 4x.", e.getMessage());
     }
 
     @Test
-    public void thriftModeIsRejected()
-    {
-        assertRemoved("thrift", "thrift");
-    }
-
-    @Test
-    public void smartThriftModeIsRejected()
-    {
-        assertRemoved("thrift", "thrift", "smart");
-    }
-
-    @Test
-    public void simpleNativeModeIsRejected()
-    {
-        assertRemoved("simplenative", "cql3", "simplenative");
-    }
-
-    @Test
-    public void nativeModeUsesDriver3()
+    void nativeModeUsesDriver3()
     {
         assertEquals(ConnectionAPI.JAVA_DRIVER_NATIVE, parse("cql3", "native").api);
     }
 
     @Test
-    public void fourXModeUsesDriver4()
+    void fourXModeUsesDriver4()
     {
         assertEquals(ConnectionAPI.JAVA_DRIVER4_NATIVE, parse("cql3", "4x").api);
+    }
+
+    @Test
+    void defaultsToDriver3Prepared()
+    {
+        SettingsMode mode = SettingsMode.get(new HashMap<>());
+        assertEquals(ConnectionAPI.JAVA_DRIVER_NATIVE, mode.api);
+        assertEquals(ConnectionStyle.CQL_PREPARED, mode.style);
+    }
+
+    @Test
+    void unpreparedSelectsPlainCql()
+    {
+        assertEquals(ConnectionStyle.CQL, parse("cql3", "native", "unprepared").style);
     }
 }

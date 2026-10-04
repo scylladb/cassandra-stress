@@ -1,9 +1,10 @@
 package org.apache.cassandra.stress.settings;
 
+import java.util.Locale;
 
 import org.apache.cassandra.stress.util.JavaDriverV4ConfigBuilder;
-import shaded.com.datastax.oss.driver.api.core.config.DefaultDriverOption;
-import shaded.com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 
 public enum ProtocolCompression {
   NONE(""),
@@ -24,7 +25,7 @@ public enum ProtocolCompression {
     if (name.isEmpty()) {
       return com.datastax.driver.core.ProtocolOptions.Compression.NONE;
     }
-    return com.datastax.driver.core.ProtocolOptions.Compression.valueOf(name.toUpperCase());
+    return com.datastax.driver.core.ProtocolOptions.Compression.valueOf(name.toUpperCase(Locale.ROOT));
   }
 
   public JavaDriverV4ConfigBuilder ToJavaDriverV4() {
@@ -32,7 +33,6 @@ public enum ProtocolCompression {
       @Override
       public ProgrammaticDriverConfigLoaderBuilder applyConfig(ProgrammaticDriverConfigLoaderBuilder builder) {
         if (name.isEmpty()) {
-          // Driver fails to initialize if you set DefaultDriverOption.PROTOCOL_COMPRESSION to ""
           return builder;
         }
         return builder.withString(DefaultDriverOption.PROTOCOL_COMPRESSION, name);

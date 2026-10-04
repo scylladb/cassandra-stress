@@ -9,7 +9,7 @@ public class ColumnMetadata {
     this.metadata = metadata;
   }
 
-  public ColumnMetadata(shaded.com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata metadata) {
+  public ColumnMetadata(com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata metadata) {
     this.metadata = metadata;
   }
 
@@ -17,8 +17,8 @@ public class ColumnMetadata {
     return (com.datastax.driver.core.ColumnMetadata) metadata;
   }
 
-  public shaded.com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata  ToV4Value() {
-    return (shaded.com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata) metadata;
+  public com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata  ToV4Value() {
+    return (com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata) metadata;
   }
 
   public String getName() {

@@ -1,25 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
-
 
 import java.io.File;
 import java.net.URI;
@@ -30,7 +10,6 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 
 import org.apache.cassandra.stress.Operation;
 import org.apache.cassandra.stress.StressProfile;
@@ -43,18 +22,15 @@ import org.apache.cassandra.stress.operations.SampledOpDistributionFactory;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.util.ResultLogger;
 
-// Settings unique to the mixed command type
 public class SettingsCommandUser extends SettingsCommand
 {
 
-    // Ratios for selecting commands - index for each Command, NaN indicates the command is not requested
     private final Map<String, Double> ratios;
     private final DistributionFactory clustering;
     public final Map<String,  StressProfile> profiles;
     private final Options options;
     private String default_profile_name;
     private static final Pattern EXTRACT_SPEC_CMD = Pattern.compile("(.+)\\.(.+)");
-
 
     public SettingsCommandUser(Options options)
     {
@@ -64,7 +40,6 @@ public class SettingsCommandUser extends SettingsCommand
         clustering = options.clustering.get();
         ratios = options.ops.ratios();
         default_profile_name=null;
-
 
         String yamlPath = options.profile.value();
         profiles = new LinkedHashMap<>();
@@ -76,7 +51,6 @@ public class SettingsCommandUser extends SettingsCommand
             StressProfile profile = StressProfile.load(yamlFile.exists() ? yamlFile.toURI() : URI.create(curYamlPath));
             String specName = profile.specName;
             if (default_profile_name == null) {
-                //first file is default
                 default_profile_name=specName;
             }
 
@@ -87,7 +61,6 @@ public class SettingsCommandUser extends SettingsCommand
 
             profiles.put(specName, profile);
         }
-
 
         if (ratios.size() == 0)
             throw new IllegalArgumentException("Must specify at least one command with a non-zero ratio");
@@ -169,8 +142,6 @@ public class SettingsCommandUser extends SettingsCommand
         }
     }
 
-    // CLI utility methods
-
     public void printSettings(ResultLogger out)
     {
         super.printSettings(out);
@@ -178,7 +149,6 @@ public class SettingsCommandUser extends SettingsCommand
         out.printf("  Command Clustering Distribution: %s%n", options.clustering.getOptionAsString());
         out.printf("  Profile File(s): %s%n", options.profile.value());
     }
-
 
     public static SettingsCommandUser build(String[] params)
     {

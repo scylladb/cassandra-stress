@@ -1,9 +1,11 @@
 package org.apache.cassandra.stress.settings;
 
-import org.apache.cassandra.stress.util.JavaDriverV4SessionBuilder;
-import shaded.com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import java.io.Serializable;
 
-public class AuthProvider {
+import org.apache.cassandra.stress.util.JavaDriverV4SessionBuilder;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+
+public class AuthProvider implements Serializable {
   String authClassName;
   String username;
   String password;
@@ -48,7 +50,7 @@ public class AuthProvider {
         @Override
         public CqlSessionBuilder apply(CqlSessionBuilder builder) {
           return builder.
-              withAuthProvider(new shaded.com.datastax.oss.driver.api.core.auth.ProgrammaticPlainTextAuthProvider(username, password));
+              withAuthProvider(new com.datastax.oss.driver.api.core.auth.ProgrammaticPlainTextAuthProvider(username, password));
         }
       };
     }

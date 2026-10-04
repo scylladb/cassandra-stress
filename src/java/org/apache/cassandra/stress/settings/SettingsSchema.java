@@ -1,23 +1,4 @@
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
 import java.io.Serializable;
@@ -47,10 +28,9 @@ public class SettingsSchema implements Serializable
     public final String keyspace;
     private final Command cmd_type;
 
-
     public SettingsSchema(Options options, SettingsCommand command) {
         keyspace = switch (command) {
-            case SettingsCommandUser cmd -> null; //this should never be used - StressProfile passes keyspace name directly
+            case SettingsCommandUser cmd -> null;
             default -> options.keyspace.value();
         };
 
@@ -69,9 +49,6 @@ public class SettingsSchema implements Serializable
         createKeySpacesNative(settings);
     }
 
-    /**
-     * Create Keyspace with Standard and Super/Counter column families
-     */
     public void createKeySpacesNative(StressSettings settings)
     {
 
@@ -84,27 +61,22 @@ public class SettingsSchema implements Serializable
 
         try
         {
-            //Keyspace
             client.execute(createKeyspaceStatementCQL3(), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
 
             client.execute("USE \""+keyspace+"\"", org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
 
-            //Add standard1
             client.execute(createStandard1StatementCQL3(settings), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
-
 
             if (cmd_type == Command.COUNTER_WRITE)
             {
-                //Add counter1
                 client.execute(createCounter1StatementCQL3(settings), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
             }
 
             System.out.println(String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
-            Thread.sleep(settings.node.nodes.size() * 1000L); // seconds
+            Thread.sleep(settings.node.nodes.size() * 1000L);
         }
-        catch (AlreadyExistsException | shaded.com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e)
+        catch (AlreadyExistsException | com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e)
         {
-            //Ok.
         }
         catch (Exception e)
         {
@@ -116,7 +88,6 @@ public class SettingsSchema implements Serializable
     {
         StringBuilder b = new StringBuilder();
 
-        //Create Keyspace
         b.append("CREATE KEYSPACE IF NOT EXISTS \"")
                 .append(keyspace)
                 .append("\" WITH replication = {'class': '")
@@ -161,14 +132,12 @@ public class SettingsSchema implements Serializable
             throw new RuntimeException(e);
         }
 
-        //Compression
         b.append(") WITH compression = {");
         if (compression != null)
             b.append("'sstable_compression' : '").append(compression).append("'");
 
         b.append("}");
 
-        //Compaction
         if (compactionStrategy != null) {
             b.append(" AND compaction = { 'class' : '").append(compactionStrategy).append("'");
 
@@ -197,14 +166,12 @@ public class SettingsSchema implements Serializable
             throw new RuntimeException(e);
         }
 
-        //Compression
         b.append(") WITH compression = {");
         if (compression != null)
             b.append("'sstable_compression' : '").append(compression).append("'");
 
         b.append("}");
 
-        //Compaction
         if (compactionStrategy != null) {
             b.append(" AND compaction = { 'class' : '").append(compactionStrategy).append("'");
 
@@ -219,8 +186,6 @@ public class SettingsSchema implements Serializable
         return b.toString();
     }
 
-    // Option Declarations
-
     private static final class Options extends GroupedOptions {
         final OptionReplication replication = new OptionReplication();
         final OptionStorage storage = new OptionStorage();
@@ -234,7 +199,6 @@ public class SettingsSchema implements Serializable
         }
     }
 
-    // CLI Utility Methods
     public void printSettings(ResultLogger out) {
         out.println("  Keyspace: " + keyspace);
         out.println("  Replication Strategy: " + replicationStrategy);
@@ -245,7 +209,6 @@ public class SettingsSchema implements Serializable
         out.println("  Table Compaction Strategy: " + compactionStrategy);
         out.println("  Table Compaction Strategy Options: " + compactionStrategyOptions);
     }
-
 
     public static SettingsSchema get(Map<String, String[]> clArgs, SettingsCommand command) {
         String[] params = clArgs.remove("-schema");

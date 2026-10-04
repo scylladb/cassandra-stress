@@ -1,29 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.io.IOException;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 import com.datastax.driver.core.ResultSet;
 import org.apache.cassandra.stress.core.BoundStatement;
@@ -39,7 +18,6 @@ public class SchemaQuery extends SchemaStatement
     public static enum ArgSelect
     {
         MULTIROW, SAMEROW;
-        //TODO: FIRSTROW, LASTROW
     }
 
     final ArgSelect argSelect;
@@ -85,7 +63,7 @@ public class SchemaQuery extends SchemaStatement
 
         public boolean run() throws Exception
         {
-            shaded.com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bindArgs().ToV4Value());
+            com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bindArgs().ToV4Value());
             rowCount = rs.all().size();
             partitionCount = Math.min(1, rowCount);
             return true;
@@ -95,7 +73,7 @@ public class SchemaQuery extends SchemaStatement
     private int fillRandom()
     {
         int c = 0;
-        PartitionIterator iterator = partitions.get(0);
+        PartitionIterator iterator = partitions.getFirst();
         while (iterator.hasNext())
         {
             Row row = iterator.next();
@@ -122,7 +100,7 @@ public class SchemaQuery extends SchemaStatement
                 }
                 return statement.bind(bindBuffer);
             case SAMEROW:
-                return bindRow(partitions.get(0).next());
+                return bindRow(partitions.getFirst().next());
             default:
                 throw new IllegalStateException();
         }

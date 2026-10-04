@@ -1,17 +1,19 @@
 package org.apache.cassandra.stress.util;
 
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class CqlNames
 {
     private static final String NAME = "(\"(?:[^\"]|\"\")+\"|\\w+)";
+    private static final String LEADING_COMMENTS = "^(?:\\s+|--[^\\n]*|//[^\\n]*|/\\*(?s:.*?)\\*/)*";
     private static final String IF_NOT_EXISTS = "(?:IF\\s+NOT\\s+EXISTS\\s+)?";
 
     private static final Pattern CREATE_KEYSPACE =
-        Pattern.compile("^\\s*CREATE\\s+KEYSPACE\\s+" + IF_NOT_EXISTS + NAME, Pattern.CASE_INSENSITIVE);
+        Pattern.compile(LEADING_COMMENTS + "CREATE\\s+KEYSPACE\\s+" + IF_NOT_EXISTS + NAME, Pattern.CASE_INSENSITIVE);
     private static final Pattern CREATE_TABLE =
-        Pattern.compile("^\\s*CREATE\\s+(?:TABLE|COLUMNFAMILY)\\s+" + IF_NOT_EXISTS + "(?:" + NAME + "\\s*\\.\\s*)?" + NAME, Pattern.CASE_INSENSITIVE);
+        Pattern.compile(LEADING_COMMENTS + "CREATE\\s+(?:TABLE|COLUMNFAMILY)\\s+" + IF_NOT_EXISTS + "(?:" + NAME + "\\s*\\.\\s*)?" + NAME, Pattern.CASE_INSENSITIVE);
 
     private CqlNames()
     {
@@ -37,6 +39,6 @@ public final class CqlNames
     {
         if (name.startsWith("\""))
             return name.substring(1, name.length() - 1).replace("\"\"", "\"");
-        return name.toLowerCase();
+        return name.toLowerCase(Locale.ROOT);
     }
 }

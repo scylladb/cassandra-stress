@@ -1,25 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
-
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -65,9 +45,6 @@ public class SettingsRate implements Serializable
         isFixed = false;
     }
 
-
-    // Option Declarations
-
     private static final class AutoOptions extends GroupedOptions
     {
         final OptionSimple auto = new OptionSimple("auto", "", null, "stop increasing threads once throughput saturates", false);
@@ -94,8 +71,6 @@ public class SettingsRate implements Serializable
         }
     }
 
-    // CLI Utility Methods
-
     public void printSettings(ResultLogger out)
     {
         out.printf("  Auto: %b%n", auto);
@@ -114,16 +89,11 @@ public class SettingsRate implements Serializable
         String[] params = clArgs.remove("-rate");
         if (params == null)
         {
-            switch (command.type)
+            if ((command.type == Command.WRITE || command.type == Command.COUNTER_WRITE) && command.count > 0)
             {
-                case WRITE:
-                case COUNTER_WRITE:
-                    if (command.count > 0)
-                    {
-                        ThreadOptions options = new ThreadOptions();
-                        options.accept("threads=200");
-                        return new SettingsRate(options);
-                    }
+                ThreadOptions options = new ThreadOptions();
+                options.accept("threads=200");
+                return new SettingsRate(options);
             }
             AutoOptions options = new AutoOptions();
             options.accept("auto");
@@ -136,10 +106,10 @@ public class SettingsRate implements Serializable
             System.out.println("Invalid -rate options provided, see output for valid options");
             System.exit(1);
         }
-        if (options instanceof AutoOptions)
-            return new SettingsRate((AutoOptions) options);
-        else if (options instanceof ThreadOptions)
-            return new SettingsRate((ThreadOptions) options);
+        if (options instanceof AutoOptions auto)
+            return new SettingsRate(auto);
+        else if (options instanceof ThreadOptions threads)
+            return new SettingsRate(threads);
         else
             throw new IllegalStateException();
     }

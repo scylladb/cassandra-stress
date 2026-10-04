@@ -15,7 +15,8 @@
   limitations under the License.
 -->
 <project basedir="." default="jar" name="cassandra-stress"
-    xmlns:resolver="antlib:org.apache.maven.resolver.ant">
+    xmlns:resolver="antlib:org.apache.maven.resolver.ant"
+    xmlns:jacoco="antlib:org.jacoco.ant">
 
     <fail message="You need to use Ant of version at least 1.10 to continue.">
         <condition>
@@ -33,7 +34,6 @@
     <property name="base.version" value="3.12.0" />
     <property name="base.javaDriverVersion" value="3.11.5.18" />
     <property name="base.java4DriverVersion" value="4.19.2.1" />
-    <property name="base.java4NativeProtocolVersion" value="1.5.2.2" />
     <property name="lib.override.com.scylladb.scylla-driver-core" value="" />
 
     <property name="basedir" value="." />
@@ -52,12 +52,19 @@
     <property name="test.classes" value="${build.dir}/test/classes" />
     <property name="test.name" value="*Test" />
     <property name="test.unit.src" value="${test.dir}/unit" />
+    <property name="test.integration.src" value="${test.dir}/integration" />
+    <property name="test.integration.classes" value="${build.dir}/test/integration-classes" />
+    <property name="test.integration.lib" value="${build.dir}/test/integration-lib" />
+    <property name="test.integration.name" value="*IT" />
+    <property name="test.integration.timeout" value="1800000" />
+    <property name="testcontainers.version" value="2.0.5" />
+    <property name="test.jvmargs" value="" />
     <property name="test.timeout" value="240000" />
+    <property name="junit.version" value="6.1.3" />
+    <property name="jacoco.version" value="0.8.15" />
+    <property name="coverage.dir" value="${build.dir}/coverage" />
     <property name="dist.dir" value="${build.dir}/dist" />
     <property name="tmp.dir" value="${java.io.tmpdir}" />
-
-    <property name="jarjar.version" value="1.7.2" />
-    <available file="${build.dir}/jarjar-${jarjar.version}.jar" property="jarjar.exists" />
 
     <property name="release.version" value="21" />
 
@@ -96,6 +103,7 @@
         <fileset dir="${build.dir.lib}">
             <include name="**/*.jar" />
             <exclude name="**/*-sources.jar" />
+            <exclude name="cassandra-stress.jar" />
         </fileset>
         <fileset dir="${test.lib}/jars">
             <include name="**/*.jar" />
@@ -142,8 +150,18 @@
                 <exclusion groupId="io.netty" artifactId="netty-codec" />
                 <exclusion groupId="io.netty" artifactId="netty-handler" />
                 <exclusion groupId="io.netty" artifactId="netty-transport" />
+                <exclusion groupId="io.netty" artifactId="netty-common" />
                 <exclusion groupId="com.github.jnr" artifactId="jnr-ffi" />
                 <exclusion groupId="com.github.jnr" artifactId="jnr-posix" />
+            </dependency>
+            <dependency groupId="com.scylladb" artifactId="java-driver-core-shaded"
+                version="${base.java4DriverVersion}">
+                <exclusion groupId="com.typesafe" artifactId="config" />
+                <exclusion groupId="org.slf4j" artifactId="slf4j-api" />
+                <exclusion groupId="io.dropwizard.metrics" artifactId="metrics-core" />
+                <exclusion groupId="org.hdrhistogram" artifactId="HdrHistogram" />
+                <exclusion groupId="com.github.jnr" artifactId="jnr-posix" />
+                <exclusion groupId="org.reactivestreams" artifactId="reactive-streams" />
             </dependency>
             <dependency groupId="com.google.guava" artifactId="guava" version="33.3.1-jre">
                 <exclusion groupId="com.google.code.findbugs" artifactId="jsr305" />
@@ -153,14 +171,9 @@
                 <exclusion groupId="com.google.errorprone" artifactId="error_prone_annotations" />
             </dependency>
             <dependency groupId="org.apache.commons" artifactId="commons-math3" version="3.2" />
-            <dependency groupId="org.apache.commons" artifactId="commons-lang3" version="3.1" />
-            <dependency groupId="commons-cli" artifactId="commons-cli" version="1.1" />
             <dependency groupId="org.yaml" artifactId="snakeyaml" version="2.0" />
-            <dependency groupId="com.googlecode.json-simple" artifactId="json-simple" version="1.1">
-                <exclusion groupId="junit" artifactId="junit" />
-            </dependency>
+            <dependency groupId="com.fasterxml.jackson.core" artifactId="jackson-databind" version="2.18.9" />
             <dependency groupId="org.jctools" artifactId="jctools-core" version="4.0.7" />
-            <dependency groupId="io.netty" artifactId="netty-common" version="4.1.136.Final" />
             <dependency groupId="org.hdrhistogram" artifactId="HdrHistogram" version="2.2.2" />
             <dependency groupId="com.typesafe" artifactId="config" version="1.4.3" />
             <dependency groupId="org.slf4j" artifactId="slf4j-api" version="1.7.36" />
@@ -170,16 +183,24 @@
         </resolver:dependencies>
 
         <resolver:dependencies id="test-deps">
-            <dependency groupId="junit" artifactId="junit" version="4.12" scope="test">
-                <exclusion groupId="org.hamcrest" artifactId="hamcrest-core" />
+            <dependency groupId="org.junit.jupiter" artifactId="junit-jupiter" version="${junit.version}" scope="test" />
+            <dependency groupId="org.junit.platform" artifactId="junit-platform-launcher" version="${junit.version}" scope="test" />
+        </resolver:dependencies>
+
+        <resolver:dependencies id="integration-deps">
+            <dependency groupId="org.testcontainers" artifactId="testcontainers-scylladb" version="${testcontainers.version}">
+                <exclusion groupId="junit" artifactId="junit" />
             </dependency>
-            <dependency groupId="org.hamcrest" artifactId="hamcrest" version="2.2" scope="test" />
+        </resolver:dependencies>
+
+        <resolver:dependencies id="coverage-deps">
+            <dependency groupId="org.jacoco" artifactId="org.jacoco.ant" version="${jacoco.version}" classifier="nodeps" />
         </resolver:dependencies>
 
         <property name="resolver-ant-tasks.initialized" value="true" />
     </target>
 
-    <target name="resolver-retrieve-build" depends="resolver-init,java-driver-core.shade">
+    <target name="resolver-retrieve-build" depends="resolver-init">
         <resolver:resolve>
             <remoterepos refid="all" />
             <dependencies refid="runtime-deps" />
@@ -214,62 +235,6 @@
         description="Remove the entire build directory and all downloaded artifacts">
         <delete dir="${build.lib}" />
         <delete dir="${build.dir}" />
-    </target>
-
-    <target name="jarjar.get" depends="init" unless="jarjar.exists">
-        <echo>Downloading jarjar...</echo>
-        <get src="https://repo1.maven.org/maven2/org/pantsbuild/jarjar/${jarjar.version}/jarjar-${jarjar.version}.jar"
-             dest="${build.dir}/jarjar-${jarjar.version}.jar"
-             skipexisting="true" />
-        <get src="https://repo1.maven.org/maven2/org/ow2/asm/asm/9.1/asm-9.1.jar"
-             dest="build/asm-9.1.jar"
-             usetimestamp="true" />
-        <get src="https://repo1.maven.org/maven2/org/ow2/asm/asm-commons/9.1/asm-commons-9.1.jar"
-             dest="build/asm-commons-9.1.jar"
-             usetimestamp="true" />
-    </target>
-
-    <target name="java-driver-core.get" depends="init">
-        <echo>Downloading driver4 and dependencies...</echo>
-        <mkdir dir="${build.dir}/shaded" />
-        <mkdir dir="${build.dir}/lib/jars" />
-        <get src="https://repo1.maven.org/maven2/com/scylladb/java-driver-core-shaded/${base.java4DriverVersion}/java-driver-core-shaded-${base.java4DriverVersion}.jar"
-             dest="${build.dir}/shaded/java-driver-core-shaded-${base.java4DriverVersion}.jar"
-             usetimestamp="true" />
-        <get src="https://repo1.maven.org/maven2/com/scylladb/java-driver-guava-shaded/${base.java4DriverVersion}/java-driver-guava-shaded-${base.java4DriverVersion}.jar"
-             dest="${build.dir}/shaded/java-driver-guava-shaded-${base.java4DriverVersion}.jar"
-             usetimestamp="true" />
-        <get src="https://repo1.maven.org/maven2/com/scylladb/native-protocol/${base.java4NativeProtocolVersion}/native-protocol-${base.java4NativeProtocolVersion}.jar"
-             dest="${build.dir}/shaded/native-protocol-${base.java4NativeProtocolVersion}.jar"
-             usetimestamp="true" />
-    </target>
-
-    <macrodef name="jarjar">
-        <attribute name="input" />
-        <attribute name="output" />
-        <sequential>
-            <java classname="org.pantsbuild.jarjar.Main" fork="true" failonerror="true">
-                <classpath>
-                    <pathelement location="${build.dir}/jarjar-${jarjar.version}.jar" />
-                    <pathelement location="build/asm-9.1.jar" />
-                    <pathelement location="build/asm-commons-9.1.jar" />
-                </classpath>
-                <arg value="process" />
-                <arg value="jarjar.rules" />
-                <arg value="@{input}" />
-                <arg value="@{output}" />
-            </java>
-        </sequential>
-    </macrodef>
-
-    <target name="java-driver-core.shade" depends="jarjar.get,java-driver-core.get">
-        <mkdir dir="${build.dir}/lib/jars" />
-        <jarjar input="${build.dir}/shaded/java-driver-core-shaded-${base.java4DriverVersion}.jar"
-            output="${build.dir}/lib/jars/java-driver-core-shaded-${base.java4DriverVersion}.jar" />
-        <jarjar input="${build.dir}/shaded/java-driver-guava-shaded-${base.java4DriverVersion}.jar"
-            output="${build.dir}/lib/jars/java-driver-guava-shaded-${base.java4DriverVersion}.jar" />
-        <jarjar input="${build.dir}/shaded/native-protocol-${base.java4NativeProtocolVersion}.jar"
-            output="${build.dir}/lib/jars/native-protocol-${base.java4NativeProtocolVersion}.jar" />
     </target>
 
     <target name="scylla-driver-core.override.install" if="scylla-driver-core.override.want"
@@ -321,6 +286,7 @@
         <copy todir="${build.classes.main}">
             <fileset dir="${build.src.resources}" />
         </copy>
+        <echo file="${build.classes.main}/org/apache/cassandra/stress/stress.version" message="${version}" />
     </target>
 
     <target name="jar" depends="build" description="Assemble the cassandra-stress JAR file">
@@ -335,6 +301,7 @@
 
     <target name="artifacts" depends="jar"
         description="Create cassandra-stress release artifacts">
+        <delete dir="${dist.dir}" />
         <mkdir dir="${dist.dir}" />
         <fixcrlf srcdir="conf" includes="**/*" eol="lf" eof="remove" />
         <fixcrlf srcdir="bin" includes="**/*" eol="lf" eof="remove" />
@@ -427,7 +394,7 @@
             debug="true"
             debuglevel="${debuglevel}"
             destdir="${test.classes}"
-            includeantruntime="true"
+            includeantruntime="false"
             release="${release.version}"
             encoding="utf-8">
             <compilerarg value="-proc:none" />
@@ -442,23 +409,147 @@
         </copy>
     </target>
 
+    <macrodef name="run-unit-tests">
+        <attribute name="jvmargs" default="" />
+        <attribute name="classes" default="${test.classes}" />
+        <attribute name="includes" default="**/${test.name}.class" />
+        <attribute name="output" default="${build.test.dir}/output" />
+        <attribute name="timeout" default="${test.timeout}" />
+        <element name="extra-classpath" optional="true" />
+        <sequential>
+            <delete dir="@{output}" />
+            <mkdir dir="@{output}" />
+            <junitlauncher failureProperty="testfailed" printSummary="true">
+                <classpath>
+                    <path refid="cassandra-stress.classpath" />
+                    <path refid="cassandra-stress.classpath.test" />
+                    <pathelement location="${test.classes}" />
+                    <extra-classpath />
+                </classpath>
+                <testclasses outputDir="@{output}">
+                    <fileset dir="@{classes}" includes="@{includes}" />
+                    <fork dir="${basedir}" timeout="@{timeout}">
+                        <jvmarg value="-ea" />
+                        <jvmarg value="-Xmx1024m" />
+                        <jvmarg value="-Djava.io.tmpdir=${tmp.dir}" />
+                        <jvmarg value="-Dcom.datastax.shaded.netty.noUnsafe=true" />
+                        <jvmarg value="-Dcom.datastax.oss.driver.shaded.netty.noUnsafe=true" />
+                        <jvmarg line="${test.jvmargs}" />
+                        <jvmarg line="@{jvmargs}" />
+                    </fork>
+                    <listener type="legacy-xml" sendSysOut="true" sendSysErr="true" />
+                    <listener type="legacy-brief" sendSysOut="false" />
+                </testclasses>
+            </junitlauncher>
+        </sequential>
+    </macrodef>
+
     <target name="test" depends="build-test" description="Run the unit tests, or one class with -Dtest.name=ClassNameTest">
-        <mkdir dir="${build.test.dir}/output" />
-        <junit fork="on" forkmode="once" failureproperty="testfailed"
-            maxmemory="1024m" timeout="${test.timeout}">
-            <formatter type="xml" usefile="true" />
-            <formatter type="brief" usefile="false" />
-            <jvmarg value="-ea" />
-            <jvmarg value="-Djava.io.tmpdir=${tmp.dir}" />
+        <run-unit-tests />
+        <fail message="Some test(s) failed." if="testfailed" />
+    </target>
+
+    <target name="integration-init" depends="resolver-init">
+        <resolver:resolve>
+            <remoterepos refid="all" />
+            <dependencies refid="integration-deps" />
+            <files dir="${test.integration.lib}" layout="{artifactId}-{version}-{classifier}.{extension}" scopes="compile,runtime,!system" />
+        </resolver:resolve>
+    </target>
+
+    <target name="build-integration-test" depends="build-test,integration-init"
+        description="Compile the integration tests">
+        <mkdir dir="${test.integration.classes}" />
+        <javac
+            compiler="modern"
+            debug="true"
+            debuglevel="${debuglevel}"
+            destdir="${test.integration.classes}"
+            includeantruntime="false"
+            release="${release.version}"
+            encoding="utf-8">
+            <compilerarg value="-proc:none" />
             <classpath>
-                <path refid="cassandra-stress.classpath" />
                 <path refid="cassandra-stress.classpath.test" />
+                <path refid="cassandra-stress.classpath" />
                 <pathelement location="${test.classes}" />
+                <fileset dir="${test.integration.lib}" includes="*.jar" />
             </classpath>
-            <batchtest todir="${build.test.dir}/output">
-                <fileset dir="${test.unit.src}" includes="**/${test.name}.java" />
-            </batchtest>
-        </junit>
+            <src path="${test.integration.src}" />
+        </javac>
+    </target>
+
+    <macrodef name="run-integration-tests">
+        <attribute name="jvmargs" default="" />
+        <sequential>
+            <run-unit-tests jvmargs="@{jvmargs}" classes="${test.integration.classes}"
+                includes="**/${test.integration.name}.class" output="${build.test.dir}/integration-output"
+                timeout="${test.integration.timeout}">
+                <extra-classpath>
+                    <pathelement location="${test.integration.classes}" />
+                    <fileset dir="${test.integration.lib}" includes="*.jar" />
+                </extra-classpath>
+            </run-unit-tests>
+        </sequential>
+    </macrodef>
+
+    <target name="integration-test" depends="build-integration-test"
+        description="Run the integration tests against ScyllaDB in Docker, or one class with -Dtest.integration.name=ClassNameIT">
+        <run-integration-tests />
+        <fail message="Some integration test(s) failed." if="testfailed" />
+    </target>
+
+    <target name="coverage-init" depends="resolver-init">
+        <resolver:resolve>
+            <remoterepos refid="all" />
+            <dependencies refid="coverage-deps" />
+            <files dir="${build.dir}/jacoco" layout="{artifactId}-{classifier}.{extension}" scopes="compile,runtime,!system" />
+        </resolver:resolve>
+        <taskdef uri="antlib:org.jacoco.ant" resource="org/jacoco/ant/antlib.xml"
+            classpath="${build.dir}/jacoco/org.jacoco.ant-nodeps.jar" />
+    </target>
+
+    <macrodef name="coverage-report">
+        <sequential>
+            <jacoco:report>
+                <executiondata>
+                    <file file="${coverage.dir}/jacoco.exec" />
+                </executiondata>
+                <structure name="cassandra-stress">
+                    <classfiles>
+                        <fileset dir="${build.classes.main}" includes="**/*.class" />
+                    </classfiles>
+                    <sourcefiles encoding="UTF-8">
+                        <fileset dir="${build.src.java}" />
+                    </sourcefiles>
+                </structure>
+                <html destdir="${coverage.dir}/html" />
+                <xml destfile="${coverage.dir}/jacoco.xml" />
+                <csv destfile="${coverage.dir}/jacoco.csv" />
+            </jacoco:report>
+        </sequential>
+    </macrodef>
+
+    <target name="coverage" depends="build-test,coverage-init"
+        description="Run the unit tests with JaCoCo and write the report to build/coverage">
+        <delete dir="${coverage.dir}" />
+        <mkdir dir="${coverage.dir}" />
+        <jacoco:agent property="test.coverage.agent" destfile="${coverage.dir}/jacoco.exec"
+            includes="org.apache.cassandra.stress.*" />
+        <run-unit-tests jvmargs="${test.coverage.agent}" />
+        <coverage-report />
+        <fail message="Some test(s) failed." if="testfailed" />
+    </target>
+
+    <target name="coverage-all" depends="build-integration-test,coverage-init"
+        description="Run the unit and integration tests with JaCoCo and write one report to build/coverage">
+        <delete dir="${coverage.dir}" />
+        <mkdir dir="${coverage.dir}" />
+        <jacoco:agent property="test.coverage.agent" destfile="${coverage.dir}/jacoco.exec"
+            includes="org.apache.cassandra.stress.*" append="true" />
+        <run-unit-tests jvmargs="${test.coverage.agent}" />
+        <run-integration-tests jvmargs="${test.coverage.agent}" />
+        <coverage-report />
         <fail message="Some test(s) failed." if="testfailed" />
     </target>
 </project>

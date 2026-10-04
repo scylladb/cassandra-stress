@@ -1,25 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -195,16 +175,16 @@ public class ValidatingSchemaQuery extends PartitionOperation
 
         public boolean run() throws Exception
         {
-            shaded.com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bind(statementIndex).ToV4Value());
+            com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bind(statementIndex).ToV4Value());
             int[] valueIndex = new int[rs.getColumnDefinitions().size()];
             {
                 int i = 0;
-                for (shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinition definition : rs.getColumnDefinitions())
+                for (com.datastax.oss.driver.api.core.cql.ColumnDefinition definition : rs.getColumnDefinitions())
                     valueIndex[i++] = spec.partitionGenerator.indexOf(definition.getName().toString());
             }
 
             rowCount = 0;
-            Iterator<shaded.com.datastax.oss.driver.api.core.cql.Row> results = rs.iterator();
+            Iterator<com.datastax.oss.driver.api.core.cql.Row> results = rs.iterator();
             if (!statements[statementIndex].inclusiveStart && iter.hasNext())
                 iter.next();
             while (iter.hasNext())
@@ -222,7 +202,7 @@ public class ValidatingSchemaQuery extends PartitionOperation
                 }
 
                 rowCount++;
-                shaded.com.datastax.oss.driver.api.core.cql.Row actualRow = results.next();
+                com.datastax.oss.driver.api.core.cql.Row actualRow = results.next();
                 for (int i = 0 ; i < actualRow.getColumnDefinitions().size() ; i++)
                 {
                     Object expectedValue = expectedRow.get(valueIndex[i]);
@@ -267,13 +247,13 @@ public class ValidatingSchemaQuery extends PartitionOperation
     @Override
     public void run(JavaDriverClient client) throws IOException
     {
-        timeWithRetry(new JavaDriverRun(client, partitions.get(0)));
+        timeWithRetry(new JavaDriverRun(client, partitions.getFirst()));
     }
 
     @Override
     public void run(JavaDriverV4Client client) throws IOException
     {
-        timeWithRetry(new JavaDriverV4Run(client, partitions.get(0)));
+        timeWithRetry(new JavaDriverV4Run(client, partitions.getFirst()));
     }
 
     public static class Factory
@@ -372,29 +352,19 @@ public class ValidatingSchemaQuery extends PartitionOperation
     }
 
     private static ValidatingStatement prepare(StressSettings settings, String cql, boolean incLb, boolean incUb) {
-        switch (settings.mode.api) {
-            case JAVA_DRIVER4_NATIVE:
-                return new ValidatingStatement(settings.getJavaDriverV4Client().prepare(cql), incLb, incUb);
-            case JAVA_DRIVER_NATIVE:
-                return new ValidatingStatement(settings.getJavaDriverClient().prepare(cql), incLb, incUb);
-            default:
-                throw new RuntimeException("Unknown client type: " + settings.mode.api);
-        }
+        return switch (settings.mode.api) {
+            case JAVA_DRIVER4_NATIVE -> new ValidatingStatement(settings.getJavaDriverV4Client().prepare(cql), incLb, incUb);
+            case JAVA_DRIVER_NATIVE -> new ValidatingStatement(settings.getJavaDriverClient().prepare(cql), incLb, incUb);
+        };
     }
 
     private static String describeValue(Object value)
     {
         if (value == null) return "null";
-        if (value instanceof ByteBuffer)
-        {
-            ByteBuffer bb = (ByteBuffer) value;
+        if (value instanceof ByteBuffer bb)
             return hexPreview(bb, 16) + " (" + bb.remaining() + " bytes)";
-        }
-        if (value instanceof byte[])
-        {
-            byte[] b = (byte[]) value;
+        if (value instanceof byte[] b)
             return hexPreview(ByteBuffer.wrap(b), 16) + " (" + b.length + " bytes)";
-        }
         String s = String.valueOf(value);
         return s.length() > 80 ? s.substring(0, 80) + "..." : s;
     }

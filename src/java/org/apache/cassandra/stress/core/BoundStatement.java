@@ -7,7 +7,7 @@ public class BoundStatement {
     stmt = statement;
   }
 
-  public BoundStatement(shaded.com.datastax.oss.driver.api.core.cql.BoundStatement statement) {
+  public BoundStatement(com.datastax.oss.driver.api.core.cql.BoundStatement statement) {
     stmt = statement;
   }
 
@@ -15,7 +15,7 @@ public class BoundStatement {
     return (com.datastax.driver.core.BoundStatement) stmt;
   }
 
-  public shaded.com.datastax.oss.driver.api.core.cql.BoundStatement ToV4Value() {
-    return (shaded.com.datastax.oss.driver.api.core.cql.BoundStatement) stmt;
+  public com.datastax.oss.driver.api.core.cql.BoundStatement ToV4Value() {
+    return (com.datastax.oss.driver.api.core.cql.BoundStatement) stmt;
   }
 }

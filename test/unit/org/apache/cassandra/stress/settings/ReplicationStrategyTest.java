@@ -1,45 +1,31 @@
 package org.apache.cassandra.stress.settings;
 
-import org.junit.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class ReplicationStrategyTest
+class ReplicationStrategyTest
 {
-    private static void assertRejected(String name)
+    @ParameterizedTest
+    @CsvSource({
+        "NetworkTopologyStrategy, org.apache.cassandra.locator.NetworkTopologyStrategy",
+        "EverywhereStrategy, org.apache.cassandra.locator.EverywhereStrategy",
+        "org.apache.cassandra.locator.NetworkTopologyStrategy, org.apache.cassandra.locator.NetworkTopologyStrategy",
+    })
+    void returnsTheFullName(String name, String fullName)
     {
-        try
-        {
-            ReplicationStrategy.validate(name);
-            fail(name + " must be rejected");
-        }
-        catch (IllegalArgumentException e)
-        {
-            assertEquals("Invalid replication strategy: " + name, e.getMessage());
-        }
+        assertEquals(fullName, ReplicationStrategy.validate(name));
     }
 
-    @Test
-    public void acceptsShortNames()
+    @ParameterizedTest
+    @ValueSource(strings = { "SimpleStrategy", "org.apache.cassandra.locator.SimpleStrategy", "LocalStrategy",
+                             "OldNetworkTopologyStrategy", "java.lang.String" })
+    void rejectsOtherStrategies(String name)
     {
-        assertEquals("org.apache.cassandra.locator.NetworkTopologyStrategy", ReplicationStrategy.validate("NetworkTopologyStrategy"));
-        assertEquals("org.apache.cassandra.locator.EverywhereStrategy", ReplicationStrategy.validate("EverywhereStrategy"));
-    }
-
-    @Test
-    public void acceptsFullNames()
-    {
-        assertEquals("org.apache.cassandra.locator.NetworkTopologyStrategy", ReplicationStrategy.validate("org.apache.cassandra.locator.NetworkTopologyStrategy"));
-    }
-
-    @Test
-    public void rejectsRemovedStrategies()
-    {
-        assertRejected("SimpleStrategy");
-        assertRejected("org.apache.cassandra.locator.SimpleStrategy");
-        assertRejected("LocalStrategy");
-        assertRejected("OldNetworkTopologyStrategy");
-        assertRejected("java.lang.String");
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> ReplicationStrategy.validate(name));
+        assertEquals("Invalid replication strategy: " + name, e.getMessage());
     }
 }

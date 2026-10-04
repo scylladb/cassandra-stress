@@ -1,24 +1,9 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +23,7 @@ import org.apache.cassandra.stress.util.ResultLogger;
 import org.jctools.queues.atomic.SpscAtomicArrayQueue;
 import org.jctools.queues.atomic.SpscUnboundedAtomicArrayQueue;
 
-import com.google.common.util.concurrent.Uninterruptibles;
+import org.apache.cassandra.stress.util.Sleep;
 
 public class StressAction implements Runnable
 {
@@ -53,7 +38,6 @@ public class StressAction implements Runnable
 
     public void run()
     {
-        // creating keyspace and column families
         settings.maybeCreateKeyspaces();
 
         if (settings.command.count == 0)
@@ -64,7 +48,7 @@ public class StressAction implements Runnable
         }
 
         output.println("Sleeping 2s...");
-        Uninterruptibles.sleepUninterruptibly(2, TimeUnit.SECONDS);
+        Sleep.uninterruptibly(2, TimeUnit.SECONDS);
 
         if (!settings.command.noWarmup)
             warmup(settings.command.getFactory(settings));
@@ -73,11 +57,9 @@ public class StressAction implements Runnable
             ((settings.rate.threadCount != -1) && (settings.command.truncate == SettingsCommand.TruncateWhen.ALWAYS)))
             settings.command.truncateTables(settings);
 
-        // Required for creating a graph from the output file
         if (settings.rate.threadCount == -1)
             output.println("Thread count was not specified");
 
-        // TODO : move this to a new queue wrapper that gates progress based on a poisson (or configurable) distribution
         UniformRateLimiter rateLimiter = null;
         if (settings.rate.opsPerSecond > 0)
             rateLimiter = new UniformRateLimiter(settings.rate.opsPerSecond);
@@ -100,11 +82,9 @@ public class StressAction implements Runnable
             throw new RuntimeException("Failed to execute stress action");
     }
 
-    // type provided separately to support recursive call for mixed command with each command type it is performing
-    @SuppressWarnings("resource") // warmupOutput doesn't need closing
+    @SuppressWarnings("resource")
     private void warmup(OpDistributionFactory operations)
     {
-        // do 25% of iterations as warmup but no more than 50k (by default hotspot compiles methods after 10k invocations)
         int iterations = (settings.command.count >= 0
                           ? Math.min(50000, (int)(settings.command.count * 0.25))
                           : 50000) * settings.node.nodes.size();
@@ -119,8 +99,6 @@ public class StressAction implements Runnable
 
         for (OpDistributionFactory single : operations.each())
         {
-            // we need to warm up all the nodes in the cluster ideally, but we may not be the only stress instance;
-            // so warm up all the nodes we're speaking to only.
             output.println(String.format("Warming up %s with %d iterations...", single.desc(), iterations));
             boolean success = null != run(single, threads, iterations, 0, null, null, ResultLogger.NOOP, true);
             if (!success)
@@ -129,8 +107,6 @@ public class StressAction implements Runnable
 
     }
 
-    // TODO : permit varying more than just thread count
-    // TODO : vary thread count based on percentage improvement of previous increment, not by fixed amounts
     private boolean runMulti(boolean auto, UniformRateLimiter rateLimiter)
     {
         if (settings.command.targetUncertainty >= 0)
@@ -162,17 +138,15 @@ public class StressAction implements Runnable
             if (threadCount < 500)
                 threadCount += 100;
             else if (threadCount < 1500)
-                threadCount *= 1.2;
+                threadCount = (int) (threadCount * 1.2);
             else
-                threadCount *= 1.1;
+                threadCount = (int) (threadCount * 1.1);
 
             if (!results.isEmpty() && threadCount > settings.rate.maxThreads)
                 break;
 
             if (settings.command.type.updates)
             {
-                // pause an arbitrary period of time to let the commit log flush, etc. shouldn't make much difference
-                // as we only increase load, never decrease it
                 output.println("Sleeping for 15s");
                 try
                 {
@@ -182,10 +156,8 @@ public class StressAction implements Runnable
                     return false;
                 }
             }
-            // run until we have not improved throughput significantly for previous three runs
         } while (!auto || (hasAverageImprovement(results, 3, 0) && hasAverageImprovement(results, 5, settings.command.targetUncertainty)));
 
-        // summarise all results
         StressMetrics.summarise(runIds, results, output);
         return true;
     }
@@ -219,7 +191,7 @@ public class StressAction implements Runnable
         output.println(String.format("Running %s with %d threads %s",
                                      operations.desc(),
                                      threadCount,
-                                     durationUnits != null ? duration + " " + durationUnits.toString().toLowerCase()
+                                     durationUnits != null ? duration + " " + durationUnits.toString().toLowerCase(Locale.ROOT)
                                         : opCount > 0      ? "for " + opCount + " iteration"
                                                            : "until stderr of mean < " + settings.command.targetUncertainty));
         final WorkManager workManager;
@@ -241,11 +213,9 @@ public class StressAction implements Runnable
                                         done, start, releaseConsumers, anyFailed, workManager, metrics, rateLimiter);
         }
 
-        // starting worker threadCount
         for (int i = 0; i < threadCount; i++)
             consumers[i].start();
 
-        // wait for the lot of them to get their pants on
         try
         {
             start.await();
@@ -254,12 +224,10 @@ public class StressAction implements Runnable
         {
             throw new RuntimeException("Unexpected interruption", e);
         }
-        // start counting from NOW!
         if(rateLimiter != null)
         {
             rateLimiter.start();
         }
-        // release the hounds!!!
         releaseConsumers.countDown();
 
         metrics.start();
@@ -268,7 +236,6 @@ public class StressAction implements Runnable
         {
             try {
                 if(settings.errors.failFast) {
-                    // I'm assuming Consumers don't finish successfully ahead of set duration
                     anyFailed.await(duration, durationUnits);
                 } else {
                     done.await(duration, durationUnits);
@@ -311,10 +278,6 @@ public class StressAction implements Runnable
         return metrics;
     }
 
-    /**
-     * Provides a 'next operation time' for rate limited operation streams. The rate limiter is thread safe and is to be
-     * shared by all consumer threads.
-     */
     private static class UniformRateLimiter
     {
         long start = Long.MIN_VALUE;
@@ -331,10 +294,6 @@ public class StressAction implements Runnable
             start = System.nanoTime();
         }
 
-        /**
-         * @param partitionCount
-         * @return expect start time in ns for the operation
-         */
         long acquire(int partitionCount)
         {
             long currOpIndex = opIndex.getAndAdd(partitionCount);
@@ -342,9 +301,6 @@ public class StressAction implements Runnable
         }
     }
 
-    /**
-     * Provides a blocking stream of operations per consumer.
-     */
     private static class StreamOfOperations
     {
         private final OpDistribution operations;
@@ -358,11 +314,6 @@ public class StressAction implements Runnable
             this.workManager = workManager;
         }
 
-        /**
-         * This method will block until the next operation becomes available.
-         *
-         * @return next operation or null if no more ops are coming
-         */
         Operation nextOp()
         {
             Operation op = operations.next();
@@ -436,7 +387,6 @@ public class StressAction implements Runnable
             metrics.add(this);
         }
 
-
         public void run()
         {
             try
@@ -447,17 +397,10 @@ public class StressAction implements Runnable
 
                 try {
                     switch (clientType) {
-                        case JAVA_DRIVER_NATIVE:
-                            jclient = settings.getJavaDriverClient();
-                            break;
-                        case JAVA_DRIVER4_NATIVE:
-                            jv4client = settings.getJavaDriverV4Client();
-                            break;
-                        default:
-                            throw new IllegalStateException();
+                        case JAVA_DRIVER_NATIVE -> jclient = settings.getJavaDriverClient();
+                        case JAVA_DRIVER4_NATIVE -> jv4client = settings.getJavaDriverV4Client();
                     }
                 } finally {
-                    // synchronize the start of all the consumer threads
                     start.countDown();
                 }
 
@@ -468,25 +411,17 @@ public class StressAction implements Runnable
                         success = false;
                         break;
                     }
-                    // Assumption: All ops are thread local, operations are never shared across threads.
                     Operation op = opStream.nextOp();
                     if (op == null)
                         break;
 
                     try {
                         switch (clientType) {
-                            case JAVA_DRIVER4_NATIVE:
-                                op.run(jv4client);
-                                break;
-                            case JAVA_DRIVER_NATIVE:
-                                op.run(jclient);
-                                break;
-                            default:
-                                throw new IllegalStateException();
+                            case JAVA_DRIVER4_NATIVE -> op.run(jv4client);
+                            case JAVA_DRIVER_NATIVE -> op.run(jclient);
                         }
                     }
                     catch (NoSuchElementException e) {
-                        // Silently reiterate when iterator is exhausted
                     }
                     catch (Exception e) {
                         if (output == null)

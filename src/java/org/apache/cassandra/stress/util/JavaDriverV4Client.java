@@ -1,50 +1,32 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
-import io.netty.util.internal.logging.InternalLoggerFactory;
-import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.codecs.TimestampCodec;
-import shaded.com.datastax.oss.driver.api.core.AllNodesFailedException;
-import shaded.com.datastax.oss.driver.api.core.CqlSession;
-import shaded.com.datastax.oss.driver.api.core.CqlSessionBuilder;
-import shaded.com.datastax.oss.driver.api.core.ProtocolVersion;
-import shaded.com.datastax.oss.driver.api.core.config.DefaultDriverOption;
-import shaded.com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
-import shaded.com.datastax.oss.driver.api.core.cql.BoundStatementBuilder;
-import shaded.com.datastax.oss.driver.api.core.cql.ResultSet;
-import shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
-import shaded.com.datastax.oss.driver.api.core.metadata.EndPoint;
-import shaded.com.datastax.oss.driver.api.core.metadata.Metadata;
-import shaded.com.datastax.oss.driver.api.core.metadata.Node;
-import shaded.com.datastax.oss.driver.api.core.ssl.ProgrammaticSslEngineFactory;
-import shaded.com.datastax.oss.driver.api.core.ssl.SslEngineFactory;
-import shaded.com.datastax.oss.driver.api.core.type.codec.TypeCodec;
-import shaded.com.datastax.oss.driver.api.core.type.codec.TypeCodecs;
-import shaded.com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
-import shaded.com.datastax.oss.driver.api.core.type.codec.registry.MutableCodecRegistry;
-import shaded.com.datastax.oss.driver.internal.core.config.typesafe.DefaultProgrammaticDriverConfigLoaderBuilder;
-import shaded.com.datastax.oss.driver.internal.core.type.codec.registry.CodecRegistryConstants;
-import shaded.com.datastax.oss.driver.internal.core.type.codec.registry.DefaultCodecRegistry;
+import com.datastax.oss.driver.api.core.AllNodesFailedException;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.ProtocolVersion;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
+import com.datastax.oss.driver.api.core.cql.BoundStatementBuilder;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
+import com.datastax.oss.driver.api.core.metadata.EndPoint;
+import com.datastax.oss.driver.api.core.metadata.Metadata;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.ssl.ProgrammaticSslEngineFactory;
+import com.datastax.oss.driver.api.core.ssl.SslEngineFactory;
+import com.datastax.oss.driver.api.core.type.codec.TypeCodec;
+import com.datastax.oss.driver.api.core.type.codec.TypeCodecs;
+import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
+import com.datastax.oss.driver.api.core.type.codec.registry.MutableCodecRegistry;
+import com.datastax.oss.driver.internal.core.config.typesafe.DefaultProgrammaticDriverConfigLoaderBuilder;
+import com.datastax.oss.driver.internal.core.type.codec.registry.CodecRegistryConstants;
+import com.datastax.oss.driver.internal.core.type.codec.registry.DefaultCodecRegistry;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -55,20 +37,15 @@ import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, MetadataProvider
 {
-
-    static
-    {
-        InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
-    }
 
     public final List<String> hosts;
     public final int port;
@@ -84,8 +61,7 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
     private CqlSession session;
     private final JavaDriverV4ConfigBuilder loadBalancingPolicy;
 
-
-    private static final ConcurrentMap<String, PreparedStatement> stmts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, PreparedStatement> stmts = new ConcurrentHashMap<>();
 
     public JavaDriverV4Client(StressSettings settings, List<String> hosts, int port)
     {
@@ -102,8 +78,8 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         this.authProvider = settings.mode.authProvider.ToJavaDriverV4();
         this.encryptionOptions = encryptionOptions;
         this.loadBalancingPolicy = loadBalancingPolicy(settings);
-        this.connectionsPerHost = settings.mode.connectionsPerHost == null ? 8 : settings.mode.connectionsPerHost;
-        this.requestTimeout = settings.mode.requestTimeout == null ? 12000 : settings.mode.requestTimeout;
+        this.connectionsPerHost = Objects.requireNonNullElse(settings.mode.connectionsPerHost, 8);
+        this.requestTimeout = Objects.requireNonNullElse(settings.mode.requestTimeout, 12000);
 
         int maxThreadCount = 0;
         if (settings.rate.auto)
@@ -124,9 +100,6 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
                     builder = builder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_RACK, settings.node.rack);
                 }
 
-                // Driver 4 requires an explicit local DC when explicit contact points are provided.
-                // If the user didn't set one, we'll connect once without it, discover it from metadata,
-                // then rebuild the session with the correct value.
                 if (settings.node.datacenter != null) {
                     builder = builder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER, settings.node.datacenter);
                 }
@@ -140,46 +113,27 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
 
     public PreparedStatement prepare(String query)
     {
-        PreparedStatement stmt = stmts.get(query);
-        if (stmt != null)
-            return stmt;
-        synchronized (stmts)
-        {
-            stmt = stmts.get(query);
-            if (stmt != null)
-                return stmt;
-            stmt = new PreparedStatement(getSession().prepare(query));
-            stmts.put(query, stmt);
-        }
-        return stmt;
+        return stmts.computeIfAbsent(query, q -> new PreparedStatement(getSession().prepare(q)));
     }
 
-    // prepareCodecRegistry creates custom codec registry replacing some codecs types to replicate 3.x driver behavior.
     public MutableCodecRegistry prepareCodecRegistry()
     {
         return new DefaultCodecRegistry(
             "cassandraCustomCodecRegistry",
             Arrays.stream(CodecRegistryConstants.PRIMITIVE_CODECS).map(c -> {
               if ((c == TypeCodecs.TIMESTAMP)) {
-                // Default code converts TIMESTAMP to java.time.Instant, 3.x does it to java.time.Date
-                // So we need to replace it
                 return new TimestampCodec();
               }
               return c;
-            }).collect(Collectors.toList()).toArray(TypeCodec<?>[]::new)
+            }).toArray(TypeCodec<?>[]::new)
         ) {
         };
     }
 
     public void connect(ProtocolCompression compression) throws Exception
     {
-        // If the user didn't provide a local DC, first connect without it to discover it.
-        // Then reconnect with the discovered DC to satisfy driver requirements.
         if (session == null && loadBalancingPolicy != null)
         {
-            // settings.node.datacenter is captured in the loadBalancingPolicy closure,
-            // so just check the settings snapshot via the builder behavior:
-            // if no DC was provided, we attempt the discovery connect path.
         }
 
         try
@@ -188,15 +142,12 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         }
         catch (IllegalStateException e)
         {
-            // Most common case: missing local DC.
             if (e.getMessage() != null && e.getMessage().contains("local DC must be explicitly set"))
             {
-                // Build a temporary session without LB DC, discover it, then rebuild.
                 String discoveredDc = discoverLocalDatacenter(compression);
-                if (discoveredDc == null || discoveredDc.trim().isEmpty())
+                if (discoveredDc == null || discoveredDc.isBlank())
                     throw e;
 
-                // Now create a proper session using the discovered DC.
                 connectInternal(compression, discoveredDc);
                 return;
             }
@@ -215,8 +166,6 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         CqlSessionBuilder sessionBuilder = CqlSession.builder();
         configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
 
-        // Set request timeout. Default is 12 seconds to match driver 3.x behavior and allow schema operations.
-        // Driver 4.x defaults to 2 seconds which is too short for schema operations.
         configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofMillis(requestTimeout));
 
         if (protocolVersion != null)
@@ -230,7 +179,7 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
             if (chunks.length == 2)
                 return new InetSocketAddress(chunks[0], Integer.parseInt(chunks[1]));
             return new InetSocketAddress(chunks[0], this.port);
-        }).collect(Collectors.toList()));
+        }).toList());
 
         if (loadBalancingPolicy != null)
             configBuilder = loadBalancingPolicy.applyConfig(configBuilder);
@@ -273,8 +222,6 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
 
         sessionBuilder.withConfigLoader(configBuilder.build());
 
-        // If we were invoked for discovery, we must not throw on missing local DC.
-        // That means: build() may throw IllegalStateException, and caller handles it.
         session = sessionBuilder.withCodecRegistry(prepareCodecRegistry()).build();
 
         Metadata metadata = session.getMetadata();
@@ -294,7 +241,6 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
 
     private String discoverLocalDatacenter(ProtocolCompression compression) throws Exception
     {
-        // Create a minimal session without LB DC, read DC from metadata, then close.
         CqlSession tmp = null;
         try
         {
@@ -303,7 +249,6 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
 
             configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
 
-            // Set request timeout. Default is 12 seconds to match driver 3.x behavior and allow schema operations.
             configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofMillis(requestTimeout));
 
             if (protocolVersion != null)
@@ -316,12 +261,10 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
                 if (chunks.length == 2)
                     return new InetSocketAddress(chunks[0], Integer.parseInt(chunks[1]));
                 return new InetSocketAddress(chunks[0], this.port);
-            }).collect(Collectors.toList()));
+            }).toList());
 
-            // still apply rack setting if present (doesn't require DC)
             if (loadBalancingPolicy != null)
             {
-                // applyConfig will not set DC when settings.node.datacenter is null
                 configBuilder = loadBalancingPolicy.applyConfig(configBuilder);
             }
 
@@ -361,7 +304,6 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
             sessionBuilder.withConfigLoader(configBuilder.build());
             tmp = sessionBuilder.withCodecRegistry(prepareCodecRegistry()).build();
 
-            // Pick the first node's DC (works for single-DC test env; if mixed DCs, user should set it explicitly).
             for (Node node : tmp.getMetadata().getNodes().values())
             {
                 if (node.getDatacenter() != null)

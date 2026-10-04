@@ -1,20 +1,4 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.predefined;
 
 import java.nio.ByteBuffer;
@@ -65,20 +49,11 @@ public abstract class PredefinedOperation extends PartitionOperation
 
     protected ByteBuffer getKey()
     {
-        return (ByteBuffer) partitions.get(0).getPartitionKey(0);
+        return (ByteBuffer) partitions.getFirst().getPartitionKey(0);
     }
 
-    final class ColumnSelection
+    record ColumnSelection(int[] indices, int lb, int ub)
     {
-        final int[] indices;
-        final int lb, ub;
-        private ColumnSelection(int[] indices, int lb, int ub)
-        {
-            this.indices = indices;
-            this.lb = lb;
-            this.ub = ub;
-        }
-
         public <V> List<V> select(List<V> in)
         {
             List<V> out = new ArrayList<>();
@@ -129,7 +104,7 @@ public abstract class PredefinedOperation extends PartitionOperation
         {
             int leeway = totalCount - (count + o);
             int spreadover = count - c;
-            o += Math.round(rnd.nextDouble() * (leeway / (double) spreadover));
+            o = (int) (o + Math.round(rnd.nextDouble() * (leeway / (double) spreadover)));
             indices[c] = o + c;
             c++;
         }
@@ -148,7 +123,7 @@ public abstract class PredefinedOperation extends PartitionOperation
 
     protected List<ByteBuffer> getColumnValues(ColumnSelection columns)
     {
-        Row row = partitions.get(0).next();
+        Row row = partitions.getFirst().next();
         ByteBuffer[] r = new ByteBuffer[columns.count()];
         int c = 0;
         if (columns.indices != null)
@@ -162,53 +137,14 @@ public abstract class PredefinedOperation extends PartitionOperation
 
     public static Operation operation(Command type, Timer timer, PartitionGenerator generator, SeedManager seedManager, StressSettings settings, DistributionFactory counteradd)
     {
-        switch (type)
+        return switch (type)
         {
-            case READ:
-                switch(settings.mode.style)
-                {
-                    case CQL:
-                    case CQL_PREPARED:
-                        return new CqlReader(timer, generator, seedManager, settings);
-                    default:
-                        throw new UnsupportedOperationException();
-                }
-
-
-            case COUNTER_READ:
-                switch(settings.mode.style)
-                {
-                    case CQL:
-                    case CQL_PREPARED:
-                        return new CqlCounterGetter(timer, generator, seedManager, settings);
-                    default:
-                        throw new UnsupportedOperationException();
-                }
-
-            case WRITE:
-
-                switch(settings.mode.style)
-                {
-                    case CQL:
-                    case CQL_PREPARED:
-                        return new CqlInserter(timer, generator, seedManager, settings);
-                    default:
-                        throw new UnsupportedOperationException();
-                }
-
-            case COUNTER_WRITE:
-                switch(settings.mode.style)
-                {
-                    case CQL:
-                    case CQL_PREPARED:
-                        return new CqlCounterAdder(counteradd, timer, generator, seedManager, settings);
-                    default:
-                        throw new UnsupportedOperationException();
-                }
-
-        }
-
-        throw new UnsupportedOperationException();
+            case READ -> new CqlReader(timer, generator, seedManager, settings);
+            case COUNTER_READ -> new CqlCounterGetter(timer, generator, seedManager, settings);
+            case WRITE -> new CqlInserter(timer, generator, seedManager, settings);
+            case COUNTER_WRITE -> new CqlCounterAdder(counteradd, timer, generator, seedManager, settings);
+            default -> throw new UnsupportedOperationException();
+        };
     }
 
 }

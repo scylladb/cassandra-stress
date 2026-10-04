@@ -5,10 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-
-/**
- * For specifying storage options
- */
 class OptionStorage extends OptionMulti
 {
     private final OptionSimple type = new OptionSimple("type=", "LOCAL|S3", null, "The storage backend to use", false);

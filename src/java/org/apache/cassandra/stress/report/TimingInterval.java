@@ -1,29 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.report;
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
 
 import org.HdrHistogram.Histogram;
 
-// represents measurements taken over an interval of time
-// used for both single timer results and merged timer results
 public final class TimingInterval
 {
     private final Histogram responseTime = new Histogram(3);
@@ -31,11 +10,9 @@ public final class TimingInterval
     private final Histogram waitTime = new Histogram(3);
 
     public static final long[] EMPTY_SAMPLE = new long[0];
-    // nanos
     private long startNs = Long.MAX_VALUE;
     private long endNs = Long.MIN_VALUE;
 
-    // discrete
     public long partitionCount;
     public long rowCount;
     public long errorCount;
@@ -51,7 +28,6 @@ public final class TimingInterval
                              startNs, endNs, getLatencyHistogram().getMaxValue(),
                              partitionCount, rowCount, getLatencyHistogram().getTotalCount(), errorCount);
     }
-
 
     public double opRate()
     {
@@ -88,11 +64,6 @@ public final class TimingInterval
         return getLatencyHistogram().getValueAtPercentile(50.0) * 0.000001d;
     }
 
-
-    /**
-     * @param percentile between 0.0 and 100.0
-     * @return latency in milliseconds at percentile
-     */
     public double latencyAtPercentileMs(double percentile)
     {
         return getLatencyHistogram().getValueAtPercentile(percentile) * 0.000001d;
@@ -149,27 +120,25 @@ public final class TimingInterval
 
     String getStringValue(TimingParameter value, double rank)
     {
-        switch (value)
+        return switch (value)
         {
-            case OPRATE:         return String.format("%,.0f", opRate());
-            case ROWRATE:        return String.format("%,.0f", rowRate());
-            case ADJROWRATE:     return String.format("%,.0f", adjustedRowRate());
-            case PARTITIONRATE:  return String.format("%,.0f", partitionRate());
-            case MEANLATENCY:    return String.format("%,.1f", meanLatencyMs());
-            case MAXLATENCY:     return String.format("%,.1f", maxLatencyMs());
-            case MEDIANLATENCY:  return String.format("%,.1f", medianLatencyMs());
-            case RANKLATENCY:    return String.format("%,.1f", latencyAtPercentileMs(rank));
-            case ERRORCOUNT:     return String.format("%,d", errorCount);
-            case PARTITIONCOUNT: return String.format("%,d", partitionCount);
-            default:             throw new IllegalStateException();
-        }
+            case OPRATE -> String.format("%,.0f", opRate());
+            case ROWRATE -> String.format("%,.0f", rowRate());
+            case ADJROWRATE -> String.format("%,.0f", adjustedRowRate());
+            case PARTITIONRATE -> String.format("%,.0f", partitionRate());
+            case MEANLATENCY -> String.format("%,.1f", meanLatencyMs());
+            case MAXLATENCY -> String.format("%,.1f", maxLatencyMs());
+            case MEDIANLATENCY -> String.format("%,.1f", medianLatencyMs());
+            case RANKLATENCY -> String.format("%,.1f", latencyAtPercentileMs(rank));
+            case ERRORCOUNT -> String.format("%,d", errorCount);
+            case PARTITIONCOUNT -> String.format("%,d", partitionCount);
+        };
     }
 
     public long operationCount()
     {
         return getLatencyHistogram().getTotalCount();
     }
-
 
     public void startNanos(long started)
     {
@@ -179,7 +148,6 @@ public final class TimingInterval
     {
         this.endNs = ended;
     }
-
 
     public void reset()
     {

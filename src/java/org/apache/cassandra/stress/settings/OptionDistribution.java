@@ -1,25 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.util.*;
 import java.util.function.Function;
@@ -34,9 +14,6 @@ import org.apache.commons.math3.random.JDKRandomGenerator;
 
 import org.apache.cassandra.stress.generate.*;
 
-/**
- * For selecting a mathematical distribution
- */
 public class OptionDistribution extends Option
 {
 
@@ -73,7 +50,7 @@ public class OptionDistribution extends Option
     @Override
     public boolean accept(String param)
     {
-        if (!param.toLowerCase().startsWith(prefix))
+        if (!param.toLowerCase(Locale.ROOT).startsWith(prefix))
             return false;
         spec = param.substring(prefix.length());
         return true;
@@ -86,7 +63,7 @@ public class OptionDistribution extends Option
             throw new IllegalArgumentException("Illegal distribution specification: " + spec);
         boolean inverse = m.group(1).equals("~");
         String name = m.group(2);
-        Impl impl = LOOKUP.get(name.toLowerCase());
+        Impl impl = LOOKUP.get(name.toLowerCase(Locale.ROOT));
         if (impl == null)
             throw new IllegalArgumentException("Illegal distribution type: " + name);
         List<String> params = new ArrayList<>();
@@ -171,8 +148,6 @@ public class OptionDistribution extends Option
         LOOKUP = lookup;
     }
 
-    // factory builders
-
     private static interface Impl
     {
         public DistributionFactory getFactory(List<String> params);
@@ -181,7 +156,7 @@ public class OptionDistribution extends Option
     public static long parseLong(String value)
     {
         long multiplier = 1;
-        value = value.trim().toLowerCase();
+        value = value.trim().toLowerCase(Locale.ROOT);
         switch (value.charAt(value.length() - 1))
         {
             case 'b':
@@ -205,7 +180,7 @@ public class OptionDistribution extends Option
                 throw new IllegalArgumentException("Invalid parameter list for gaussian distribution: " + params);
             try
             {
-                String[] bounds = params.get(0).split("\\.\\.+");
+                String[] bounds = params.getFirst().split("\\.\\.+");
                 final long min = parseLong(bounds[0]);
                 final long max = parseLong(bounds[1]);
                 final double mean, stdev;
@@ -239,14 +214,12 @@ public class OptionDistribution extends Option
                 throw new IllegalArgumentException("Invalid parameter list for gaussian distribution: " + params);
             try
             {
-                String[] bounds = params.get(0).split("\\.\\.+");
+                String[] bounds = params.getFirst().split("\\.\\.+");
                 final long min = parseLong(bounds[0]);
                 final long max = parseLong(bounds[1]);
                 if (min == max)
                     return new FixedFactory(min);
                 ExponentialDistribution findBounds = new ExponentialDistribution(1d);
-                // max probability should be roughly equal to accuracy of (max-min) to ensure all values are visitable,
-                // over entire range, but this results in overly skewed distribution, so take sqrt
                 final double mean = (max - min) / findBounds.inverseCumulativeProbability(1d - Math.sqrt(1d/(max-min)));
                 return new ExpFactory(min, max, mean);
             } catch (Exception ignore)
@@ -265,15 +238,13 @@ public class OptionDistribution extends Option
                 throw new IllegalArgumentException("Invalid parameter list for extreme (Weibull) distribution: " + params);
             try
             {
-                String[] bounds = params.get(0).split("\\.\\.+");
+                String[] bounds = params.getFirst().split("\\.\\.+");
                 final long min = parseLong(bounds[0]);
                 final long max = parseLong(bounds[1]);
                 if (min == max)
                     return new FixedFactory(min);
                 final double shape = Double.parseDouble(params.get(1));
                 WeibullDistribution findBounds = new WeibullDistribution(shape, 1d);
-                // max probability should be roughly equal to accuracy of (max-min) to ensure all values are visitable,
-                // over entire range, but this results in overly skewed distribution, so take sqrt
                 final double scale = (max - min) / findBounds.inverseCumulativeProbability(1d - Math.sqrt(1d/(max-min)));
                 return new ExtremeFactory(min, max, shape, scale);
             } catch (Exception ignore)
@@ -292,14 +263,12 @@ public class OptionDistribution extends Option
                 throw new IllegalArgumentException("Invalid parameter list for quantized extreme (Weibull) distribution: " + params);
             try
             {
-                String[] bounds = params.get(0).split("\\.\\.+");
+                String[] bounds = params.getFirst().split("\\.\\.+");
                 final long min = parseLong(bounds[0]);
                 final long max = parseLong(bounds[1]);
                 final double shape = Double.parseDouble(params.get(1));
                 final int quantas = Integer.parseInt(params.get(2));
                 WeibullDistribution findBounds = new WeibullDistribution(shape, 1d);
-                // max probability should be roughly equal to accuracy of (max-min) to ensure all values are visitable,
-                // over entire range, but this results in overly skewed distribution, so take sqrt
                 final double scale = (max - min) / findBounds.inverseCumulativeProbability(1d - Math.sqrt(1d/(max-min)));
                 if (min == max)
                     return new FixedFactory(min);
@@ -321,7 +290,7 @@ public class OptionDistribution extends Option
                 throw new IllegalArgumentException("Invalid parameter list for uniform distribution: " + params);
             try
             {
-                String[] bounds = params.get(0).split("\\.\\.+");
+                String[] bounds = params.getFirst().split("\\.\\.+");
                 final long min = parseLong(bounds[0]);
                 final long max = parseLong(bounds[1]);
                 if (min == max)
@@ -344,7 +313,7 @@ public class OptionDistribution extends Option
                 throw new IllegalArgumentException("Invalid parameter list for fixed distribution: " + params);
             try
             {
-                final long key = parseLong(params.get(0));
+                final long key = parseLong(params.getFirst());
                 return new FixedFactory(key);
             } catch (Exception ignore)
             {
@@ -365,7 +334,7 @@ public class OptionDistribution extends Option
             final long max;
             try
             {
-                String[] bounds = params.get(0).split("\\.\\.+");
+                String[] bounds = params.getFirst().split("\\.\\.+");
                 min = parseLong(bounds[0]);
                 max = parseLong(bounds[1]);
             } catch (Exception ignore)
@@ -383,7 +352,6 @@ public class OptionDistribution extends Option
         }
     }
 
-
     private static final class InverseFactory implements DistributionFactory
     {
         final DistributionFactory wrapped;
@@ -399,8 +367,6 @@ public class OptionDistribution extends Option
         public String getConfigAsString(){return "Inverse: " + wrapped.getConfigAsString();};
 
     }
-
-    // factories
 
     private static final class ExpFactory implements DistributionFactory
     {
@@ -546,7 +512,6 @@ public class OptionDistribution extends Option
         public String getConfigAsString(){return String.format("Sequence:  start=%d,end=%d", start, end);}
 
     }
-
 
     @Override
     public int hashCode()

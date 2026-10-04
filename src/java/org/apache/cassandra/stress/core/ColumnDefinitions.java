@@ -10,7 +10,7 @@ public class ColumnDefinitions {
     this.columnDefinitions = columnDefinitions;
   }
 
-  public ColumnDefinitions(shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinitions columnDefinitions) {
+  public ColumnDefinitions(com.datastax.oss.driver.api.core.cql.ColumnDefinitions columnDefinitions) {
     this.columnDefinitions = columnDefinitions;
   }
 
@@ -18,15 +18,15 @@ public class ColumnDefinitions {
     return (com.datastax.driver.core.ColumnDefinitions) columnDefinitions;
   }
 
-  public shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinitions ToV4Value() {
-    return (shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinitions) columnDefinitions;
+  public com.datastax.oss.driver.api.core.cql.ColumnDefinitions ToV4Value() {
+    return (com.datastax.oss.driver.api.core.cql.ColumnDefinitions) columnDefinitions;
   }
 
   public boolean isDateType(int i) {
     if (columnDefinitions instanceof com.datastax.driver.core.ColumnDefinitions) {
       return ToV3Value().getType(i).getName().equals(v3DateTypeName);
     }
-    return ToV4Value().get(i).getType() == shaded.com.datastax.oss.driver.api.core.type.DataTypes.DATE;
+    return ToV4Value().get(i).getType() == com.datastax.oss.driver.api.core.type.DataTypes.DATE;
   }
 
   public int size() {

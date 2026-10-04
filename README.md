@@ -202,7 +202,6 @@ There are several operation types:
   See <http://www.datastax.com/dev/blog/improved-cassandra-2-1-stress-tool-benchmark-any-schema>
 * help: Print help for a command or option
 * print: Inspect the output of a distribution definition
-* legacy: Legacy support mode
 
 ### Primary Options
 
@@ -210,7 +209,7 @@ There are several operation types:
 * `-insert`: Insert specific options relating to various methods for batching and splitting partition updates
 * `-col`: Column details such as size and count distribution, data generator, names, comparator and if super columns should be used
 * `-rate`: Thread count, rate limit or automatic mode (default is auto)
-* `-mode`: Thrift or CQL with options
+* `-mode`: CQL driver and connection options
 * `-errors`: How to handle errors when encountered during stress
 * `-sample`: Specify the number of samples to collect for measuring latency
 * `-schema`: Replication settings, compression, compaction, etc.

@@ -1,45 +1,61 @@
 package org.apache.cassandra.stress.settings;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class SettingsNodeTest
+class SettingsNodeTest
 {
     private static SettingsNode parse(String... params)
     {
-        Map<String, String[]> clArgs = new HashMap<>();
-        clArgs.put("-node", params);
-        return SettingsNode.get(clArgs);
+        return SettingsNode.get(new HashMap<>(Map.of("-node", params)));
     }
 
     @Test
-    public void readsRemoteDc()
+    void readsRemoteDc()
     {
-        assertEquals(Integer.valueOf(5), parse("remote-dc=5").usedHostsPerRemoteDc);
+        assertEquals(5, parse("remote-dc=5").usedHostsPerRemoteDc);
     }
 
     @Test
-    public void leavesRemoteDcUnsetByDefault()
+    void leavesRemoteDcUnsetByDefault()
     {
         assertNull(parse().usedHostsPerRemoteDc);
     }
 
     @Test
-    public void readsRemoteDcWithOtherOptions()
+    void readsRemoteDcWithOtherOptions()
     {
         SettingsNode settings = parse("datacenter=dc1", "remote-dc=3", "localhost");
         assertEquals("dc1", settings.datacenter);
-        assertEquals(Integer.valueOf(3), settings.usedHostsPerRemoteDc);
+        assertEquals(3, settings.usedHostsPerRemoteDc);
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void rejectsZeroRemoteDc()
+    @Test
+    void rejectsZeroRemoteDc()
     {
-        parse("remote-dc=0");
+        assertThrows(IllegalArgumentException.class, () -> parse("remote-dc=0"));
+    }
+
+    @Test
+    void readsNodesFromAFileAndSkipsEmptyLines(@TempDir Path dir) throws Exception
+    {
+        Path file = Files.writeString(dir.resolve("nodes"), "10.0.0.1\n\n10.0.0.2\n");
+        assertEquals(List.of("10.0.0.1", "10.0.0.2"), parse("file=" + file).nodes);
+    }
+
+    @Test
+    void readsCommaSeparatedNodes()
+    {
+        assertEquals(List.of("10.0.0.1", "10.0.0.2"), parse("10.0.0.1,10.0.0.2").nodes);
     }
 }

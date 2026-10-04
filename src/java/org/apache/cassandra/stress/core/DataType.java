@@ -1,6 +1,7 @@
 package org.apache.cassandra.stress.core;
 
 import java.util.List;
+import java.util.Locale;
 
 public class DataType {
   final private Object type;
@@ -9,7 +10,7 @@ public class DataType {
     this.type = type;
   }
 
-  public DataType(shaded.com.datastax.oss.driver.api.core.type.DataType type) {
+  public DataType(com.datastax.oss.driver.api.core.type.DataType type) {
     this.type = type;
   }
 
@@ -17,15 +18,15 @@ public class DataType {
     return (com.datastax.driver.core.DataType) type;
   }
 
-  public shaded.com.datastax.oss.driver.api.core.type.DataType ToV4Value() {
-    return (shaded.com.datastax.oss.driver.api.core.type.DataType) type;
+  public com.datastax.oss.driver.api.core.type.DataType ToV4Value() {
+    return (com.datastax.oss.driver.api.core.type.DataType) type;
   }
 
   public String getName() {
     if (type instanceof com.datastax.driver.core.DataType) {
       return ToV3Value().getName().name();
     }
-    return ToV4Value().asCql(false, false).toUpperCase();
+    return ToV4Value().asCql(false, false).toUpperCase(Locale.ROOT);
   }
 
   public boolean isFrozen() {
@@ -33,17 +34,17 @@ public class DataType {
       return ToV3Value().isFrozen();
     }
 
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.ListType) {
-      return ((shaded.com.datastax.oss.driver.api.core.type.ListType)type).isFrozen();
+    if (type instanceof com.datastax.oss.driver.api.core.type.ListType) {
+      return ((com.datastax.oss.driver.api.core.type.ListType)type).isFrozen();
     }
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.SetType) {
-      return ((shaded.com.datastax.oss.driver.api.core.type.SetType)type).isFrozen();
+    if (type instanceof com.datastax.oss.driver.api.core.type.SetType) {
+      return ((com.datastax.oss.driver.api.core.type.SetType)type).isFrozen();
     }
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.MapType) {
-      return ((shaded.com.datastax.oss.driver.api.core.type.MapType)type).isFrozen();
+    if (type instanceof com.datastax.oss.driver.api.core.type.MapType) {
+      return ((com.datastax.oss.driver.api.core.type.MapType)type).isFrozen();
     }
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.UserDefinedType) {
-      return ((shaded.com.datastax.oss.driver.api.core.type.UserDefinedType)type).isFrozen();
+    if (type instanceof com.datastax.oss.driver.api.core.type.UserDefinedType) {
+      return ((com.datastax.oss.driver.api.core.type.UserDefinedType)type).isFrozen();
     }
     return false;
   }
@@ -54,29 +55,25 @@ public class DataType {
       if (!casted.isCollection()) {
         return "";
       }
-      return ToV3Value().getTypeArguments().get(0).getName().name();
+      return ToV3Value().getTypeArguments().getFirst().getName().name();
     }
 
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.ListType) {
-      return ((shaded.com.datastax.oss.driver.api.core.type.ListType) type).getElementType().asCql(false, false);
+    if (type instanceof com.datastax.oss.driver.api.core.type.ListType) {
+      return ((com.datastax.oss.driver.api.core.type.ListType) type).getElementType().asCql(false, false);
     }
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.SetType) {
-      return ((shaded.com.datastax.oss.driver.api.core.type.SetType) type).getElementType().asCql(false, false);
+    if (type instanceof com.datastax.oss.driver.api.core.type.SetType) {
+      return ((com.datastax.oss.driver.api.core.type.SetType) type).getElementType().asCql(false, false);
     }
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.MapType) {
-      // Maps are not supported, so it should never get here.
-      return ((shaded.com.datastax.oss.driver.api.core.type.MapType) type).getKeyType().asCql(false, false);
+    if (type instanceof com.datastax.oss.driver.api.core.type.MapType) {
+      return ((com.datastax.oss.driver.api.core.type.MapType) type).getKeyType().asCql(false, false);
     }
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.UserDefinedType) {
-      // Here it reproduce v3 driver behavior, it returns it empty
+    if (type instanceof com.datastax.oss.driver.api.core.type.UserDefinedType) {
       return "";
     }
     return ToV4Value().asCql(false, false);
   }
 
   public boolean isSupported() {
-    // Maps are not supported due to lack of a corresponding generator.
-    // Embedded collections are not supported for the same reason.
     if  (type instanceof com.datastax.driver.core.DataType) {
       com.datastax.driver.core.DataType dataType = ToV3Value();
       if (!dataType.isCollection())
@@ -94,19 +91,19 @@ public class DataType {
     return isV4Supported(ToV4Value());
   }
 
-  private static boolean isV4Supported(shaded.com.datastax.oss.driver.api.core.type.DataType type) {
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.ListType) {
-      return isV4Supported(((shaded.com.datastax.oss.driver.api.core.type.ListType) type).getElementType());
+  private static boolean isV4Supported(com.datastax.oss.driver.api.core.type.DataType type) {
+    if (type instanceof com.datastax.oss.driver.api.core.type.ListType) {
+      return isV4Supported(((com.datastax.oss.driver.api.core.type.ListType) type).getElementType());
     }
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.SetType) {
-      return isV4Supported(((shaded.com.datastax.oss.driver.api.core.type.SetType) type).getElementType());
+    if (type instanceof com.datastax.oss.driver.api.core.type.SetType) {
+      return isV4Supported(((com.datastax.oss.driver.api.core.type.SetType) type).getElementType());
     }
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.MapType) {
-      return isV4Supported(((shaded.com.datastax.oss.driver.api.core.type.MapType) type).getKeyType()) &&
-          isV4Supported(((shaded.com.datastax.oss.driver.api.core.type.MapType) type).getValueType());
+    if (type instanceof com.datastax.oss.driver.api.core.type.MapType) {
+      return isV4Supported(((com.datastax.oss.driver.api.core.type.MapType) type).getKeyType()) &&
+          isV4Supported(((com.datastax.oss.driver.api.core.type.MapType) type).getValueType());
     }
-    if (type instanceof shaded.com.datastax.oss.driver.api.core.type.UserDefinedType) {
-      return ((shaded.com.datastax.oss.driver.api.core.type.UserDefinedType) type).getFieldTypes().stream().allMatch(DataType::isV4Supported);
+    if (type instanceof com.datastax.oss.driver.api.core.type.UserDefinedType) {
+      return ((com.datastax.oss.driver.api.core.type.UserDefinedType) type).getFieldTypes().stream().allMatch(DataType::isV4Supported);
     }
     return true;
   }

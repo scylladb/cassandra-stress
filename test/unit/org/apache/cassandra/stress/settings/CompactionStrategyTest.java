@@ -1,45 +1,27 @@
 package org.apache.cassandra.stress.settings;
 
-import org.junit.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class CompactionStrategyTest
+class CompactionStrategyTest
 {
-    private static void assertRejected(String name)
+    @ParameterizedTest
+    @ValueSource(strings = { "SizeTieredCompactionStrategy", "LeveledCompactionStrategy", "TimeWindowCompactionStrategy",
+                             "DateTieredCompactionStrategy", "IncrementalCompactionStrategy",
+                             "org.apache.cassandra.db.compaction.LeveledCompactionStrategy" })
+    void returnsTheNameAsGiven(String name)
     {
-        try
-        {
-            CompactionStrategy.validate(name);
-            fail(name + " must be rejected");
-        }
-        catch (IllegalArgumentException e)
-        {
-            assertEquals("Invalid compaction strategy: " + name, e.getMessage());
-        }
+        assertEquals(name, CompactionStrategy.validate(name));
     }
 
-    @Test
-    public void returnsShortNamesAsGiven()
+    @ParameterizedTest
+    @ValueSource(strings = { "NoSuchCompactionStrategy", "java.lang.String", "org.apache.cassandra.locator.LeveledCompactionStrategy" })
+    void rejectsUnknownStrategies(String name)
     {
-        for (String name : new String[]{ "SizeTieredCompactionStrategy", "LeveledCompactionStrategy", "TimeWindowCompactionStrategy",
-                                         "DateTieredCompactionStrategy", "IncrementalCompactionStrategy" })
-            assertEquals(name, CompactionStrategy.validate(name));
-    }
-
-    @Test
-    public void returnsFullNamesAsGiven()
-    {
-        assertEquals("org.apache.cassandra.db.compaction.LeveledCompactionStrategy",
-                     CompactionStrategy.validate("org.apache.cassandra.db.compaction.LeveledCompactionStrategy"));
-    }
-
-    @Test
-    public void rejectsUnknownStrategies()
-    {
-        assertRejected("NoSuchCompactionStrategy");
-        assertRejected("java.lang.String");
-        assertRejected("org.apache.cassandra.locator.LeveledCompactionStrategy");
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> CompactionStrategy.validate(name));
+        assertEquals("Invalid compaction strategy: " + name, e.getMessage());
     }
 }

@@ -1,25 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -38,8 +18,6 @@ public class SettingsPort implements Serializable
         nativePort = Integer.parseInt(options.nativePort.value());
     }
 
-    // Option Declarations
-
     private static final class PortOptions extends GroupedOptions
     {
         final OptionSimple nativePort = new OptionSimple("native=", "[0-9]+", "9042", "Use this port for the Cassandra native protocol", false);
@@ -51,12 +29,10 @@ public class SettingsPort implements Serializable
         }
     }
 
-    // CLI Utility Methods
     public void printSettings(ResultLogger out)
     {
         out.printf("  Native Port: %d%n", nativePort);
     }
-
 
     public static SettingsPort get(Map<String, String[]> clArgs)
     {
@@ -65,6 +41,7 @@ public class SettingsPort implements Serializable
         {
             return new SettingsPort(new PortOptions());
         }
+        rejectRemovedPorts(params);
         PortOptions options = GroupedOptions.select(params, new PortOptions());
         if (options == null)
         {
@@ -73,6 +50,20 @@ public class SettingsPort implements Serializable
             System.exit(1);
         }
         return new SettingsPort(options);
+    }
+
+    private static final List<String> REMOVED_PORTS = Arrays.asList("jmx=", "thrift=");
+
+    private static void rejectRemovedPorts(String[] params)
+    {
+        for (String param : params)
+        {
+            for (String removed : REMOVED_PORTS)
+            {
+                if (param.startsWith(removed))
+                    throw new IllegalArgumentException("Port option " + removed + " was removed. Use -port native=.");
+            }
+        }
     }
 
     public static void printHelp()

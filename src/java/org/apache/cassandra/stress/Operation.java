@@ -1,25 +1,9 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HexFormat;
 import java.util.NoSuchElementException;
 
 import com.datastax.driver.core.exceptions.OverloadedException;
@@ -51,18 +35,12 @@ public abstract class Operation
 
     public abstract int ready(WorkManager permits);
 
-    // shared hex-dump preview used by validation diagnostics: caps at maxBytes and appends "..." if truncated
     protected static String hexPreview(ByteBuffer bb, int maxBytes)
     {
         if (bb == null) return "null";
-        ByteBuffer dup = bb.duplicate();
-        int len = Math.min(dup.remaining(), maxBytes);
-        StringBuilder sb = new StringBuilder("0x");
-        for (int i = 0; i < len; i++)
-            sb.append(String.format("%02x", dup.get() & 0xFF));
-        if (dup.hasRemaining())
-            sb.append("...");
-        return sb.toString();
+        byte[] head = new byte[Math.min(bb.remaining(), maxBytes)];
+        bb.duplicate().get(head);
+        return "0x" + HexFormat.of().formatHex(head) + (bb.remaining() > maxBytes ? "..." : "");
     }
 
     public boolean isWrite()
@@ -96,12 +74,9 @@ public abstract class Operation
                 break;
             }
             catch (NoSuchElementException e) {
-                // Pass thru iterator exhaustion exception
                 throw e;
             }
             catch (OverloadedException e) {
-                // The number of in-flight hints currently being written on the
-                // coordinator exceeds the limit, so we need to back off
                 try
                 {
                     if (settings.log.level.compareTo(SettingsLog.Level.MINIMAL) > 0) {
@@ -116,19 +91,9 @@ public abstract class Operation
             {
                 switch (settings.log.level)
                 {
-                    case MINIMAL:
-                        break;
-
-                    case NORMAL:
-                        System.err.println(e);
-                        break;
-
-                    case VERBOSE:
-                        e.printStackTrace(System.err);
-                        break;
-
-                    default:
-                        throw new AssertionError();
+                    case MINIMAL -> { }
+                    case NORMAL -> System.err.println(e);
+                    case VERBOSE -> e.printStackTrace(System.err);
                 }
                 exceptionMessage = getExceptionMessage(e);
             }

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.cert.X509Certificate;
 import java.util.Date;
@@ -33,7 +35,7 @@ public final class SSLFactory
 
             if (buildTruststore)
             {
-                try (FileInputStream tsf = new FileInputStream(options.truststore))
+                try (InputStream tsf = Files.newInputStream(Paths.get(options.truststore)))
                 {
                     TrustManagerFactory tmf = TrustManagerFactory.getInstance(options.algorithm);
                     KeyStore ts = KeyStore.getInstance(options.store_type);
@@ -43,7 +45,7 @@ public final class SSLFactory
                 }
             }
 
-            try (FileInputStream ksf = new FileInputStream(options.keystore))
+            try (InputStream ksf = Files.newInputStream(Paths.get(options.keystore)))
             {
                 KeyManagerFactory kmf = KeyManagerFactory.getInstance(options.algorithm);
                 KeyStore ks = KeyStore.getInstance(options.store_type);

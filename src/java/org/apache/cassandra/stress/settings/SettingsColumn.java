@@ -1,25 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -34,9 +14,6 @@ import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.DistributionFixed;
 import org.apache.cassandra.stress.util.ResultLogger;
 
-/**
- * For parsing column options
- */
 public class SettingsColumn implements Serializable
 {
 
@@ -118,8 +95,6 @@ public class SettingsColumn implements Serializable
         return decoded;
     }
 
-    // Option Declarations
-
     private static abstract class Options extends GroupedOptions
     {
         final OptionSimple slice = new OptionSimple("slice", "", null, "If set, range slices will be used for reads, otherwise a names query will be", false);
@@ -149,7 +124,6 @@ public class SettingsColumn implements Serializable
         }
     }
 
-    // CLI Utility Methods
     public void printSettings(ResultLogger out)
     {
         out.printf("  Max Columns Per Key: %d%n",maxColumnsPerKey);
@@ -164,7 +138,6 @@ public class SettingsColumn implements Serializable
             out.println("  Count Distribution: " + countDistribution.getConfigAsString());
         };
     }
-
 
     static SettingsColumn get(Map<String, String[]> clArgs)
     {

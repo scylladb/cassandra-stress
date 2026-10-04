@@ -5,8 +5,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 
-import org.apache.commons.lang3.StringUtils;
-
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 
 public abstract class AbstractTextSerializer implements TypeSerializer<String>
@@ -50,6 +48,6 @@ public abstract class AbstractTextSerializer implements TypeSerializer<String>
     {
         return buffer == null
              ? "null"
-             : '\'' + StringUtils.replace(deserialize(buffer), "'", "''") + '\'';
+             : '\'' + deserialize(buffer).replace("'", "''") + '\'';
     }
 }

@@ -1,30 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.cassandra.stress.generate.DistributionFactory;
@@ -47,7 +28,7 @@ public class SettingsPopulation implements Serializable
 
     private SettingsPopulation(GenerateOptions options, DistributionOptions dist, SequentialOptions pop)
     {
-        this.order = !options.contents.setByUser() ? PartitionGenerator.Order.ARBITRARY : PartitionGenerator.Order.valueOf(options.contents.value().toUpperCase());
+        this.order = !options.contents.setByUser() ? PartitionGenerator.Order.ARBITRARY : PartitionGenerator.Order.valueOf(options.contents.value().toUpperCase(Locale.ROOT));
         if (dist != null)
         {
             this.distribution = dist.seed.get();
@@ -74,8 +55,6 @@ public class SettingsPopulation implements Serializable
     {
         this(options, null, options);
     }
-
-    // Option Declarations
 
     private static class GenerateOptions extends GroupedOptions
     {
@@ -131,8 +110,6 @@ public class SettingsPopulation implements Serializable
         return List.copyOf(options);
     }
 
-    // CLI Utility Methods
-
     public void printSettings(ResultLogger out)
     {
         if (distribution != null)
@@ -155,26 +132,21 @@ public class SettingsPopulation implements Serializable
 
     public static SettingsPopulation get(Map<String, String[]> clArgs, SettingsCommand command)
     {
-        // set default size to number of commands requested, unless set to err convergence, then use 1M
         String defaultLimit = command.count <= 0 ? "1000000" : Long.toString(command.count);
 
         String[] params = clArgs.remove("-pop");
         if (params == null)
         {
-            if (command instanceof SettingsCommandUser && ((SettingsCommandUser)command).hasInsertOnly())
+            if (command instanceof SettingsCommandUser user && user.hasInsertOnly())
             {
                 return new SettingsPopulation(new SequentialOptions(defaultLimit));
             }
 
-            // return defaults:
-            switch(command.type)
+            return switch (command.type)
             {
-                case WRITE:
-                case COUNTER_WRITE:
-                    return new SettingsPopulation(new SequentialOptions(defaultLimit));
-                default:
-                    return new SettingsPopulation(new DistributionOptions(defaultLimit));
-            }
+                case WRITE, COUNTER_WRITE -> new SettingsPopulation(new SequentialOptions(defaultLimit));
+                default -> new SettingsPopulation(new DistributionOptions(defaultLimit));
+            };
         }
         GroupedOptions options = GroupedOptions.select(params, new SequentialOptions(defaultLimit), new DistributionOptions(defaultLimit));
         if (options == null)

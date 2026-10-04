@@ -1,33 +1,14 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.util.concurrent.Uninterruptibles;
+import org.apache.cassandra.stress.util.Sleep;
 
 import org.apache.cassandra.stress.operations.OpDistributionFactory;
 import org.apache.cassandra.stress.util.JavaDriverClient;
@@ -36,7 +17,6 @@ import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 
-// Generic command settings - common to read/write/etc
 public abstract class SettingsCommand implements Serializable
 {
 
@@ -71,10 +51,10 @@ public abstract class SettingsCommand implements Serializable
     public SettingsCommand(Command type, Options options, Count count, Duration duration, Uncertainty uncertainty)
     {
         this.type = type;
-        this.consistencyLevel = ConsistencyLevel.valueOf(options.consistencyLevel.value().toUpperCase());
-        this.serialConsistencyLevel = ConsistencyLevel.valueOf(options.serialConsistencyLevel.value().toUpperCase());
+        this.consistencyLevel = ConsistencyLevel.valueOf(options.consistencyLevel.value().toUpperCase(Locale.ROOT));
+        this.serialConsistencyLevel = ConsistencyLevel.valueOf(options.serialConsistencyLevel.value().toUpperCase(Locale.ROOT));
         this.noWarmup = options.noWarmup.setByUser();
-        this.truncate = TruncateWhen.valueOf(options.truncate.value().toUpperCase());
+        this.truncate = TruncateWhen.valueOf(options.truncate.value().toUpperCase(Locale.ROOT));
 
         if (count != null)
         {
@@ -89,20 +69,13 @@ public abstract class SettingsCommand implements Serializable
         {
             this.count = -1;
             this.duration = Long.parseLong(duration.duration.value().substring(0, duration.duration.value().length() - 1));
-            switch (duration.duration.value().toLowerCase().charAt(duration.duration.value().length() - 1))
+            this.durationUnits = switch (duration.duration.value().toLowerCase(Locale.ROOT).charAt(duration.duration.value().length() - 1))
             {
-                case 's':
-                    this.durationUnits = TimeUnit.SECONDS;
-                    break;
-                case 'm':
-                    this.durationUnits = TimeUnit.MINUTES;
-                    break;
-                case 'h':
-                    this.durationUnits = TimeUnit.HOURS;
-                    break;
-                default:
-                    throw new IllegalStateException();
-            }
+                case 's' -> TimeUnit.SECONDS;
+                case 'm' -> TimeUnit.MINUTES;
+                case 'h' -> TimeUnit.HOURS;
+                default -> throw new IllegalStateException();
+            };
             this.targetUncertainty = -1;
             this.minimumUncertaintyMeasurements = -1;
             this.maximumUncertaintyMeasurements = -1;
@@ -117,8 +90,6 @@ public abstract class SettingsCommand implements Serializable
             this.maximumUncertaintyMeasurements = Integer.parseInt(uncertainty.maxMeasurements.value());
         }
     }
-
-    // Option Declarations
 
     static abstract class Options extends GroupedOptions
     {
@@ -178,14 +149,12 @@ public abstract class SettingsCommand implements Serializable
         }
         System.out.println(String.format("Truncated %s.%s. Sleeping %ss for propagation.",
                                          ks, Arrays.toString(tables), settings.node.nodes.size()));
-        Uninterruptibles.sleepUninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);
+        Sleep.uninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);
     }
-
-    // CLI Utility Methods
 
     public void printSettings(ResultLogger out)
     {
-        out.printf("  Type: %s%n", type.toString().toLowerCase());
+        out.printf("  Type: %s%n", type.toString().toLowerCase(Locale.ROOT));
         out.printf("  Count: %,d%n", count);
         if (durationUnits != null)
         {
@@ -204,7 +173,6 @@ public abstract class SettingsCommand implements Serializable
         }
     }
 
-
     static SettingsCommand get(Map<String, String[]> clArgs)
     {
         for (Command cmd : Command.values())
@@ -218,15 +186,12 @@ public abstract class SettingsCommand implements Serializable
                 if (params == null)
                     continue;
 
-                switch (cmd.category)
+                return switch (cmd.category)
                 {
-                    case BASIC:
-                        return SettingsCommandPreDefined.build(cmd, params);
-                    case MIXED:
-                        return SettingsCommandPreDefinedMixed.build(params);
-                    case USER:
-                        return SettingsCommandUser.build(params);
-                }
+                    case BASIC -> SettingsCommandPreDefined.build(cmd, params);
+                    case MIXED -> SettingsCommandPreDefinedMixed.build(params);
+                    case USER -> SettingsCommandUser.build(params);
+                };
             }
         }
         return null;
@@ -234,12 +199,12 @@ public abstract class SettingsCommand implements Serializable
 
     static void printHelp(Command type)
     {
-        printHelp(type.toString().toLowerCase());
+        printHelp(type.toString().toLowerCase(Locale.ROOT));
     }
 
     static void printHelp(String type)
     {
-        GroupedOptions.printOptions(System.out, type.toLowerCase(), new Uncertainty(), new Count(), new Duration());
+        GroupedOptions.printOptions(System.out, type.toLowerCase(Locale.ROOT), new Uncertainty(), new Count(), new Duration());
     }
 
     static Runnable helpPrinter(final Command type)

@@ -4,8 +4,6 @@ package org.apache.cassandra.stress.marshal;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
-import com.google.common.primitives.UnsignedLongs;
-
 public final class UUIDType extends AbstractType<UUID>
 {
     public static final UUIDType instance = new UUIDType();
@@ -51,11 +49,11 @@ public final class UUIDType extends AbstractType<UUID>
         }
         else
         {
-            int c = UnsignedLongs.compare(msb1, msb2);
+            int c = Long.compareUnsigned(msb1, msb2);
             if (c != 0)
                 return c;
         }
 
-        return UnsignedLongs.compare(b1.getLong(s1 + 8), b2.getLong(s2 + 8));
+        return Long.compareUnsigned(b1.getLong(s1 + 8), b2.getLong(s2 + 8));
     }
 }

@@ -3,31 +3,29 @@ package org.apache.cassandra.stress.settings;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.apache.cassandra.stress.util.EncryptionOptions;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class SettingsTransportTest
+class SettingsTransportTest
 {
     private static EncryptionOptions parse(String... params)
     {
-        Map<String, String[]> clArgs = new HashMap<>();
-        clArgs.put("-transport", params);
-        return SettingsTransport.get(clArgs).getEncryptionOptions();
+        return SettingsTransport.get(new HashMap<>(Map.of("-transport", params))).getEncryptionOptions();
     }
 
     @Test
-    public void encryptionIsOffWithoutTruststore()
+    void encryptionIsOffWithoutTruststore()
     {
         assertFalse(parse("store-type=PKCS12").enabled);
     }
 
     @Test
-    public void appliesTheStoreType()
+    void appliesTheStoreType()
     {
         EncryptionOptions options = parse("truststore=/tmp/ts.p12", "truststore-password=secret", "store-type=PKCS12");
         assertTrue(options.enabled);
@@ -35,7 +33,7 @@ public class SettingsTransportTest
     }
 
     @Test
-    public void defaultsToJks()
+    void defaultsToJks()
     {
         assertEquals("JKS", parse("truststore=/tmp/ts.jks", "truststore-password=secret").store_type);
     }

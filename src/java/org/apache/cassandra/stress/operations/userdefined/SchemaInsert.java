@@ -1,30 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
-
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.cassandra.stress.core.BatchStatementType;
 import org.apache.cassandra.stress.core.PreparedStatement;
@@ -33,7 +12,7 @@ import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement;
+import com.datastax.oss.driver.api.core.cql.BatchableStatement;
 
 public class SchemaInsert extends SchemaStatement
 {
@@ -66,14 +45,13 @@ public class SchemaInsert extends SchemaStatement
 
             rowCount += stmts.size();
 
-            // 65535 is max number of stmts per batch, so if we have more, we need to manually batch them
             for (int j = 0; j < stmts.size(); j += 65535)
             {
                 List<com.datastax.driver.core.BoundStatement> substmts = stmts.subList(j, Math.min(j + stmts.size(), j + 65535));
                 com.datastax.driver.core.Statement stmt;
                 if (substmts.size() == 1)
                 {
-                    stmt = substmts.get(0);
+                    stmt = substmts.getFirst();
                 }
                 else
                 {
@@ -105,7 +83,7 @@ public class SchemaInsert extends SchemaStatement
 
         public boolean run() throws Exception
         {
-            List<shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement<?>> stmts = new ArrayList<>();
+            List<com.datastax.oss.driver.api.core.cql.BatchableStatement<?>> stmts = new ArrayList<>();
             partitionCount = partitions.size();
 
             for (PartitionIterator iterator : partitions)
@@ -114,18 +92,17 @@ public class SchemaInsert extends SchemaStatement
 
             rowCount += stmts.size();
 
-            // 65535 is max number of stmts per batch, so if we have more, we need to manually batch them
             for (int j = 0; j < stmts.size(); j += 65535)
             {
-                List<? extends shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement<?>> substmts = stmts.subList(j, Math.min(j + stmts.size(), j + 65535));
-                shaded.com.datastax.oss.driver.api.core.cql.Statement stmt;
+                List<? extends com.datastax.oss.driver.api.core.cql.BatchableStatement<?>> substmts = stmts.subList(j, Math.min(j + stmts.size(), j + 65535));
+                com.datastax.oss.driver.api.core.cql.Statement stmt;
                 if (substmts.size() == 1)
                 {
-                    stmt = substmts.get(0);
+                    stmt = substmts.getFirst();
                 }
                 else
                 {
-                    shaded.com.datastax.oss.driver.api.core.cql.BatchStatementBuilder batch = new shaded.com.datastax.oss.driver.api.core.cql.BatchStatementBuilder(batchType.ToV4Value());
+                    com.datastax.oss.driver.api.core.cql.BatchStatementBuilder batch = new com.datastax.oss.driver.api.core.cql.BatchStatementBuilder(batchType.ToV4Value());
                     batch.setConsistencyLevel(statement.getConsistencyLevel().ToV4Value());
                     batch.setSerialConsistencyLevel(statement.getSerialConsistencyLevel().ToV4Value());
                     batch.addStatements((Iterable<BatchableStatement<?>>) substmts);

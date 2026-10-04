@@ -3,7 +3,6 @@ package org.apache.cassandra.stress.core;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class PreparedStatement {
@@ -15,7 +14,7 @@ public class PreparedStatement {
     stmt = statement;
   }
 
-  public PreparedStatement(shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement statement) {
+  public PreparedStatement(com.datastax.oss.driver.api.core.cql.PreparedStatement statement) {
     stmt = statement;
   }
 
@@ -33,13 +32,13 @@ public class PreparedStatement {
   public List<String> getColumnNames() {
     if (stmt instanceof com.datastax.driver.core.PreparedStatement) {
       return ToV3Value().getVariables().asList().stream().map(
-          com.datastax.driver.core.ColumnDefinitions.Definition::getName).collect(Collectors.toList());
+          com.datastax.driver.core.ColumnDefinitions.Definition::getName).toList();
     }
-    return StreamSupport.stream(ToV4Value().getVariableDefinitions().spliterator(), false).map(d -> d.getName().toString()).collect(Collectors.toList());
+    return StreamSupport.stream(ToV4Value().getVariableDefinitions().spliterator(), false).map(d -> d.getName().toString()).toList();
   }
 
-  public shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement ToV4Value() {
-    return (shaded.com.datastax.oss.driver.api.core.cql.PreparedStatement) stmt;
+  public com.datastax.oss.driver.api.core.cql.PreparedStatement ToV4Value() {
+    return (com.datastax.oss.driver.api.core.cql.PreparedStatement) stmt;
   }
 
   public ConsistencyLevel getConsistencyLevel() {
@@ -75,7 +74,7 @@ public class PreparedStatement {
     if (stmt instanceof com.datastax.driver.core.PreparedStatement) {
       return new BoundStatement(this.ToV3Value().bind(vars));
     }
-    shaded.com.datastax.oss.driver.api.core.cql.BoundStatementBuilder stmt = this.ToV4Value().boundStatementBuilder(vars);
+    com.datastax.oss.driver.api.core.cql.BoundStatementBuilder stmt = this.ToV4Value().boundStatementBuilder(vars);
     if (consistencyLevel != null) {
       stmt.setConsistencyLevel(consistencyLevel.ToV4Value());
     }

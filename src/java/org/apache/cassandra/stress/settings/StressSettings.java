@@ -1,25 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
-
 
 import java.io.Serializable;
 import java.util.*;
@@ -81,8 +61,8 @@ public class StressSettings implements Serializable
         this.tokenRange = tokenRange;
     }
 
-    private static volatile JavaDriverClient client;
-    private static volatile int numFailures;
+    private transient volatile JavaDriverClient client;
+    private transient volatile int numFailures;
     private static int MAX_NUM_FAILURES = 10;
 
     public JavaDriverClient getJavaDriverClient()
@@ -121,7 +101,7 @@ public class StressSettings implements Serializable
         }
     }
 
-    private static volatile JavaDriverV4Client v4Client;
+    private transient volatile JavaDriverV4Client v4Client;
 
     public JavaDriverV4Client getJavaDriverV4Client()
     {
@@ -176,7 +156,7 @@ public class StressSettings implements Serializable
         args = repairParams(args);
         final Map<String, String[]> clArgs = parseMap(args);
         if (clArgs.containsKey("legacy"))
-            return Legacy.build(Arrays.copyOfRange(args, 1, args.length));
+            throw new IllegalArgumentException("Command legacy was removed. Run cassandra-stress help to see the commands.");
         if (SettingsMisc.maybeDoSpecial(clArgs))
             return null;
         return get(clArgs);
@@ -205,6 +185,8 @@ public class StressSettings implements Serializable
         if (command == null)
             throw new IllegalArgumentException("No command specified");
         String sendToDaemon = SettingsMisc.getSendToDaemon(clArgs);
+        if (sendToDaemon != null && command.type == Command.USER)
+            throw new IllegalArgumentException("-send-to runs the predefined commands only. Run the user command without -send-to.");
         SettingsPort port = SettingsPort.get(clArgs);
         SettingsRate rate = SettingsRate.get(clArgs, command);
         SettingsPopulation generate = SettingsPopulation.get(clArgs, command);
@@ -240,7 +222,6 @@ public class StressSettings implements Serializable
 
     private static Map<String, String[]> parseMap(String[] args)
     {
-        // first is the main command/operation, so specified without a -
         if (args.length == 0)
         {
             System.out.println("No command provided");
@@ -256,7 +237,7 @@ public class StressSettings implements Serializable
             {
                 if (i > 0)
                     putParam(key, params.toArray(new String[0]), r);
-                key = args[i].toLowerCase();
+                key = args[i].toLowerCase(Locale.ROOT);
                 params.clear();
             }
             else
@@ -281,7 +262,6 @@ public class StressSettings implements Serializable
     public void printSettings(ResultLogger out)
     {
         out.println("******************** Stress Settings ********************");
-        // done
         out.println("Command:");
         command.printSettings(out);
         out.println("Rate:");
@@ -316,7 +296,6 @@ public class StressSettings implements Serializable
         out.println("TokenRange:");
         tokenRange.printSettings(out);
 
-
         if (command.type == Command.USER)
         {
             out.println();
@@ -330,10 +309,15 @@ public class StressSettings implements Serializable
 
     public synchronized void disconnect()
     {
-        if (client == null)
-            return;
-
-        client.disconnect();
-        client = null;
+        if (client != null)
+        {
+            client.disconnect();
+            client = null;
+        }
+        if (v4Client != null)
+        {
+            v4Client.disconnect();
+            v4Client = null;
+        }
     }
 }

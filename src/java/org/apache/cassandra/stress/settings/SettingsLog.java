@@ -1,29 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
-
 
 import java.io.*;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.cassandra.stress.util.MultiResultLogger;
@@ -68,12 +49,11 @@ public class SettingsLog implements Serializable
             intervalMillis = 1000 * Integer.parseInt(interval);
         if (intervalMillis <= 0)
             throw new IllegalArgumentException("Log interval must be greater than zero");
-        level = Level.valueOf(options.level.value().toUpperCase());
+        level = Level.valueOf(options.level.value().toUpperCase(Locale.ROOT));
     }
 
     public MultiResultLogger getOutput() throws FileNotFoundException
     {
-        // Always print to stdout regardless of whether we're graphing or not
         MultiResultLogger stream = new MultiResultLogger(new PrintStream(System.out));
 
         if (file != null)
@@ -81,8 +61,6 @@ public class SettingsLog implements Serializable
 
         return stream;
     }
-
-    // Option Declarations
 
     public static final class Options extends GroupedOptions
     {
@@ -101,7 +79,6 @@ public class SettingsLog implements Serializable
         }
     }
 
-    // CLI Utility Methods
     public void printSettings(ResultLogger out)
     {
         out.printf("  No Summary: %b%n", noSummary);
@@ -110,7 +87,6 @@ public class SettingsLog implements Serializable
         out.printf("  Interval Millis: %d%n", intervalMillis);
         out.printf("  Level: %s%n", level);
     }
-
 
     public static SettingsLog get(Map<String, String[]> clArgs)
     {

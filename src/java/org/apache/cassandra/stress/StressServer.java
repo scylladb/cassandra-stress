@@ -1,23 +1,8 @@
-/**
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
 import java.io.IOException;
+import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
@@ -25,44 +10,27 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.commons.cli.*;
-
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.apache.cassandra.stress.util.ResultLogger;
 
 public class StressServer
 {
-    private static final Options availableOptions = new Options();
-
-    static
-    {
-        availableOptions.addOption("h", "host", true, "Host to listen for connections.");
-    }
+    static final ObjectInputFilter SETTINGS_FILTER = ObjectInputFilter.Config.createFilter(
+        "maxdepth=64;org.apache.cassandra.stress.**;java.lang.*;java.util.*;java.util.concurrent.TimeUnit;java.util.regex.Pattern;java.io.File;!*");
 
     private static final AtomicInteger threadCounter = new AtomicInteger(1);
 
     public static void main(String[] args) throws Exception
     {
         ServerSocket serverSocket = null;
-        CommandLineParser parser  = new PosixParser();
-
-        InetAddress address = InetAddress.getByName("127.0.0.1");
-
-        try
+        String host = listenHost(args);
+        if (host == null)
         {
-            CommandLine cmd = parser.parse(availableOptions, args);
-
-            if (cmd.hasOption("h"))
-            {
-                address = InetAddress.getByName(cmd.getOptionValue("h"));
-            }
-        }
-        catch (ParseException e)
-        {
-            System.err.printf("Usage: ./bin/stressd start|stop|status [-h <host>]");
+            System.err.println("Usage: ./bin/stressd start|stop|status [-h <host>]");
             System.exit(1);
         }
+        InetAddress address = InetAddress.getByName(host);
 
         try
         {
@@ -76,6 +44,26 @@ public class StressServer
 
         for (;;)
             new StressThread(serverSocket.accept()).start();
+    }
+
+    static String listenHost(String[] args)
+    {
+        String host = "127.0.0.1";
+        for (int i = 0; i < args.length; i++)
+        {
+            String arg = args[i];
+            if (arg.equals("-h") || arg.equals("--host"))
+            {
+                if (i + 1 == args.length)
+                    return null;
+                host = args[++i];
+            }
+            else if (arg.startsWith("--host="))
+                host = arg.substring("--host=".length());
+            else if (arg.startsWith("-"))
+                return null;
+        }
+        return host;
     }
 
     public static class StressThread extends Thread
@@ -92,12 +80,12 @@ public class StressServer
             try
             {
                 ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+                in.setObjectInputFilter(SETTINGS_FILTER);
                 PrintStream out = new PrintStream(socket.getOutputStream());
                 ResultLogger log = new MultiResultLogger(out);
 
                 StressAction action = new StressAction((StressSettings) in.readObject(), log);
-                Thread actionThread = new Thread(action, "stress-" + threadCounter.incrementAndGet());
-                actionThread.start();
+                Thread actionThread = Thread.ofPlatform().name("stress-" + threadCounter.incrementAndGet()).start(action);
 
                 while (actionThread.isAlive())
                 {
@@ -111,7 +99,6 @@ public class StressServer
                     }
                     catch (Exception e)
                     {
-                        // continue without problem
                     }
                 }
 

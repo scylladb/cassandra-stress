@@ -1,29 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
-
 
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.cassandra.stress.util.ResultLogger;
@@ -46,13 +27,11 @@ public class SettingsMode implements Serializable
 
     private final ProtocolCompression compression;
 
-
     public SettingsMode(GroupedOptions options)
     {
-        if (options instanceof Cql3Options)
+        if (options instanceof Cql3Options opts)
         {
             cqlVersion = CqlVersion.CQL3;
-            Cql3Options opts = (Cql3Options) options;
             if ("NEWEST_SUPPORTED".equals(opts.protocolVersion.value())) {
                 protocolVersion = ProtocolVersion.NEWEST_SUPPORTED;
             } else if ("DEFAULT".equals(opts.protocolVersion.value())) {
@@ -60,15 +39,9 @@ public class SettingsMode implements Serializable
             } else {
                 protocolVersion = ProtocolVersion.fromInt(Integer.parseInt(opts.protocolVersion.value()));
             }
-            switch (opts.mode().displayPrefix) {
-                case "4x":
-                    api = ConnectionAPI.JAVA_DRIVER4_NATIVE;
-                    break;
-                default:
-                    api = ConnectionAPI.JAVA_DRIVER_NATIVE;
-            }
+            api = opts.mode().displayPrefix.equals("4x") ? ConnectionAPI.JAVA_DRIVER4_NATIVE : ConnectionAPI.JAVA_DRIVER_NATIVE;
             style = opts.useUnPrepared.setByUser() ? ConnectionStyle.CQL :  ConnectionStyle.CQL_PREPARED;
-            compression = ProtocolCompression.valueOf(opts.useCompression.value().toUpperCase());
+            compression = ProtocolCompression.valueOf(opts.useCompression.value().toUpperCase(Locale.ROOT));
             username = opts.user.value();
             password = opts.password.value();
             maxPendingPerConnection = opts.maxPendingPerConnection.value().isEmpty() ? null : Integer.valueOf(opts.maxPendingPerConnection.value());
@@ -96,8 +69,6 @@ public class SettingsMode implements Serializable
     {
         return compression;
     }
-
-    // Option Declarations
 
     private static final class Cql3NativeOptions extends Cql3Options
     {
@@ -140,8 +111,6 @@ public class SettingsMode implements Serializable
         }
     }
 
-
-    // CLI Utility Methods
     public void printSettings(ResultLogger out)
     {
         out.printf("  API: %s%n", api);
@@ -158,7 +127,6 @@ public class SettingsMode implements Serializable
         out.printf("  Compression: %s%n", compression);
 
     }
-
 
     public static SettingsMode get(Map<String, String[]> clArgs)
     {
@@ -191,7 +159,7 @@ public class SettingsMode implements Serializable
         for (String param : params)
         {
             if (REMOVED_MODES.contains(param))
-                throw new IllegalArgumentException("Mode " + param + " was removed. Use -mode native or -mode 4x.");
+                throw new IllegalArgumentException("Mode " + param + " was removed. Use -mode cql3 native or -mode cql3 4x.");
         }
     }
 

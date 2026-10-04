@@ -1,22 +1,32 @@
 package org.apache.cassandra.stress.report;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
-public class StressMetricsTest
+class StressMetricsTest
 {
     @Test
-    public void headerEndsAtErrors()
+    void headerEndsAtErrors()
     {
         assertArrayEquals(new String[]{ "type", "total ops", "op/s", "pk/s", "row/s", "mean", "med", ".95", ".99", ".999", "max", "time", "stderr", "errors" },
                           StressMetrics.HEADMETRICS);
     }
 
     @Test
-    public void headerHasNoGcField()
+    void headerHasNoGcField()
     {
         assertFalse(StressMetrics.HEAD.contains("gc"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({ "0, 00:00:00", "999, 00:00:00", "3723000, 01:02:03", "90000000, 25:00:00" })
+    void formatsTheTotalTimeAsHoursMinutesSeconds(long millis, String expected)
+    {
+        assertEquals(expected, StressMetrics.formatDuration(millis));
     }
 }

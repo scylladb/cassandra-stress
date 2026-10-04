@@ -1,32 +1,15 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
@@ -56,7 +39,6 @@ class SettingsMisc implements Serializable
             return Arrays.asList(dist);
         }
     }
-
 
     private static boolean maybePrintDistribution(Map<String, String[]> clArgs)
     {
@@ -138,10 +120,18 @@ class SettingsMisc implements Serializable
                + "scylla-java-driver-4x: " + driver4Version + "\n";
     }
 
-    private static String stressVersion()
+    static String stressVersion()
     {
-        String version = SettingsMisc.class.getPackage().getImplementationVersion();
-        return version == null ? "unknown" : version;
+        try (InputStream in = SettingsMisc.class.getResourceAsStream("/org/apache/cassandra/stress/stress.version"))
+        {
+            if (in == null)
+                return "unknown";
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8).trim();
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
     }
 
     static String driver3Version()
@@ -151,7 +141,7 @@ class SettingsMisc implements Serializable
 
     static String driver4Version()
     {
-        return driverVersion("shaded/com/datastax/oss/driver/Driver.properties");
+        return driverVersion("com/datastax/oss/driver/Driver.properties");
     }
 
     private static String driverVersion(String resource)
@@ -178,13 +168,13 @@ class SettingsMisc implements Serializable
         System.out.println("---Commands---");
         for (Command cmd : Command.values())
         {
-            System.out.println(String.format("%-20s : %s", cmd.toString().toLowerCase(), cmd.description));
+            System.out.println(String.format("%-20s : %s", cmd.toString().toLowerCase(Locale.ROOT), cmd.description));
         }
         System.out.println();
         System.out.println("---Options---");
         for (CliOption cmd : CliOption.values())
         {
-            System.out.println(String.format("-%-20s : %s", cmd.toString().toLowerCase(), cmd.description));
+            System.out.println(String.format("-%-20s : %s", cmd.toString().toLowerCase(Locale.ROOT), cmd.description));
         }
     }
 
@@ -215,7 +205,7 @@ class SettingsMisc implements Serializable
                 System.out.println("    " + cmd.names.toString().replaceAll("\\[|\\]", ""));
             System.out.println("Options:");
             for (CliOption op : CliOption.values())
-                System.out.println("    -" + op.toString().toLowerCase() + (op.extraName != null ? ", " + op.extraName : ""));
+                System.out.println("    -" + op.toString().toLowerCase(Locale.ROOT) + (op.extraName != null ? ", " + op.extraName : ""));
         };
     }
 
