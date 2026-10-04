@@ -69,6 +69,33 @@ jobs:
       - name: Unit tests
         run: ant test
 
+  testcontainers-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ["21", "25"]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          distribution: "temurin"
+          java-version: ${{ matrix.java }}
+      - name: Setup Ant
+        uses: ./.github/actions/setup-ant
+      - name: Unit and integration tests with coverage
+        run: ant coverage-all -Dtest.jvmargs="${{ matrix.java == '25' && '--sun-misc-unsafe-memory-access=deny' || '' }}"
+      - name: Upload coverage report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: coverage-all-java${{ matrix.java }}
+          path: build/coverage
+          if-no-files-found: ignore
+
   enumerated-tests:
     timeout-minutes: 2
     name: "Enumerate all tests from integration-tests folder to run them independently"
