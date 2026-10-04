@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
-class OptionSimple extends Option implements Serializable
+class OptionSimple extends Option
 {
 
     final String displayPrefix;
@@ -18,7 +17,7 @@ class OptionSimple extends Option implements Serializable
     private final boolean required;
     private String value;
 
-    private static final class ValueMatcher implements Function<String, String>, Serializable
+    private static final class ValueMatcher implements Function<String, String>
     {
         final Pattern pattern;
         private ValueMatcher(Pattern pattern)

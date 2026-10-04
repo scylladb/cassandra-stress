@@ -10,7 +10,7 @@ import java.util.Map;
 import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class SettingsLog implements Serializable
+public class SettingsLog
 {
     public static enum Level
     {

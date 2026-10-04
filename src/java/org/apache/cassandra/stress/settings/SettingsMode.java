@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -9,7 +8,7 @@ import java.util.Map;
 
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class SettingsMode implements Serializable
+public class SettingsMode
 {
 
     public final ConnectionAPI api;
@@ -152,7 +151,7 @@ public class SettingsMode implements Serializable
         return new SettingsMode(options);
     }
 
-    private static final List<String> REMOVED_MODES = Arrays.asList("thrift", "simplenative");
+    private static final List<String> REMOVED_MODES = List.of("simplenative");
 
     private static void rejectRemovedModes(String[] params)
     {

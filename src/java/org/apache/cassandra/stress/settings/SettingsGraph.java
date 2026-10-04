@@ -3,7 +3,6 @@ package org.apache.cassandra.stress.settings;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -13,7 +12,7 @@ import java.util.Map;
 
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class SettingsGraph implements Serializable
+public class SettingsGraph
 {
     private static final DateTimeFormatter TITLE_TIME = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
 

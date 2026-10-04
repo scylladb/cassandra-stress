@@ -2,12 +2,9 @@ package org.apache.cassandra.stress;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InvalidClassException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -16,29 +13,25 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.cassandra.stress.settings.StressSettings;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class StressServerTest
 {
-    private static byte[] serialize(Serializable value) throws IOException
+    private static String[] roundTrip(String[] arguments) throws IOException
     {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (ObjectOutputStream out = new ObjectOutputStream(bytes))
-        {
-            out.writeObject(value);
-        }
-        return bytes.toByteArray();
+        StressServer.writeCommand(new DataOutputStream(bytes), arguments);
+        return StressServer.readCommand(new DataInputStream(new ByteArrayInputStream(bytes.toByteArray())));
     }
 
-    private static Object readFiltered(byte[] bytes) throws IOException, ClassNotFoundException
+    private static DataInputStream countOnly(int count) throws IOException
     {
-        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bytes)))
-        {
-            in.setObjectInputFilter(StressServer.SETTINGS_FILTER);
-            return in.readObject();
-        }
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        new DataOutputStream(bytes).writeInt(count);
+        return new DataInputStream(new ByteArrayInputStream(bytes.toByteArray()));
     }
 
     @Test
@@ -63,20 +56,35 @@ class StressServerTest
 
     @ParameterizedTest
     @ValueSource(strings = {
-        "mixed ratio(write=1,read=2) n=10 cl=QUORUM -rate threads=4 -pop seq=1..10 -col n=fixed(3) size=uniform(1..20) -node 127.0.0.1 -schema replication(factor=3) -mode cql3 4x -transport truststore=/tmp/ts.jks",
-        "read duration=1m -log hdrfile=/tmp/stress.hdr -graph file=/tmp/stress.html -mode cql3 native user=u password=p",
+        "mixed ratio(write=1,read=2) n=10 cl=QUORUM -rate threads=4 -pop seq=1..10 -col n=fixed(3) size=uniform(1..20) -node 127.0.0.1 -mode cql3 4x -send-to 127.0.0.1",
+        "read duration=1m -log hdrfile=/tmp/stress.hdr -mode cql3 native user=u password=p",
         "counter_write n=10 -rate threads=2 fixed=100/s -errors retries=3",
     })
-    void filterAcceptsPredefinedSettings(String args) throws Exception
+    void serverParsesTheCommandTheClientSends(String command) throws IOException
     {
-        StressSettings settings = StressSettings.parse(args.split(" "));
-        StressSettings copy = (StressSettings) readFiltered(serialize(settings));
-        assertEquals(settings.command.type, copy.command.type);
+        String[] arguments = command.split(" ");
+        String[] received = roundTrip(arguments);
+        assertArrayEquals(arguments, received);
+        assertEquals(StressSettings.parse(arguments.clone()).command.type, StressSettings.parse(received).command.type);
     }
 
     @Test
-    void filterRejectsOtherClasses()
+    void keepsNonAsciiArguments() throws IOException
     {
-        assertThrows(InvalidClassException.class, () -> readFiltered(serialize(new AtomicLong(1))));
+        String[] arguments = { "write", "-graph", "file=/tmp/zażółć.html", "title=✓" };
+        assertArrayEquals(arguments, roundTrip(arguments));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = { -1, StressServer.MAX_ARGUMENTS + 1, Integer.MAX_VALUE })
+    void rejectsAnInvalidArgumentCount(int count)
+    {
+        assertThrows(IOException.class, () -> StressServer.readCommand(countOnly(count)));
+    }
+
+    @Test
+    void rejectsATruncatedCommand()
+    {
+        assertThrows(IOException.class, () -> StressServer.readCommand(countOnly(2)));
     }
 }

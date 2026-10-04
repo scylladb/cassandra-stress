@@ -4,8 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -17,12 +15,11 @@ class SettingsModeTest
         return SettingsMode.get(new HashMap<>(Map.of("-mode", params)));
     }
 
-    @ParameterizedTest
-    @CsvSource({ "thrift, thrift", "thrift, thrift smart", "simplenative, cql3 simplenative" })
-    void removedModesAreRejected(String mode, String params)
+    @Test
+    void simpleNativeModeIsRejected()
     {
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse(params.split(" ")));
-        assertEquals("Mode " + mode + " was removed. Use -mode cql3 native or -mode cql3 4x.", e.getMessage());
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse("cql3", "simplenative"));
+        assertEquals("Mode simplenative was removed. Use -mode cql3 native or -mode cql3 4x.", e.getMessage());
     }
 
     @Test

@@ -4,7 +4,6 @@ package org.apache.cassandra.stress;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.Serializable;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -42,7 +41,7 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 import org.yaml.snakeyaml.error.YAMLException;
 
-public class StressProfile implements Serializable {
+public class StressProfile {
     public String specName;
     private String keyspaceCql;
     private String tableCql;
@@ -57,23 +56,23 @@ public class StressProfile implements Serializable {
     private Map<String, String> insert;
     private boolean schemaCreated = false;
 
-    transient volatile TableMetadata tableMetaData;
-    transient volatile Set<TokenRange> tokenRanges;
+    volatile TableMetadata tableMetaData;
+    volatile Set<TokenRange> tokenRanges;
 
-    transient volatile GeneratorFactory generatorFactory;
+    volatile GeneratorFactory generatorFactory;
 
-    transient volatile BatchStatementType batchType;
-    transient volatile DistributionFactory partitions;
-    transient volatile RatioDistributionFactory selectchance;
-    transient volatile RatioDistributionFactory rowPopulation;
-    transient volatile ConsistencyLevel consistencyLevel;
-    transient volatile ConsistencyLevel serialConsistencyLevel;
-    transient volatile PreparedStatement insertStatement;
-    transient volatile String query;
-    transient volatile List<ValidatingSchemaQuery.Factory> validationFactories;
+    volatile BatchStatementType batchType;
+    volatile DistributionFactory partitions;
+    volatile RatioDistributionFactory selectchance;
+    volatile RatioDistributionFactory rowPopulation;
+    volatile ConsistencyLevel consistencyLevel;
+    volatile ConsistencyLevel serialConsistencyLevel;
+    volatile PreparedStatement insertStatement;
+    volatile String query;
+    volatile List<ValidatingSchemaQuery.Factory> validationFactories;
 
-    transient volatile Map<String, SchemaQuery.ArgSelect> argSelects;
-    transient volatile Map<String, PreparedStatement> queryStatements;
+    volatile Map<String, SchemaQuery.ArgSelect> argSelects;
+    volatile Map<String, PreparedStatement> queryStatements;
 
     private static final Pattern lowercaseAlphanumeric = Pattern.compile("[a-z0-9_]+");
 

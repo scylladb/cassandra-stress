@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 import java.util.List;
 
-abstract class Option implements Serializable
+abstract class Option
 {
 
     abstract boolean accept(String param);

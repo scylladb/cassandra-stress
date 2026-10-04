@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class SettingsTokenRange implements Serializable
+public class SettingsTokenRange
 {
     public final boolean wrap;
     public final int splitFactor;

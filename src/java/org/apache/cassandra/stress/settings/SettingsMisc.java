@@ -4,7 +4,6 @@ package org.apache.cassandra.stress.settings;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -15,7 +14,7 @@ import java.util.Properties;
 
 import org.apache.cassandra.stress.generate.Distribution;
 
-class SettingsMisc implements Serializable
+class SettingsMisc
 {
 
     static boolean maybeDoSpecial(Map<String, String[]> clArgs)

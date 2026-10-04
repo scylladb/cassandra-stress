@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 import java.util.*;
 
 import org.apache.cassandra.stress.util.EncryptionOptions;
@@ -10,7 +9,7 @@ import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class StressSettings implements Serializable
+public class StressSettings
 {
     public final SettingsCommand command;
     public final SettingsRate rate;
@@ -61,8 +60,8 @@ public class StressSettings implements Serializable
         this.tokenRange = tokenRange;
     }
 
-    private transient volatile JavaDriverClient client;
-    private transient volatile int numFailures;
+    private volatile JavaDriverClient client;
+    private volatile int numFailures;
     private static int MAX_NUM_FAILURES = 10;
 
     public JavaDriverClient getJavaDriverClient()
@@ -101,7 +100,7 @@ public class StressSettings implements Serializable
         }
     }
 
-    private transient volatile JavaDriverV4Client v4Client;
+    private volatile JavaDriverV4Client v4Client;
 
     public JavaDriverV4Client getJavaDriverV4Client()
     {

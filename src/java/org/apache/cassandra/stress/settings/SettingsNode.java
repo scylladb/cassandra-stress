@@ -12,7 +12,7 @@ import java.util.*;
 import org.apache.cassandra.stress.util.ResultLogger;
 import com.datastax.oss.driver.api.core.metadata.Node;
 
-public class SettingsNode implements Serializable
+public class SettingsNode
 {
     public final List<String> nodes;
     public final boolean isWhiteList;

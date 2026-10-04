@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class SettingsPort implements Serializable
+public class SettingsPort
 {
 
     public final int nativePort;
@@ -52,7 +51,7 @@ public class SettingsPort implements Serializable
         return new SettingsPort(options);
     }
 
-    private static final List<String> REMOVED_PORTS = Arrays.asList("jmx=", "thrift=");
+    private static final List<String> REMOVED_PORTS = List.of("jmx=");
 
     private static void rejectRemovedPorts(String[] params)
     {

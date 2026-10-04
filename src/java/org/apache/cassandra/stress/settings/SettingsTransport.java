@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -9,7 +8,7 @@ import java.util.Map;
 import org.apache.cassandra.stress.util.EncryptionOptions;
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class SettingsTransport implements Serializable
+public class SettingsTransport
 {
 
     private final TOptions options;
@@ -46,7 +45,7 @@ public class SettingsTransport implements Serializable
         return encOptions;
     }
 
-    static class TOptions extends GroupedOptions implements Serializable
+    static class TOptions extends GroupedOptions
     {
         final OptionSimple trustStore = new OptionSimple("truststore=", ".*", null, "SSL: full path to truststore", false);
         final OptionSimple trustStorePw = new OptionSimple("truststore-password=", ".*", null, "SSL: truststore password", false);

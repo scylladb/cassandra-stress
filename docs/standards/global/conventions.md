@@ -9,7 +9,7 @@ breaking change with `!` after the type or the scope. When the work has a
 Jira issue, put the key at the start of the subject.
 
     fix(settings): QATOOLS-123 parse remote-dc option in -node
-    feat(mode)!: remove the thrift mode
+    feat(mode)!: remove the simplenative mode
 
 ### License header
 

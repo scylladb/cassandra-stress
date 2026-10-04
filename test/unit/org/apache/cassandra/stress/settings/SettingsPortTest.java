@@ -4,8 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -29,11 +27,10 @@ class SettingsPortTest
         assertEquals(9042, SettingsPort.get(new HashMap<>()).nativePort);
     }
 
-    @ParameterizedTest
-    @CsvSource({ "jmx=, jmx=6868", "thrift=, thrift=9160" })
-    void removedPortsAreRejected(String option, String param)
+    @Test
+    void jmxPortIsRejected()
     {
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse(param));
-        assertEquals("Port option " + option + " was removed. Use -port native=.", e.getMessage());
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse("jmx=6868"));
+        assertEquals("Port option jmx= was removed. Use -port native=.", e.getMessage());
     }
 }

@@ -2,9 +2,6 @@
 package org.apache.cassandra.stress.settings;
 
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -14,11 +11,11 @@ import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.DistributionFixed;
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class SettingsColumn implements Serializable
+public class SettingsColumn
 {
 
     public final int maxColumnsPerKey;
-    public transient List<ByteBuffer> names;
+    public List<ByteBuffer> names;
     public final List<String> namestrs;
     public final String timestamp;
     public final boolean variableColumnCount;
@@ -164,24 +161,4 @@ public class SettingsColumn implements Serializable
     {
         return () -> printHelp();
     }
-
-    private void writeObject(ObjectOutputStream oos) throws IOException
-    {
-        oos.defaultWriteObject();
-        ArrayList<byte[]> namesBytes = new ArrayList<>();
-        for (ByteBuffer buffer : this.names)
-            namesBytes.add(bytesOf(buffer));
-        oos.writeObject(namesBytes);
-    }
-
-    private void readObject(ObjectInputStream ois) throws ClassNotFoundException, IOException
-    {
-        ois.defaultReadObject();
-        List<ByteBuffer> namesBuffer = new ArrayList<>();
-        List<byte[]> namesBytes = (List<byte[]>) ois.readObject();
-        for (byte[] bytes : namesBytes)
-            namesBuffer.add(ByteBuffer.wrap(bytes));
-        this.names = new ArrayList<>(namesBuffer);
-    }
-
 }

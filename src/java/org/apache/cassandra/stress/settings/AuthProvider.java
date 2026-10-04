@@ -1,11 +1,10 @@
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 
 import org.apache.cassandra.stress.util.JavaDriverV4SessionBuilder;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 
-public class AuthProvider implements Serializable {
+public class AuthProvider {
   String authClassName;
   String username;
   String password;

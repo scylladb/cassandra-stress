@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.util.*;
@@ -14,7 +13,7 @@ import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 import org.apache.cassandra.stress.StressProfile;
 
-public class SettingsSchema implements Serializable
+public class SettingsSchema
 {
     private final String replicationStrategy;
     private final Map<String, String> replicationStrategyOptions;

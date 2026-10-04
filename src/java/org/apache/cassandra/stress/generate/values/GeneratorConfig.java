@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.generate.values;
 
-import java.io.Serializable;
 import java.nio.ByteBuffer;
 
 import org.apache.cassandra.stress.generate.Distribution;
@@ -9,7 +8,7 @@ import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 import org.apache.cassandra.stress.util.MurmurHash;
 
-public class GeneratorConfig implements Serializable
+public class GeneratorConfig
 {
     public final long salt;
 

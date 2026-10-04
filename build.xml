@@ -153,6 +153,7 @@
                 <exclusion groupId="io.netty" artifactId="netty-common" />
                 <exclusion groupId="com.github.jnr" artifactId="jnr-ffi" />
                 <exclusion groupId="com.github.jnr" artifactId="jnr-posix" />
+                <exclusion groupId="io.dropwizard.metrics" artifactId="metrics-core" />
             </dependency>
             <dependency groupId="com.scylladb" artifactId="java-driver-core-shaded"
                 version="${base.java4DriverVersion}">
@@ -169,6 +170,7 @@
                 <exclusion groupId="com.google.guava" artifactId="listenablefuture" />
                 <exclusion groupId="org.checkerframework" artifactId="checker-qual" />
                 <exclusion groupId="com.google.errorprone" artifactId="error_prone_annotations" />
+                <exclusion groupId="com.google.j2objc" artifactId="j2objc-annotations" />
             </dependency>
             <dependency groupId="org.apache.commons" artifactId="commons-math3" version="3.2" />
             <dependency groupId="org.yaml" artifactId="snakeyaml" version="2.0" />

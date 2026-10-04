@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
-import java.io.Serializable;
 
 import javax.net.ssl.SSLSocketFactory;
 
-public class EncryptionOptions implements Serializable
+public class EncryptionOptions
 {
     public boolean enabled = false;
     public String keystore = "conf/.keystore";

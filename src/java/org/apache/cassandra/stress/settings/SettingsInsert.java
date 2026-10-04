@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -14,7 +13,7 @@ import org.apache.cassandra.stress.generate.RatioDistributionFactory;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 
-public class SettingsInsert implements Serializable
+public class SettingsInsert
 {
 
     public final DistributionFactory revisit;

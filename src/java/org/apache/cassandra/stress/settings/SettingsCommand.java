@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -17,7 +16,7 @@ import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 
-public abstract class SettingsCommand implements Serializable
+public abstract class SettingsCommand
 {
 
     public static enum TruncateWhen

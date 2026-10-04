@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputFilter;
-import java.io.ObjectInputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -16,8 +16,7 @@ import org.apache.cassandra.stress.util.ResultLogger;
 
 public class StressServer
 {
-    static final ObjectInputFilter SETTINGS_FILTER = ObjectInputFilter.Config.createFilter(
-        "maxdepth=64;org.apache.cassandra.stress.**;java.lang.*;java.util.*;java.util.concurrent.TimeUnit;java.util.regex.Pattern;java.io.File;!*");
+    static final int MAX_ARGUMENTS = 1024;
 
     private static final AtomicInteger threadCounter = new AtomicInteger(1);
 
@@ -66,6 +65,25 @@ public class StressServer
         return host;
     }
 
+    static void writeCommand(DataOutputStream out, String[] arguments) throws IOException
+    {
+        out.writeInt(arguments.length);
+        for (String argument : arguments)
+            out.writeUTF(argument);
+        out.flush();
+    }
+
+    static String[] readCommand(DataInputStream in) throws IOException
+    {
+        int count = in.readInt();
+        if (count < 0 || count > MAX_ARGUMENTS)
+            throw new IOException("Invalid argument count: " + count);
+        String[] arguments = new String[count];
+        for (int i = 0; i < count; i++)
+            arguments[i] = in.readUTF();
+        return arguments;
+    }
+
     public static class StressThread extends Thread
     {
         private final Socket socket;
@@ -79,12 +97,30 @@ public class StressServer
         {
             try
             {
-                ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-                in.setObjectInputFilter(SETTINGS_FILTER);
+                DataInputStream in = new DataInputStream(socket.getInputStream());
                 PrintStream out = new PrintStream(socket.getOutputStream());
                 ResultLogger log = new MultiResultLogger(out);
 
-                StressAction action = new StressAction((StressSettings) in.readObject(), log);
+                StressSettings settings;
+                try
+                {
+                    settings = StressSettings.parse(readCommand(in));
+                }
+                catch (IllegalArgumentException e)
+                {
+                    out.println(e.getMessage());
+                    out.println("FAILURE");
+                    socket.close();
+                    return;
+                }
+                if (settings == null)
+                {
+                    out.println("FAILURE");
+                    socket.close();
+                    return;
+                }
+
+                StressAction action = new StressAction(settings, log);
                 Thread actionThread = Thread.ofPlatform().name("stress-" + threadCounter.incrementAndGet()).start(action);
 
                 while (actionThread.isAlive())

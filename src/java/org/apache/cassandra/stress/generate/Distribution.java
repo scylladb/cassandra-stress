@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.generate;
 
-import java.io.Serializable;
 
-public abstract class Distribution implements Serializable
+public abstract class Distribution
 {
 
     public abstract long next();
@@ -25,7 +24,7 @@ public abstract class Distribution implements Serializable
     {
         double sum = 0;
         int count = 0;
-        for (float d = 0 ; d <= 1.0d ; d += 0.02d)
+        for (float d = 0 ; d <= 1.0d ; d = (float) (d + 0.02d))
         {
             sum += inverseCumProb(d);
             count += 1;

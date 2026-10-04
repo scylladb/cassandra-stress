@@ -2,13 +2,12 @@
 package org.apache.cassandra.stress.settings;
 
 import java.io.PrintStream;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public abstract class GroupedOptions implements Serializable
+public abstract class GroupedOptions
 {
 
     int accepted = 0;

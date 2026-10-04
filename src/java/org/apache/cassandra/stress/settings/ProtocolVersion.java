@@ -1,8 +1,7 @@
 package org.apache.cassandra.stress.settings;
 
-import java.io.Serializable;
 
-public class ProtocolVersion implements Serializable {
+public class ProtocolVersion {
   int protocolVersion;
 
   private ProtocolVersion(int protocolVersion) {

@@ -62,12 +62,12 @@ public final class Stress
             {
                 Socket socket = new Socket(settings.sendToDaemon, 2159);
 
-                ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+                DataOutputStream out = new DataOutputStream(socket.getOutputStream());
                 BufferedReader inp = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
                 Runtime.getRuntime().addShutdownHook(new ShutDown(socket, out));
 
-                out.writeObject(settings);
+                StressServer.writeCommand(out, arguments);
 
                 String line;
 
@@ -122,9 +122,9 @@ public final class Stress
     private static class ShutDown extends Thread
     {
         private final Socket socket;
-        private final ObjectOutputStream out;
+        private final DataOutputStream out;
 
-        public ShutDown(Socket socket, ObjectOutputStream out)
+        public ShutDown(Socket socket, DataOutputStream out)
         {
             this.out = out;
             this.socket = socket;
