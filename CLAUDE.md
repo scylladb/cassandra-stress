@@ -7,6 +7,12 @@ ant build-test
 ant test
 # One test class
 ant test -Dtest.name=<SimpleClassName>
+# Coverage report (build/coverage/html)
+ant coverage
+# Integration tests against ScyllaDB in Docker (Testcontainers)
+ant integration-test
+# One report for unit and integration tests
+ant coverage-all
 ```
 
 <!-- qatools-sdlc:begin -->

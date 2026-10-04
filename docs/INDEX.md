@@ -34,10 +34,16 @@ dependency calls `sun.misc.Unsafe`.
 Located in `docs/standards/testing/`.
 
 #### Test writing (`standards/testing/test-writing.md`)
-Unit tests use JUnit 4 with `@Test` and static imports from
-`org.junit.Assert`. The test for a class goes in
-`test/unit/<package>/<Class>Test.java`, in the same package. `ant test`
-runs them all, and `-Dtest.name=ClassNameTest` runs one class.
+Unit tests use JUnit 6 (Jupiter): package-private classes and methods,
+static imports from `org.junit.jupiter.api.Assertions`, `assertThrows` for
+exceptions, parameterized tests for input tables and `@TempDir` for files.
+The test for a class goes in `test/unit/<package>/<Class>Test.java`, in the
+same package. `ant test` runs them all, `-Dtest.name=ClassNameTest` runs one
+class, and `ant coverage` writes the JaCoCo report to `build/coverage`.
+Integration tests that need ScyllaDB go in `test/integration/<package>/<Name>IT.java`.
+They get a Testcontainers node from `ScyllaNode`, run stress in-process with
+`CassandraStress`, and run with `ant integration-test`. `ant coverage-all`
+reports the unit and integration tests together.
 
 ### Infra standards
 
