@@ -1,121 +1,122 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
+import com.datastax.driver.core.ResultSet;
 import java.io.IOException;
 import java.util.Random;
-
-import com.datastax.driver.core.ResultSet;
 import org.apache.cassandra.stress.core.BoundStatement;
 import org.apache.cassandra.stress.core.PreparedStatement;
-import org.apache.cassandra.stress.generate.*;
+import org.apache.cassandra.stress.generate.DistributionFixed;
+import org.apache.cassandra.stress.generate.PartitionGenerator;
+import org.apache.cassandra.stress.generate.PartitionIterator;
+import org.apache.cassandra.stress.generate.Row;
+import org.apache.cassandra.stress.generate.SeedManager;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
 
-public class SchemaQuery extends SchemaStatement
-{
-    public static enum ArgSelect
-    {
-        MULTIROW, SAMEROW;
+public class SchemaQuery extends SchemaStatement {
+    public enum ArgSelect {
+        MULTIROW,
+        SAMEROW;
     }
 
     final ArgSelect argSelect;
     final Object[][] randomBuffer;
     final Random random = new Random();
 
-    public SchemaQuery(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, PreparedStatement statement, ArgSelect argSelect)
-    {
-        super(timer,
-            settings,
-            new DataSpec(generator, seedManager, new DistributionFixed(1), settings.insert.rowPopulationRatio.get(), argSelect == ArgSelect.MULTIROW ? statement.getVariables().size() : 1),
-            statement, statement.getColumnNames());
+    public SchemaQuery(
+            Timer timer,
+            StressSettings settings,
+            PartitionGenerator generator,
+            SeedManager seedManager,
+            PreparedStatement statement,
+            ArgSelect argSelect) {
+        super(
+                timer,
+                settings,
+                new DataSpec(
+                        generator,
+                        seedManager,
+                        new DistributionFixed(1),
+                        settings.insert.rowPopulationRatio.get(),
+                        argSelect == ArgSelect.MULTIROW
+                                ? statement.getVariables().size()
+                                : 1),
+                statement,
+                statement.getColumnNames());
         this.argSelect = argSelect;
         randomBuffer = new Object[argumentIndex.length][argumentIndex.length];
     }
 
-    private class JavaDriverRun extends Runner
-    {
+    private final class JavaDriverRun extends Runner {
         final JavaDriverClient client;
 
-        private JavaDriverRun(JavaDriverClient client)
-        {
+        private JavaDriverRun(JavaDriverClient client) {
             this.client = client;
         }
 
-        public boolean run() throws Exception
-        {
-            ResultSet rs = client.getSession().execute(bindArgs().ToV3Value());
+        @Override
+        public boolean run() throws Exception {
+            ResultSet rs = client.getSession().execute(bindArgs().toV3Value());
             rowCount = rs.all().size();
             partitionCount = Math.min(1, rowCount);
             return true;
         }
     }
 
-    private class JavaDriverV4Run extends Runner
-    {
+    private final class JavaDriverV4Run extends Runner {
         final JavaDriverV4Client client;
 
-        private JavaDriverV4Run(JavaDriverV4Client client)
-        {
+        private JavaDriverV4Run(JavaDriverV4Client client) {
             this.client = client;
         }
 
-        public boolean run() throws Exception
-        {
-            com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bindArgs().ToV4Value());
+        @Override
+        public boolean run() throws Exception {
+            com.datastax.oss.driver.api.core.cql.ResultSet rs =
+                    client.getSession().execute(bindArgs().toV4Value());
             rowCount = rs.all().size();
             partitionCount = Math.min(1, rowCount);
             return true;
         }
     }
 
-    private int fillRandom()
-    {
+    private int fillRandom() {
         int c = 0;
         PartitionIterator iterator = partitions.getFirst();
-        while (iterator.hasNext())
-        {
+        while (iterator.hasNext()) {
             Row row = iterator.next();
             Object[] randomBufferRow = randomBuffer[c++];
-            for (int i = 0 ; i < argumentIndex.length ; i++)
-                randomBufferRow[i] = row.get(argumentIndex[i]);
-            if (c >= randomBuffer.length)
-                break;
+            for (int i = 0; i < argumentIndex.length; i++) randomBufferRow[i] = row.get(argumentIndex[i]);
+            if (c >= randomBuffer.length) break;
         }
         assert c > 0;
         return c;
     }
 
-    BoundStatement bindArgs()
-    {
-        switch (argSelect)
-        {
-            case MULTIROW:
+    BoundStatement bindArgs() {
+        return switch (argSelect) {
+            case MULTIROW -> {
                 int c = fillRandom();
-                for (int i = 0 ; i < argumentIndex.length ; i++)
-                {
+                for (int i = 0; i < argumentIndex.length; i++) {
                     int argIndex = argumentIndex[i];
                     bindBuffer[i] = randomBuffer[argIndex < 0 ? 0 : random.nextInt(c)][i];
                 }
-                return statement.bind(bindBuffer);
-            case SAMEROW:
-                return bindRow(partitions.getFirst().next());
-            default:
-                throw new IllegalStateException();
-        }
+                yield statement.bind(bindBuffer);
+            }
+            case SAMEROW -> bindRow(partitions.getFirst().next());
+        };
     }
 
     @Override
-    public void run(JavaDriverClient client) throws IOException
-    {
+    public void run(JavaDriverClient client) throws IOException {
         timeWithRetry(new JavaDriverRun(client));
     }
 
     @Override
-    public void run(JavaDriverV4Client client) throws IOException
-    {
+    public void run(JavaDriverV4Client client) throws IOException {
         timeWithRetry(new JavaDriverV4Run(client));
     }
-
 }

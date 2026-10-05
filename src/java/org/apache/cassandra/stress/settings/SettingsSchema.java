@@ -1,20 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
+import com.datastax.driver.core.exceptions.AlreadyExistsException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
-import java.util.*;
-
-import com.datastax.driver.core.exceptions.AlreadyExistsException;
-import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import org.apache.cassandra.stress.util.ByteBufferUtil;
 import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.stress.util.ByteBufferUtil;
-import org.apache.cassandra.stress.StressProfile;
 
-public class SettingsSchema
-{
+public class SettingsSchema {
     private final String replicationStrategy;
     private final Map<String, String> replicationStrategyOptions;
 
@@ -25,13 +22,10 @@ public class SettingsSchema
     private final String compactionStrategy;
     private final Map<String, String> compactionStrategyOptions;
     public final String keyspace;
-    private final Command cmd_type;
+    private final Command cmdType;
 
     public SettingsSchema(Options options, SettingsCommand command) {
-        keyspace = switch (command) {
-            case SettingsCommandUser cmd -> null;
-            default -> options.keyspace.value();
-        };
+        keyspace = command instanceof SettingsCommandUser ? null : options.keyspace.value();
 
         replicationStrategy = options.replication.getStrategy();
         replicationStrategyOptions = options.replication.getOptions();
@@ -40,16 +34,15 @@ public class SettingsSchema
         compression = options.compression.value();
         compactionStrategy = options.compaction.getStrategy();
         compactionStrategyOptions = options.compaction.getOptions();
-        cmd_type = command.type;
+        cmdType = command.type;
     }
 
-    public void createKeySpaces(StressSettings settings)
-    {
+    public void createKeySpaces(StressSettings settings) {
         createKeySpacesNative(settings);
     }
 
-    public void createKeySpacesNative(StressSettings settings)
-    {
+    @SuppressWarnings("EmptyCatch")
+    public void createKeySpacesNative(StressSettings settings) {
 
         QueryExecutor client;
         if (settings.mode.api == ConnectionAPI.JAVA_DRIVER4_NATIVE) {
@@ -58,58 +51,65 @@ public class SettingsSchema
             client = (QueryExecutor) settings.getJavaDriverClient(false);
         }
 
-        try
-        {
-            client.execute(createKeyspaceStatementCQL3(), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
+        try {
+            client.execute(
+                    createKeyspaceStatementCQL3(), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
 
-            client.execute("USE \""+keyspace+"\"", org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
+            client.execute("USE \"" + keyspace + "\"", org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
 
-            client.execute(createStandard1StatementCQL3(settings), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
+            client.execute(
+                    createStandard1StatementCQL3(settings),
+                    org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
 
-            if (cmd_type == Command.COUNTER_WRITE)
-            {
-                client.execute(createCounter1StatementCQL3(settings), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
+            if (cmdType == Command.COUNTER_WRITE) {
+                client.execute(
+                        createCounter1StatementCQL3(settings),
+                        org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
             }
 
-            System.out.println(String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
+            System.out.println(
+                    String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
             Thread.sleep(settings.node.nodes.size() * 1000L);
-        }
-        catch (AlreadyExistsException | com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException e)
-        {
-        }
-        catch (Exception e)
-        {
+        } catch (AlreadyExistsException
+                | com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException ignored) {
+        } catch (Exception e) {
             throw new RuntimeException("Encountered exception creating schema", e);
         }
     }
 
-    String createKeyspaceStatementCQL3()
-    {
+    String createKeyspaceStatementCQL3() {
         StringBuilder b = new StringBuilder();
 
         b.append("CREATE KEYSPACE IF NOT EXISTS \"")
                 .append(keyspace)
                 .append("\" WITH replication = {'class': '")
                 .append(replicationStrategy)
-                .append("'");
+                .append('\'');
 
         if (replicationStrategyOptions.isEmpty()) {
             b.append(", 'replication_factor': '1'}");
         } else {
             for (Map.Entry<String, String> entry : replicationStrategyOptions.entrySet()) {
-                b.append(", '").append(entry.getKey()).append("' : '").append(entry.getValue()).append("'");
+                b.append(", '")
+                        .append(entry.getKey())
+                        .append("' : '")
+                        .append(entry.getValue())
+                        .append('\'');
             }
 
-            b.append("}");
+            b.append('}');
         }
 
         if (storage != null) {
-            b.append(" AND storage = {");
-            b.append("'type': '").append(storage).append("'");
+            b.append(" AND storage = {'type': '").append(storage).append('\'');
             for (Map.Entry<String, String> entry : storageOptions.entrySet()) {
-                b.append(", '").append(entry.getKey()).append("' : '").append(entry.getValue()).append("'");
+                b.append(", '")
+                        .append(entry.getKey())
+                        .append("' : '")
+                        .append(entry.getValue())
+                        .append('\'');
             }
-            b.append("}");
+            b.append('}');
         }
 
         b.append(" AND durable_writes = true;\n");
@@ -121,8 +121,7 @@ public class SettingsSchema
 
         StringBuilder b = new StringBuilder();
 
-        b.append("CREATE TABLE IF NOT EXISTS ")
-                .append("standard1 (key blob PRIMARY KEY ");
+        b.append("CREATE TABLE IF NOT EXISTS standard1 (key blob PRIMARY KEY ");
 
         try {
             for (ByteBuffer name : settings.columns.names)
@@ -133,17 +132,23 @@ public class SettingsSchema
 
         b.append(") WITH compression = {");
         if (compression != null)
-            b.append("'sstable_compression' : '").append(compression).append("'");
+            b.append("'sstable_compression' : '").append(compression).append('\'');
 
-        b.append("}");
+        b.append('}');
 
         if (compactionStrategy != null) {
-            b.append(" AND compaction = { 'class' : '").append(compactionStrategy).append("'");
+            b.append(" AND compaction = { 'class' : '")
+                    .append(compactionStrategy)
+                    .append('\'');
 
             for (Map.Entry<String, String> entry : compactionStrategyOptions.entrySet())
-                b.append(", '").append(entry.getKey()).append("' : '").append(entry.getValue()).append("'");
+                b.append(", '")
+                        .append(entry.getKey())
+                        .append("' : '")
+                        .append(entry.getValue())
+                        .append('\'');
 
-            b.append("}");
+            b.append('}');
         }
 
         b.append(";\n");
@@ -155,8 +160,7 @@ public class SettingsSchema
 
         StringBuilder b = new StringBuilder();
 
-        b.append("CREATE TABLE IF NOT EXISTS ")
-                .append("counter1 (key blob PRIMARY KEY,");
+        b.append("CREATE TABLE IF NOT EXISTS counter1 (key blob PRIMARY KEY,");
 
         try {
             for (ByteBuffer name : settings.columns.names)
@@ -167,17 +171,23 @@ public class SettingsSchema
 
         b.append(") WITH compression = {");
         if (compression != null)
-            b.append("'sstable_compression' : '").append(compression).append("'");
+            b.append("'sstable_compression' : '").append(compression).append('\'');
 
-        b.append("}");
+        b.append('}');
 
         if (compactionStrategy != null) {
-            b.append(" AND compaction = { 'class' : '").append(compactionStrategy).append("'");
+            b.append(" AND compaction = { 'class' : '")
+                    .append(compactionStrategy)
+                    .append('\'');
 
             for (Map.Entry<String, String> entry : compactionStrategyOptions.entrySet())
-                b.append(", '").append(entry.getKey()).append("' : '").append(entry.getValue()).append("'");
+                b.append(", '")
+                        .append(entry.getKey())
+                        .append("' : '")
+                        .append(entry.getValue())
+                        .append('\'');
 
-            b.append("}");
+            b.append('}');
         }
 
         b.append(";\n");
@@ -189,8 +199,14 @@ public class SettingsSchema
         final OptionReplication replication = new OptionReplication();
         final OptionStorage storage = new OptionStorage();
         final OptionCompaction compaction = new OptionCompaction();
-        final OptionSimple keyspace = new OptionSimple("keyspace=", ".*", "keyspace1", "The keyspace name to use", false);
-        final OptionSimple compression = new OptionSimple("compression=", ".*", null, "Specify the compression to use for sstable, default:no compression", false);
+        final OptionSimple keyspace =
+                new OptionSimple("keyspace=", ".*", "keyspace1", "The keyspace name to use", false);
+        final OptionSimple compression = new OptionSimple(
+                "compression=",
+                ".*",
+                null,
+                "Specify the compression to use for sstable, default:no compression",
+                false);
 
         @Override
         public List<? extends Option> options() {
@@ -211,11 +227,12 @@ public class SettingsSchema
 
     public static SettingsSchema get(Map<String, String[]> clArgs, SettingsCommand command) {
         String[] params = clArgs.remove("-schema");
-        if (params == null)
-            return new SettingsSchema(new Options(), command);
+        if (params == null) return new SettingsSchema(new Options(), command);
 
         if (command instanceof SettingsCommandUser)
-            throw new IllegalArgumentException("-schema can only be provided with predefined operations insert, read, etc.; the 'user' command requires a schema yaml instead");
+            throw new IllegalArgumentException(
+                    "-schema can only be provided with predefined operations insert, read, etc.; the 'user' command"
+                            + " requires a schema yaml instead");
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
         if (options == null) {
@@ -233,5 +250,4 @@ public class SettingsSchema
     public static Runnable helpPrinter() {
         return () -> printHelp();
     }
-
 }

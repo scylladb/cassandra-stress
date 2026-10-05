@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.util.*;
-
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import org.apache.cassandra.stress.util.EncryptionOptions;
-import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class StressSettings
-{
+public class StressSettings {
     public final SettingsCommand command;
     public final SettingsRate rate;
     public final SettingsPopulation generate;
@@ -27,22 +28,22 @@ public class StressSettings
     public final SettingsGraph graph;
     public final SettingsTokenRange tokenRange;
 
-    public StressSettings(SettingsCommand command,
-                          SettingsRate rate,
-                          SettingsPopulation generate,
-                          SettingsInsert insert,
-                          SettingsColumn columns,
-                          SettingsErrors errors,
-                          SettingsLog log,
-                          SettingsMode mode,
-                          SettingsNode node,
-                          SettingsSchema schema,
-                          SettingsTransport transport,
-                          SettingsPort port,
-                          String sendToDaemon,
-                          SettingsGraph graph,
-                          SettingsTokenRange tokenRange)
-    {
+    public StressSettings(
+            SettingsCommand command,
+            SettingsRate rate,
+            SettingsPopulation generate,
+            SettingsInsert insert,
+            SettingsColumn columns,
+            SettingsErrors errors,
+            SettingsLog log,
+            SettingsMode mode,
+            SettingsNode node,
+            SettingsSchema schema,
+            SettingsTransport transport,
+            SettingsPort port,
+            String sendToDaemon,
+            SettingsGraph graph,
+            SettingsTokenRange tokenRange) {
         this.command = command;
         this.rate = rate;
         this.insert = insert;
@@ -61,39 +62,33 @@ public class StressSettings
     }
 
     private volatile JavaDriverClient client;
-    private volatile int numFailures;
+    private final Object clientLock = new Object();
+    private int numFailures;
     private static int MAX_NUM_FAILURES = 10;
 
-    public JavaDriverClient getJavaDriverClient()
-    {
+    public JavaDriverClient getJavaDriverClient() {
         return getJavaDriverClient(true);
     }
 
-    public JavaDriverClient getJavaDriverClient(boolean setKeyspace)
-    {
-        if (client != null)
-            return client;
+    public JavaDriverClient getJavaDriverClient(boolean setKeyspace) {
+        if (client != null) return client;
 
-        synchronized (this)
-        {
-            if (numFailures >= MAX_NUM_FAILURES)
-                throw new RuntimeException("Failed to create client too many times");
+        synchronized (clientLock) {
+            if (numFailures >= MAX_NUM_FAILURES) throw new RuntimeException("Failed to create client too many times");
 
-            try
-            {
-                if (client != null)
-                    return client;
+            try {
+                if (client != null) return client;
 
                 EncryptionOptions encOptions = transport.getEncryptionOptions();
                 JavaDriverClient c = new JavaDriverClient(this, node.nodes, port.nativePort, encOptions);
                 c.connect(mode.compression());
                 if (setKeyspace && schema.keyspace != null)
-                    c.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
+                    c.execute(
+                            "USE \"" + schema.keyspace + "\";", org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
 
-                return client = c;
-            }
-            catch (Exception e)
-            {
+                client = c;
+                return c;
+            } catch (Exception e) {
                 numFailures += 1;
                 throw new RuntimeException(e);
             }
@@ -102,90 +97,74 @@ public class StressSettings
 
     private volatile JavaDriverV4Client v4Client;
 
-    public JavaDriverV4Client getJavaDriverV4Client()
-    {
+    public JavaDriverV4Client getJavaDriverV4Client() {
         return getJavaDriverV4Client(true);
     }
 
-    public JavaDriverV4Client getJavaDriverV4Client(boolean setKeyspace)
-    {
-        if (v4Client != null)
-            return v4Client;
+    public JavaDriverV4Client getJavaDriverV4Client(boolean setKeyspace) {
+        if (v4Client != null) return v4Client;
 
-        synchronized (this)
-        {
-            if (numFailures >= MAX_NUM_FAILURES)
-                throw new RuntimeException("Failed to create client too many times");
+        synchronized (clientLock) {
+            if (numFailures >= MAX_NUM_FAILURES) throw new RuntimeException("Failed to create client too many times");
 
-            try
-            {
-                if (v4Client != null)
-                    return v4Client;
+            try {
+                if (v4Client != null) return v4Client;
 
                 EncryptionOptions encOptions = transport.getEncryptionOptions();
                 JavaDriverV4Client c = new JavaDriverV4Client(this, node.nodes, port.nativePort, encOptions);
                 c.connect(mode.compression());
                 if (setKeyspace && schema.keyspace != null)
-                    c.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
+                    c.execute(
+                            "USE \"" + schema.keyspace + "\";", org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
 
-                return v4Client = c;
-            }
-            catch (Exception e)
-            {
-                numFailures +=1;
+                v4Client = c;
+                return c;
+            } catch (Exception e) {
+                numFailures += 1;
                 throw new RuntimeException(e);
             }
         }
     }
 
-    public void maybeCreateKeyspaces()
-    {
-        if (command.type == Command.WRITE || command.type == Command.COUNTER_WRITE)
-        {
+    public void maybeCreateKeyspaces() {
+        if (command.type == Command.WRITE || command.type == Command.COUNTER_WRITE) {
             schema.createKeySpaces(this);
-        }
-        else if (command.type == Command.USER)
-        {
+        } else if (command.type == Command.USER) {
             ((SettingsCommandUser) command).profiles.forEach((k, v) -> v.maybeCreateSchema(this));
         }
     }
 
-    public static StressSettings parse(String[] args)
-    {
+    public static StressSettings parse(String[] args) {
         args = repairParams(args);
         final Map<String, String[]> clArgs = parseMap(args);
         if (clArgs.containsKey("legacy"))
-            throw new IllegalArgumentException("Command legacy was removed. Run cassandra-stress help to see the commands.");
-        if (SettingsMisc.maybeDoSpecial(clArgs))
-            return null;
+            throw new IllegalArgumentException(
+                    "Command legacy was removed. Run cassandra-stress help to see the commands.");
+        if (SettingsMisc.maybeDoSpecial(clArgs)) return null;
         return get(clArgs);
     }
 
-    private static String[] repairParams(String[] args)
-    {
+    private static String[] repairParams(String[] args) {
         StringBuilder sb = new StringBuilder();
         boolean first = true;
-        for (String arg : args)
-        {
-            if (!first)
-                sb.append(" ");
+        for (String arg : args) {
+            if (!first) sb.append(' ');
             sb.append(arg);
             first = false;
         }
         return sb.toString()
-                 .replaceAll("\\s+([,=()])", "$1")
-                 .replaceAll("([,=(])\\s+", "$1")
-                 .split(" +");
+                .replaceAll("\\s+([,=()])", "$1")
+                .replaceAll("([,=(])\\s+", "$1")
+                .split(" +");
     }
 
-    public static StressSettings get(Map<String, String[]> clArgs)
-    {
+    public static StressSettings get(Map<String, String[]> clArgs) {
         SettingsCommand command = SettingsCommand.get(clArgs);
-        if (command == null)
-            throw new IllegalArgumentException("No command specified");
+        if (command == null) throw new IllegalArgumentException("No command specified");
         String sendToDaemon = SettingsMisc.getSendToDaemon(clArgs);
         if (sendToDaemon != null && command.type == Command.USER)
-            throw new IllegalArgumentException("-send-to runs the predefined commands only. Run the user command without -send-to.");
+            throw new IllegalArgumentException(
+                    "-send-to runs the predefined commands only. Run the user command without -send-to.");
         SettingsPort port = SettingsPort.get(clArgs);
         SettingsRate rate = SettingsRate.get(clArgs, command);
         SettingsPopulation generate = SettingsPopulation.get(clArgs, command);
@@ -199,15 +178,12 @@ public class StressSettings
         SettingsSchema schema = SettingsSchema.get(clArgs, command);
         SettingsTransport transport = SettingsTransport.get(clArgs);
         SettingsGraph graph = SettingsGraph.get(clArgs, command);
-        if (!clArgs.isEmpty())
-        {
+        if (!clArgs.isEmpty()) {
             printHelp();
             System.out.println("Error processing command line arguments. The following were ignored:");
-            for (Map.Entry<String, String[]> e : clArgs.entrySet())
-            {
+            for (Map.Entry<String, String[]> e : clArgs.entrySet()) {
                 System.out.print(e.getKey());
-                for (String v : e.getValue())
-                {
+                for (String v : e.getValue()) {
                     System.out.print(" ");
                     System.out.print(v);
                 }
@@ -216,13 +192,26 @@ public class StressSettings
             System.exit(1);
         }
 
-        return new StressSettings(command, rate, generate, insert, columns, errors, log, mode, node, schema, transport, port, sendToDaemon, graph, tokenRange);
+        return new StressSettings(
+                command,
+                rate,
+                generate,
+                insert,
+                columns,
+                errors,
+                log,
+                mode,
+                node,
+                schema,
+                transport,
+                port,
+                sendToDaemon,
+                graph,
+                tokenRange);
     }
 
-    private static Map<String, String[]> parseMap(String[] args)
-    {
-        if (args.length == 0)
-        {
+    private static Map<String, String[]> parseMap(String[] args) {
+        if (args.length == 0) {
             System.out.println("No command provided");
             printHelp();
             System.exit(1);
@@ -230,36 +219,29 @@ public class StressSettings
         final LinkedHashMap<String, String[]> r = new LinkedHashMap<>();
         String key = null;
         List<String> params = new ArrayList<>();
-        for (int i = 0; i < args.length; i++)
-        {
-            if (i == 0 || args[i].startsWith("-"))
-            {
-                if (i > 0)
-                    putParam(key, params.toArray(new String[0]), r);
+        for (int i = 0; i < args.length; i++) {
+            if (i == 0 || args[i].startsWith("-")) {
+                if (i > 0) putParam(key, params.toArray(new String[0]), r);
                 key = args[i].toLowerCase(Locale.ROOT);
                 params.clear();
-            }
-            else
-                params.add(args[i]);
+            } else params.add(args[i]);
         }
         putParam(key, params.toArray(new String[0]), r);
         return r;
     }
 
-    private static void putParam(String key, String[] args, Map<String, String[]> clArgs)
-    {
+    private static void putParam(String key, String[] args, Map<String, String[]> clArgs) {
         String[] prev = clArgs.put(key, args);
         if (prev != null)
-            throw new IllegalArgumentException(key + " is defined multiple times. Each option/command can be specified at most once.");
+            throw new IllegalArgumentException(
+                    key + " is defined multiple times. Each option/command can be specified at most once.");
     }
 
-    public static void printHelp()
-    {
+    public static void printHelp() {
         SettingsMisc.printHelp();
     }
 
-    public void printSettings(ResultLogger out)
-    {
+    public void printSettings(ResultLogger out) {
         out.println("******************** Stress Settings ********************");
         out.println("Command:");
         command.printSettings(out);
@@ -269,8 +251,7 @@ public class StressSettings
         generate.printSettings(out);
         out.println("Insert:");
         insert.printSettings(out);
-        if (command.type != Command.USER)
-        {
+        if (command.type != Command.USER) {
             out.println("Columns:");
             columns.printSettings(out);
         }
@@ -295,8 +276,7 @@ public class StressSettings
         out.println("TokenRange:");
         tokenRange.printSettings(out);
 
-        if (command.type == Command.USER)
-        {
+        if (command.type == Command.USER) {
             out.println();
             out.println("******************** Profile ********************");
             out.println("******************** Profile(s) ********************");
@@ -306,17 +286,16 @@ public class StressSettings
         out.println();
     }
 
-    public synchronized void disconnect()
-    {
-        if (client != null)
-        {
-            client.disconnect();
-            client = null;
-        }
-        if (v4Client != null)
-        {
-            v4Client.disconnect();
-            v4Client = null;
+    public void disconnect() {
+        synchronized (clientLock) {
+            if (client != null) {
+                client.disconnect();
+                client = null;
+            }
+            if (v4Client != null) {
+                v4Client.disconnect();
+                v4Client = null;
+            }
         }
     }
 }

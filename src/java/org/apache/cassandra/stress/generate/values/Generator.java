@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.generate.values;
 
-import org.apache.cassandra.stress.marshal.AbstractType;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
+import org.apache.cassandra.stress.marshal.AbstractType;
 import org.apache.cassandra.stress.settings.OptionDistribution;
 
-public abstract class Generator<T>
-{
+public abstract class Generator<T> {
 
     public final String name;
     public final AbstractType<T> type;
@@ -17,8 +16,7 @@ public abstract class Generator<T>
     final Distribution sizeDistribution;
     public final Distribution clusteringDistribution;
 
-    public Generator(AbstractType<T> type, GeneratorConfig config, String name, Class<?> clazz)
-    {
+    public Generator(AbstractType<T> type, GeneratorConfig config, String name, Class<?> clazz) {
         this.type = type;
         this.name = name;
         this.clazz = clazz;
@@ -28,26 +26,22 @@ public abstract class Generator<T>
         this.clusteringDistribution = config.getClusteringDistribution(defaultClusteringDistribution());
     }
 
-    public void setSeed(long seed)
-    {
+    public void setSeed(long seed) {
         identityDistribution.setSeed(seed ^ salt);
         clusteringDistribution.setSeed(seed ^ ~salt);
     }
 
     public abstract T generate();
 
-    DistributionFactory defaultIdentityDistribution()
-    {
+    DistributionFactory defaultIdentityDistribution() {
         return OptionDistribution.get("uniform(1..100B)");
     }
 
-    DistributionFactory defaultSizeDistribution()
-    {
+    DistributionFactory defaultSizeDistribution() {
         return OptionDistribution.get("uniform(4..8)");
     }
 
-    DistributionFactory defaultClusteringDistribution()
-    {
+    DistributionFactory defaultClusteringDistribution() {
         return OptionDistribution.get("fixed(1)");
     }
 }

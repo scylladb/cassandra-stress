@@ -4,50 +4,41 @@ package org.apache.cassandra.stress.marshal;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
-
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 
-public abstract class AbstractTextSerializer implements TypeSerializer<String>
-{
+public abstract class AbstractTextSerializer implements TypeSerializer<String> {
     private final Charset charset;
 
-    protected AbstractTextSerializer(Charset charset)
-    {
+    protected AbstractTextSerializer(Charset charset) {
         this.charset = charset;
     }
 
-    public String deserialize(ByteBuffer bytes)
-    {
-        try
-        {
+    @Override
+    public String deserialize(ByteBuffer bytes) {
+        try {
             return ByteBufferUtil.string(bytes, charset);
-        }
-        catch (CharacterCodingException e)
-        {
-            throw new MarshalException("Invalid " + charset + " bytes " + ByteBufferUtil.bytesToHex(bytes));
+        } catch (CharacterCodingException e) {
+            throw new MarshalException("Invalid " + charset + " bytes " + ByteBufferUtil.bytesToHex(bytes), e);
         }
     }
 
-    public ByteBuffer serialize(String value)
-    {
+    @Override
+    public ByteBuffer serialize(String value) {
         return ByteBufferUtil.bytes(value, charset);
     }
 
-    public String toString(String value)
-    {
+    @Override
+    public String toString(String value) {
         return value;
     }
 
-    public Class<String> getType()
-    {
+    @Override
+    public Class<String> getType() {
         return String.class;
     }
 
     @Override
-    public String toCQLLiteral(ByteBuffer buffer)
-    {
-        return buffer == null
-             ? "null"
-             : '\'' + deserialize(buffer).replace("'", "''") + '\'';
+    public String toCQLLiteral(ByteBuffer buffer) {
+        return buffer == null ? "null" : '\'' + deserialize(buffer).replace("'", "''") + '\'';
     }
 }

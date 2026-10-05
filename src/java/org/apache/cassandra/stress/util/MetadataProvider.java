@@ -2,6 +2,7 @@ package org.apache.cassandra.stress.util;
 
 import org.apache.cassandra.stress.core.TableMetadata;
 
+@FunctionalInterface
 public interface MetadataProvider {
-  TableMetadata getTableMetadata(String keyspace, String tableName);
+    TableMetadata getTableMetadata(String keyspace, String tableName);
 }

@@ -5,8 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class StressYaml
-{
+@SuppressWarnings("checkstyle:MemberName")
+public class StressYaml {
     public String specname;
     public String keyspace;
     public String keyspace_definition;
@@ -20,31 +20,27 @@ public class StressYaml
     public Map<String, String> insert;
     public Map<String, TokenRangeQueryDef> token_range_queries = new HashMap<>();
 
-    public static class QueryDef
-    {
+    public static class QueryDef {
         public String cql;
         public String fields;
         public String consistencyLevel;
         public String serialConsistencyLevel;
-        public String getConfigAsString()
-        {
-            String output = String.format("CQL:%s;Fields:%s;", cql, fields);
-            if (consistencyLevel != null)
-                output += String.format("consistencyLevel:%s;", consistencyLevel);
+
+        public String getConfigAsString() {
+            StringBuilder output = new StringBuilder(String.format("CQL:%s;Fields:%s;", cql, fields));
+            if (consistencyLevel != null) output.append(String.format("consistencyLevel:%s;", consistencyLevel));
             if (serialConsistencyLevel != null)
-                output += String.format("serialConsistencyLevel:%s;", serialConsistencyLevel);
-            return output;
+                output.append(String.format("serialConsistencyLevel:%s;", serialConsistencyLevel));
+            return output.toString();
         }
     }
 
-    public static class TokenRangeQueryDef
-    {
+    public static class TokenRangeQueryDef {
         public String columns;
         public int page_size = 5000;
-        public String getConfigAsString()
-        {
+
+        public String getConfigAsString() {
             return String.format("Columns:%s;", columns);
         }
     }
-
 }

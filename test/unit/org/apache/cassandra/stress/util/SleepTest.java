@@ -1,16 +1,13 @@
 package org.apache.cassandra.stress.util;
 
-import java.util.concurrent.TimeUnit;
-
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class SleepTest
-{
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
+
+class SleepTest {
     @Test
-    void sleepsTheFullTimeAndKeepsTheInterrupt()
-    {
+    void sleepsTheFullTimeAndKeepsTheInterrupt() {
         Thread.currentThread().interrupt();
         long start = System.nanoTime();
         Sleep.uninterruptibly(50, TimeUnit.MILLISECONDS);

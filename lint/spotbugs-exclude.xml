@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW,EI_EXPOSE_REP,EI_EXPOSE_REP2,MS_EXPOSE_REP,PA_PUBLIC_PRIMITIVE_ATTRIBUTE,DM_EXIT,HSM_HIDING_METHOD,REC_CATCH_EXCEPTION" />
+    </Match>
+    <Match>
+        <Class name="org.apache.cassandra.stress.StressYaml$QueryDef" />
+        <Bug pattern="UWF_UNWRITTEN_PUBLIC_OR_PROTECTED_FIELD" />
+    </Match>
+    <Match>
+        <Class name="org.apache.cassandra.stress.StressYaml$TokenRangeQueryDef" />
+        <Bug pattern="UWF_UNWRITTEN_PUBLIC_OR_PROTECTED_FIELD" />
+    </Match>
+    <Match>
+        <Class name="org.apache.cassandra.stress.marshal.BooleanSerializer" />
+        <Bug pattern="NP_BOOLEAN_RETURN_NULL" />
+    </Match>
+    <Match>
+        <Or>
+            <Class name="org.apache.cassandra.stress.util.MurmurHash" />
+            <And>
+                <Class name="org.apache.cassandra.stress.settings.OptionDistribution" />
+                <Method name="parseLong" />
+            </And>
+        </Or>
+        <Bug pattern="SF_SWITCH_FALLTHROUGH,SF_SWITCH_NO_DEFAULT" />
+    </Match>
+    <Match>
+        <Class name="org.apache.cassandra.stress.StressAction" />
+        <Method name="run" />
+        <Bug code="RV" />
+    </Match>
+    <Match>
+        <Class name="org.apache.cassandra.stress.settings.OptionEnumProbabilities$OptMatcher" />
+        <Bug pattern="EQ_DOESNT_OVERRIDE_EQUALS" />
+    </Match>
+</FindBugsFilter>

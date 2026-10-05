@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
-public final class OptionAnyProbabilities extends OptionMulti
-{
-    public OptionAnyProbabilities(String name, String description)
-    {
+public final class OptionAnyProbabilities extends OptionMulti {
+    public OptionAnyProbabilities(String name, String description) {
         super(name, description, false);
     }
 
     final CollectRatios ratios = new CollectRatios();
 
-    private static final class CollectRatios extends Option
-    {
+    private static final class CollectRatios extends Option {
         Map<String, Double> options = new LinkedHashMap<>();
 
-        boolean accept(String param)
-        {
+        @Override
+        boolean accept(String param) {
             String[] args = param.split("=");
-            if (args.length == 2 && args[1].length() > 0 && args[0].length() > 0)
-            {
+            if (args.length == 2 && args[1].length() > 0 && args[0].length() > 0) {
                 if (options.put(args[0], Double.valueOf(args[1])) != null)
                     throw new IllegalArgumentException(args[0] + " set twice");
                 return true;
@@ -28,64 +28,61 @@ public final class OptionAnyProbabilities extends OptionMulti
             return false;
         }
 
-        boolean happy()
-        {
+        @Override
+        boolean happy() {
             return !options.isEmpty();
         }
 
-        String shortDisplay()
-        {
+        @Override
+        String shortDisplay() {
             return null;
         }
-        public String getOptionAsString()
-        {
+
+        @Override
+        public String getOptionAsString() {
             StringBuilder sb = new StringBuilder();
-            for (Map.Entry<String, Double> entry : options.entrySet())
-            {
-                sb.append(entry.getKey()).append("=").append(entry.getValue()).append(",");
+            for (Map.Entry<String, Double> entry : options.entrySet()) {
+                sb.append(entry.getKey()).append('=').append(entry.getValue()).append(',');
             }
             return sb.toString();
         }
 
-        String longDisplay()
-        {
+        @Override
+        String longDisplay() {
             return null;
         }
 
-        List<String> multiLineDisplay()
-        {
+        @Override
+        List<String> multiLineDisplay() {
             return Collections.emptyList();
         }
 
-        boolean setByUser()
-        {
+        @Override
+        boolean setByUser() {
             return !options.isEmpty();
         }
 
-        boolean present()
-        {
+        @Override
+        boolean present() {
             return setByUser();
         }
     }
 
     @Override
-    public List<? extends Option> options()
-    {
+    public List<? extends Option> options() {
         return Arrays.asList(ratios);
     }
 
-    Map<String, Double> ratios()
-    {
+    Map<String, Double> ratios() {
         return ratios.options;
     }
-    public String getOptionAsString()
-    {
+
+    @Override
+    public String getOptionAsString() {
         StringBuilder sb = new StringBuilder(super.getOptionAsString());
         sb.append(" [Ratios: ");
         sb.append(ratios.getOptionAsString());
         sb.append("];");
         return sb.toString();
     }
-
 }
-

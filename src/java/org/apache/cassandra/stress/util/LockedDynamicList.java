@@ -4,63 +4,49 @@ package org.apache.cassandra.stress.util;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class LockedDynamicList<E> extends DynamicList<E>
-{
+public class LockedDynamicList<E> extends DynamicList<E> {
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public LockedDynamicList(int maxExpectedSize)
-    {
+    public LockedDynamicList(int maxExpectedSize) {
         super(maxExpectedSize);
     }
 
-    public Node<E> append(E value, int maxSize)
-    {
+    @Override
+    public Node<E> append(E value, int maxSize) {
         lock.writeLock().lock();
-        try
-        {
+        try {
             return super.append(value, maxSize);
-        }
-        finally
-        {
+        } finally {
             lock.writeLock().unlock();
         }
     }
 
-    public void remove(Node<E> node)
-    {
+    @Override
+    public void remove(Node<E> node) {
         lock.writeLock().lock();
-        try
-        {
+        try {
             super.remove(node);
-        }
-        finally
-        {
+        } finally {
             lock.writeLock().unlock();
         }
     }
 
-    public E get(int index)
-    {
+    @Override
+    public E get(int index) {
         lock.readLock().lock();
-        try
-        {
+        try {
             return super.get(index);
-        }
-        finally
-        {
+        } finally {
             lock.readLock().unlock();
         }
     }
 
-    public int size()
-    {
+    @Override
+    public int size() {
         lock.readLock().lock();
-        try
-        {
+        try {
             return super.size();
-        }
-        finally
-        {
+        } finally {
             lock.readLock().unlock();
         }
     }

@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.*;
-
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.cassandra.stress.util.ResultLogger;
-import com.datastax.oss.driver.api.core.metadata.Node;
 
-public class SettingsNode
-{
+public class SettingsNode {
     public final List<String> nodes;
     public final boolean isWhiteList;
     public final String datacenter;
@@ -21,32 +24,22 @@ public class SettingsNode
     public final LoadBalanceType loadBalance;
     public final Integer usedHostsPerRemoteDc;
 
-    public SettingsNode(Options options)
-    {
-        if (options.file.setByUser())
-        {
-            try
-            {
+    public SettingsNode(Options options) {
+        if (options.file.setByUser()) {
+            try {
                 String node;
                 List<String> tmpNodes = new ArrayList<>();
-                try (BufferedReader in = Files.newBufferedReader(Paths.get(options.file.value())))
-                {
-                    while ((node = in.readLine()) != null)
-                    {
-                        if (node.length() > 0)
-                            tmpNodes.add(node);
+                try (BufferedReader in = Files.newBufferedReader(Paths.get(options.file.value()))) {
+                    while ((node = in.readLine()) != null) {
+                        if (node.length() > 0) tmpNodes.add(node);
                     }
-                    nodes = Arrays.asList(tmpNodes.toArray(new String[tmpNodes.size()]));
+                    nodes = Arrays.asList(tmpNodes.toArray(new String[0]));
                 }
-            }
-            catch(IOException ioe)
-            {
+            } catch (IOException ioe) {
                 throw new RuntimeException(ioe);
             }
 
-        }
-        else
-        {
+        } else {
             nodes = Arrays.asList(options.list.value().split(","));
         }
 
@@ -54,88 +47,78 @@ public class SettingsNode
         datacenter = options.datacenter.value();
         rack = options.rack.value();
         loadBalance = LoadBalanceType.fromString(options.loadBalance.value());
-        
-        if (options.usedHostsPerRemoteDc.setByUser())
-        {
-            try
-            {
+
+        if (options.usedHostsPerRemoteDc.setByUser()) {
+            try {
                 int value = Integer.parseInt(options.usedHostsPerRemoteDc.value());
                 if (value <= 0)
                     throw new IllegalArgumentException("remote-dc must be a positive integer greater than zero");
                 usedHostsPerRemoteDc = value;
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(
+                        "remote-dc must be a valid integer: " + options.usedHostsPerRemoteDc.value(), e);
             }
-            catch (NumberFormatException e)
-            {
-                throw new IllegalArgumentException("remote-dc must be a valid integer: " + options.usedHostsPerRemoteDc.value(), e);
-            }
-        }
-        else
-        {
+        } else {
             usedHostsPerRemoteDc = null;
         }
     }
 
-    public Set<InetAddress> resolveAllSpecified()
-    {
+    public Set<InetAddress> resolveAllSpecified() {
         Set<InetAddress> r = new HashSet<>();
-        for (String node : nodes)
-        {
-            try
-            {
+        for (String node : nodes) {
+            try {
                 r.add(InetAddress.getByName(node));
-            }
-            catch (UnknownHostException e)
-            {
+            } catch (UnknownHostException e) {
                 throw new RuntimeException(e);
             }
         }
         return r;
     }
 
-    public Set<InetSocketAddress> resolveAll(int port)
-    {
+    public Set<InetSocketAddress> resolveAll(int port) {
         Set<InetSocketAddress> r = new HashSet<>();
-        for (String node : nodes)
-        {
-            try
-            {
+        for (String node : nodes) {
+            try {
                 r.add(new InetSocketAddress(InetAddress.getByName(node), port));
-            }
-            catch (UnknownHostException e)
-            {
+            } catch (UnknownHostException e) {
                 throw new RuntimeException(e);
             }
         }
         return r;
     }
 
-    public String randomNode()
-    {
+    public String randomNode() {
         int index = (int) (Math.random() * nodes.size());
-        if (index >= nodes.size())
-            index = nodes.size() - 1;
+        if (index >= nodes.size()) index = nodes.size() - 1;
         return nodes.get(index);
     }
 
-    public static final class Options extends GroupedOptions
-    {
-        final OptionSimple datacenter = new OptionSimple("datacenter=", ".*", null, "Datacenter used for DCAwareRoundRobinLoadPolicy", false);
-        final OptionSimple rack = new OptionSimple("rack=", ".*", null, "Rack used for RackAwareRoundRobinLoadPolicy", false); 
-        final OptionSimple whitelist = new OptionSimple("whitelist", "", null, "Limit communications to the provided nodes", false);
+    public static final class Options extends GroupedOptions {
+        final OptionSimple datacenter =
+                new OptionSimple("datacenter=", ".*", null, "Datacenter used for DCAwareRoundRobinLoadPolicy", false);
+        final OptionSimple rack =
+                new OptionSimple("rack=", ".*", null, "Rack used for RackAwareRoundRobinLoadPolicy", false);
+        final OptionSimple whitelist =
+                new OptionSimple("whitelist", "", null, "Limit communications to the provided nodes", false);
         final OptionSimple file = new OptionSimple("file=", ".*", null, "Node file (one per line)", false);
-        final OptionSimple list = new OptionSimple("", "[^=,]+(,[^=,]+)*", "localhost", "comma delimited list of nodes", false);
-        final OptionSimple loadBalance = new OptionSimple("loadbalance=", ".*", null, "Load balancing strategy: round-robin, dc-aware, or rack-aware", false);
-        final OptionSimple usedHostsPerRemoteDc = new OptionSimple("remote-dc=", "[1-9][0-9]*", null, "Number of hosts from remote DCs to use for failover (used with dc-aware load balancing)", false);
+        final OptionSimple list =
+                new OptionSimple("", "[^=,]+(,[^=,]+)*", "localhost", "comma delimited list of nodes", false);
+        final OptionSimple loadBalance = new OptionSimple(
+                "loadbalance=", ".*", null, "Load balancing strategy: round-robin, dc-aware, or rack-aware", false);
+        final OptionSimple usedHostsPerRemoteDc = new OptionSimple(
+                "remote-dc=",
+                "[1-9][0-9]*",
+                null,
+                "Number of hosts from remote DCs to use for failover (used with dc-aware load balancing)",
+                false);
 
         @Override
-        public List<? extends Option> options()
-        {
+        public List<? extends Option> options() {
             return Arrays.asList(datacenter, rack, whitelist, file, loadBalance, usedHostsPerRemoteDc, list);
         }
     }
 
-    public void printSettings(ResultLogger out)
-    {
+    public void printSettings(ResultLogger out) {
         out.println("  Nodes: " + nodes);
         out.println("  Is White List: " + isWhiteList);
         out.println("  Datacenter: " + datacenter);
@@ -144,15 +127,12 @@ public class SettingsNode
         out.println("  Remote DC Hosts: " + (usedHostsPerRemoteDc != null ? usedHostsPerRemoteDc : "disabled"));
     }
 
-    public static SettingsNode get(Map<String, String[]> clArgs)
-    {
+    public static SettingsNode get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-node");
-        if (params == null)
-            return new SettingsNode(new Options());
+        if (params == null) return new SettingsNode(new Options());
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
-        if (options == null)
-        {
+        if (options == null) {
             printHelp();
             System.out.println("Invalid -node options provided, see output for valid options");
             System.exit(1);
@@ -160,13 +140,11 @@ public class SettingsNode
         return new SettingsNode((Options) options);
     }
 
-    public static void printHelp()
-    {
+    public static void printHelp() {
         GroupedOptions.printOptions(System.out, "-node", new Options());
     }
 
-    public static Runnable helpPrinter()
-    {
+    public static Runnable helpPrinter() {
         return SettingsNode::printHelp;
     }
 }

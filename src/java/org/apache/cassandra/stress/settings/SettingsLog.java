@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-
 import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class SettingsLog
-{
-    public static enum Level
-    {
-        MINIMAL, NORMAL, VERBOSE
+public class SettingsLog {
+    public enum Level {
+        MINIMAL,
+        NORMAL,
+        VERBOSE
     }
 
     public final boolean noSummary;
@@ -25,62 +28,56 @@ public class SettingsLog
     public final int intervalMillis;
     public final Level level;
 
-    public SettingsLog(Options options)
-    {
+    public SettingsLog(Options options) {
 
         noSummary = options.noSummmary.setByUser();
         noSettings = options.noSettings.setByUser();
         printStatementsOnError = options.printStatementsOnError.setByUser();
-        
-        if (options.outputFile.setByUser())
-            file = new File(options.outputFile.value());
-        else
-            file = null;
-        if (options.hdrOutputFile.setByUser())
-            hdrFile = new File(options.hdrOutputFile.value());
-        else
-            hdrFile = null;
+
+        if (options.outputFile.setByUser()) file = new File(options.outputFile.value());
+        else file = null;
+        if (options.hdrOutputFile.setByUser()) hdrFile = new File(options.hdrOutputFile.value());
+        else hdrFile = null;
         String interval = options.interval.value();
-        if (interval.endsWith("ms"))
-            intervalMillis = Integer.parseInt(interval.substring(0, interval.length() - 2));
+        if (interval.endsWith("ms")) intervalMillis = Integer.parseInt(interval.substring(0, interval.length() - 2));
         else if (interval.endsWith("s"))
             intervalMillis = 1000 * Integer.parseInt(interval.substring(0, interval.length() - 1));
-        else
-            intervalMillis = 1000 * Integer.parseInt(interval);
-        if (intervalMillis <= 0)
-            throw new IllegalArgumentException("Log interval must be greater than zero");
+        else intervalMillis = 1000 * Integer.parseInt(interval);
+        if (intervalMillis <= 0) throw new IllegalArgumentException("Log interval must be greater than zero");
         level = Level.valueOf(options.level.value().toUpperCase(Locale.ROOT));
     }
 
-    public MultiResultLogger getOutput() throws FileNotFoundException
-    {
-        MultiResultLogger stream = new MultiResultLogger(new PrintStream(System.out));
+    public MultiResultLogger getOutput() throws IOException {
+        MultiResultLogger stream = new MultiResultLogger(new PrintStream(System.out, false, StandardCharsets.UTF_8));
 
         if (file != null)
-            stream.addStream(new PrintStream(file));
+            stream.addStream(new PrintStream(Files.newOutputStream(file.toPath()), false, StandardCharsets.UTF_8));
 
         return stream;
     }
 
-    public static final class Options extends GroupedOptions
-    {
-        final OptionSimple noSummmary = new OptionSimple("no-summary", "", null, "Disable printing of aggregate statistics at the end of a test", false);
-        final OptionSimple noSettings = new OptionSimple("no-settings", "", null, "Disable printing of settings values at start of test", false);
-        final OptionSimple printStatementsOnError = new OptionSimple("print-statements-on-error", "", null, "Print failing CQL statements on errors", false);
+    public static final class Options extends GroupedOptions {
+        final OptionSimple noSummmary = new OptionSimple(
+                "no-summary", "", null, "Disable printing of aggregate statistics at the end of a test", false);
+        final OptionSimple noSettings = new OptionSimple(
+                "no-settings", "", null, "Disable printing of settings values at start of test", false);
+        final OptionSimple printStatementsOnError = new OptionSimple(
+                "print-statements-on-error", "", null, "Print failing CQL statements on errors", false);
         final OptionSimple outputFile = new OptionSimple("file=", ".*", null, "Log to a file", false);
         final OptionSimple hdrOutputFile = new OptionSimple("hdrfile=", ".*", null, "Log to a file", false);
-        final OptionSimple interval = new OptionSimple("interval=", "[0-9]+(ms|s|)", "1s", "Log progress every <value> seconds or milliseconds", false);
-        final OptionSimple level = new OptionSimple("level=", "(minimal|normal|verbose)", "normal", "Logging level (minimal, normal or verbose)", false);
+        final OptionSimple interval = new OptionSimple(
+                "interval=", "[0-9]+(ms|s|)", "1s", "Log progress every <value> seconds or milliseconds", false);
+        final OptionSimple level = new OptionSimple(
+                "level=", "(minimal|normal|verbose)", "normal", "Logging level (minimal, normal or verbose)", false);
 
         @Override
-        public List<? extends Option> options()
-        {
-            return Arrays.asList(level, noSummmary, outputFile, hdrOutputFile, interval, noSettings, printStatementsOnError);
+        public List<? extends Option> options() {
+            return Arrays.asList(
+                    level, noSummmary, outputFile, hdrOutputFile, interval, noSettings, printStatementsOnError);
         }
     }
 
-    public void printSettings(ResultLogger out)
-    {
+    public void printSettings(ResultLogger out) {
         out.printf("  No Summary: %b%n", noSummary);
         out.printf("  No Settings: %b%n", noSettings);
         out.printf("  File: %s%n", file);
@@ -88,15 +85,12 @@ public class SettingsLog
         out.printf("  Level: %s%n", level);
     }
 
-    public static SettingsLog get(Map<String, String[]> clArgs)
-    {
+    public static SettingsLog get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-log");
-        if (params == null)
-            return new SettingsLog(new Options());
+        if (params == null) return new SettingsLog(new Options());
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
-        if (options == null)
-        {
+        if (options == null) {
             printHelp();
             System.out.println("Invalid -log options provided, see output for valid options");
             System.exit(1);
@@ -104,13 +98,11 @@ public class SettingsLog
         return new SettingsLog((Options) options);
     }
 
-    public static void printHelp()
-    {
+    public static void printHelp() {
         GroupedOptions.printOptions(System.out, "-log", new Options());
     }
 
-    public static Runnable helpPrinter()
-    {
+    public static Runnable helpPrinter() {
         return () -> printHelp();
     }
 }

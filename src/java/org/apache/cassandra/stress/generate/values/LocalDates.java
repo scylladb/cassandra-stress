@@ -3,17 +3,14 @@ package org.apache.cassandra.stress.generate.values;
 
 import org.apache.cassandra.stress.marshal.SimpleDateType;
 
-public class LocalDates extends Generator<Integer>
-{
+public class LocalDates extends Generator<Integer> {
 
-    public LocalDates(String name, GeneratorConfig config)
-    {
+    public LocalDates(String name, GeneratorConfig config) {
         super(SimpleDateType.instance, config, name, Integer.class);
     }
 
-    public Integer generate()
-    {
-        return (int)identityDistribution.next();
+    @Override
+    public Integer generate() {
+        return (int) identityDistribution.next();
     }
-
 }

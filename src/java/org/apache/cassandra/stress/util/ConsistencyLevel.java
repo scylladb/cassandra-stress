@@ -3,8 +3,7 @@ package org.apache.cassandra.stress.util;
 
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 
-public enum ConsistencyLevel
-{
+public enum ConsistencyLevel {
     ANY(false),
     ONE(false),
     TWO(false),
@@ -19,28 +18,23 @@ public enum ConsistencyLevel
 
     private final boolean isDCLocal;
 
-    ConsistencyLevel(boolean isDCLocal)
-    {
+    ConsistencyLevel(boolean isDCLocal) {
         this.isDCLocal = isDCLocal;
     }
 
-    public boolean isDatacenterLocal()
-    {
+    public boolean isDatacenterLocal() {
         return isDCLocal;
     }
 
-    public boolean isSerialConsistency()
-    {
+    public boolean isSerialConsistency() {
         return this == SERIAL || this == LOCAL_SERIAL;
     }
 
-    public com.datastax.driver.core.ConsistencyLevel ToV3Value()
-    {
+    public com.datastax.driver.core.ConsistencyLevel toV3Value() {
         return com.datastax.driver.core.ConsistencyLevel.valueOf(name());
     }
 
-    public com.datastax.oss.driver.api.core.ConsistencyLevel ToV4Value()
-    {
+    public com.datastax.oss.driver.api.core.ConsistencyLevel toV4Value() {
         return DefaultConsistencyLevel.valueOf(name());
     }
 }

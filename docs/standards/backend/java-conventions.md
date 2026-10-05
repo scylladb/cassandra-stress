@@ -2,30 +2,29 @@
 
 ### Code style
 
-Follow `ide/idea/codeStyleSettings.xml`. Put the opening brace of a class,
-method, and control block on its own line. Put `else`, `catch`, and
-`finally` on a new line. Indent with four spaces. Do not use tabs.
+Format every Java file with palantir-java-format. Run `ant format` before a
+commit. `ant format-check` fails on a file that is not formatted, and CI runs
+it. Do not format a file by hand, and do not argue with the formatter.
 
-    public void run()
-    {
-        output.println("Sleeping 2s...");
-    }
+    ant format
 
-Some files use K&R braces and two-space indentation, for example the files
-in `src/java/org/apache/cassandra/stress/core/`. When you edit such a file,
-keep the style of that file. Do not reformat lines that your change does not
-touch.
+The formatter also orders the imports and removes unused ones. Do not use
+star imports.
 
-### Import order
+### Static analysis
 
-Use the import layout of `ide/idea/codeStyleSettings.xml`. Separate the
-groups with one blank line:
+Run `ant lint` before a commit. It runs `format-check`, Error Prone on the
+compile, Checkstyle, PMD and SpotBugs, and fails on any finding. The rule
+files are in `lint/`. Fix a finding in the code. When the code is right on
+purpose, suppress the one check on the smallest element:
 
-1. `java.*` and `javax.*`
-2. `com.google.common`, `org.apache.log4j`, `org.apache.commons`,
-   `org.cliffc.high_scale_lib`, `org.junit`, `org.slf4j`
-3. All other imports
-4. Static imports
+    @SuppressWarnings("fallthrough")
+    public static long hash64(ByteBuffer key, int offset, int length, long seed)
+
+Use the check name of the tool: `fallthrough` or `EmptyCatch` for Error
+Prone, `PMD.CloseResource` for PMD, `checkstyle:MemberName` for Checkstyle.
+Add a SpotBugs exclusion to `lint/spotbugs-exclude.xml` with the class and
+the bug pattern.
 
 ### Java 21
 

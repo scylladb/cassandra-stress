@@ -1,64 +1,55 @@
 package org.apache.cassandra.stress.core;
 
-import com.datastax.driver.core.utils.MoreObjects;
-
 public class ColumnMetadata {
-  final Object metadata;
+    final Object metadata;
 
-  public ColumnMetadata(com.datastax.driver.core.ColumnMetadata metadata) {
-    this.metadata = metadata;
-  }
-
-  public ColumnMetadata(com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata metadata) {
-    this.metadata = metadata;
-  }
-
-  public com.datastax.driver.core.ColumnMetadata  ToV3Value() {
-    return (com.datastax.driver.core.ColumnMetadata) metadata;
-  }
-
-  public com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata  ToV4Value() {
-    return (com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata) metadata;
-  }
-
-  public String getName() {
-    if (metadata instanceof com.datastax.driver.core.ColumnMetadata) {
-      return ToV3Value().getName();
+    public ColumnMetadata(com.datastax.driver.core.ColumnMetadata metadata) {
+        this.metadata = metadata;
     }
-    return ToV4Value().getName().toString();
-  }
 
-  public DataType getType() {
-    if (metadata instanceof com.datastax.driver.core.ColumnMetadata) {
-      return new DataType(ToV3Value().getType());
+    public ColumnMetadata(com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata metadata) {
+        this.metadata = metadata;
     }
-    return new DataType(ToV4Value().getType());
-  }
 
-  static Integer hashCode;
-  public int hashCode() {
-    if  (hashCode != null) {
-      return hashCode;
+    public com.datastax.driver.core.ColumnMetadata toV3Value() {
+        return (com.datastax.driver.core.ColumnMetadata) metadata;
     }
-    if  (metadata instanceof com.datastax.driver.core.ColumnMetadata) {
-      hashCode = ToV3Value().hashCode();
-      return hashCode;
-    }
-    hashCode = ToV4Value().hashCode();
-    return hashCode;
-  }
 
-  public boolean equals(Object other) {
-    if (other == this) {
-      return true;
-    } else if (!(other instanceof org.apache.cassandra.stress.core.ColumnMetadata)) {
-      return false;
-    } else {
-      org.apache.cassandra.stress.core.ColumnMetadata casted = (org.apache.cassandra.stress.core.ColumnMetadata)other;
-      if (casted.metadata instanceof com.datastax.driver.core.ColumnMetadata) {
-        return ToV3Value().equals(casted.metadata);
-      }
-      return ToV4Value().equals(casted.ToV4Value());
+    public com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata toV4Value() {
+        return (com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata) metadata;
     }
-  }
+
+    public String getName() {
+        if (metadata instanceof com.datastax.driver.core.ColumnMetadata) {
+            return toV3Value().getName();
+        }
+        return toV4Value().getName().toString();
+    }
+
+    public DataType getType() {
+        if (metadata instanceof com.datastax.driver.core.ColumnMetadata) {
+            return new DataType(toV3Value().getType());
+        }
+        return new DataType(toV4Value().getType());
+    }
+
+    @Override
+    public int hashCode() {
+        return metadata.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (other == this) {
+            return true;
+        } else if (!(other instanceof org.apache.cassandra.stress.core.ColumnMetadata casted)) {
+            return false;
+        } else {
+
+            if (casted.metadata instanceof com.datastax.driver.core.ColumnMetadata) {
+                return toV3Value().equals(casted.metadata);
+            }
+            return toV4Value().equals(casted.toV4Value());
+        }
+    }
 }

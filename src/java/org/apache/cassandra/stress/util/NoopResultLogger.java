@@ -1,27 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
-public class NoopResultLogger implements ResultLogger
-{
-    NoopResultLogger() { }
+public class NoopResultLogger implements ResultLogger {
+    NoopResultLogger() {}
 
-    public void println(String line)
-    {
-    }
+    @Override
+    public void println(String line) {}
 
-    public void println()
-    {
-    }
+    @Override
+    public void println() {}
 
-    public void printException(Exception e)
-    {
-    }
+    @Override
+    public void printException(Exception e) {}
 
-    public void flush()
-    {
-    }
+    @Override
+    public void flush() {}
 
-    public void printf(String s, Object... args)
-    {
-    }
+    @Override
+    public void printf(String s, Object... args) {}
 }

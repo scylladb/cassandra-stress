@@ -3,16 +3,14 @@ package org.apache.cassandra.stress.generate.values;
 
 import org.apache.cassandra.stress.marshal.ByteType;
 
-public class TinyInts extends Generator<Byte>
-{
-    public TinyInts(String name, GeneratorConfig config)
-    {
+public class TinyInts extends Generator<Byte> {
+    public TinyInts(String name, GeneratorConfig config) {
         super(ByteType.instance, config, name, Byte.class);
     }
 
-    public Byte generate()
-    {
+    @Override
+    public Byte generate() {
         long seed = identityDistribution.next();
-        return (byte)seed;
+        return (byte) seed;
     }
 }

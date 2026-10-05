@@ -15,16 +15,20 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-
+import org.apache.cassandra.stress.generate.values.Generator;
 import org.apache.cassandra.stress.marshal.AbstractType;
 import org.apache.cassandra.stress.marshal.BytesType;
-import org.apache.cassandra.stress.generate.values.Generator;
 import org.apache.cassandra.stress.util.Pair;
 
-public abstract class PartitionIterator implements Iterator<Row>
-{
+public abstract class PartitionIterator implements Iterator<Row> {
 
-    abstract boolean reset(double useChance, double rowPopulationRatio, int targetCount, boolean isWrite, PartitionGenerator.Order order);
+    abstract boolean reset(
+            double useChance,
+            double rowPopulationRatio,
+            int targetCount,
+            boolean isWrite,
+            PartitionGenerator.Order order);
+
     public abstract Pair<Row, Row> resetToBounds(Seed seed, int clusteringComponentDepth);
 
     PartitionGenerator.Order order;
@@ -37,27 +41,22 @@ public abstract class PartitionIterator implements Iterator<Row>
     final Object[] partitionKey;
     final Row row;
 
-    public static PartitionIterator get(PartitionGenerator generator, SeedManager seedManager)
-    {
-        if (generator.clusteringComponents.size() > 0)
-            return new MultiRowIterator(generator, seedManager);
-        else
-            return new SingleRowIterator(generator, seedManager);
+    public static PartitionIterator get(PartitionGenerator generator, SeedManager seedManager) {
+        if (!generator.clusteringComponents.isEmpty()) return new MultiRowIterator(generator, seedManager);
+        else return new SingleRowIterator(generator, seedManager);
     }
 
-    private PartitionIterator(PartitionGenerator generator, SeedManager seedManager)
-    {
+    private PartitionIterator(PartitionGenerator generator, SeedManager seedManager) {
         this.generator = generator;
         this.seedManager = seedManager;
         this.partitionKey = new Object[generator.partitionKey.size()];
-        this.row = new Row(partitionKey, new Object[generator.clusteringComponents.size() + generator.valueComponents.size()]);
+        this.row = new Row(
+                partitionKey, new Object[generator.clusteringComponents.size() + generator.valueComponents.size()]);
     }
 
-    void setSeed(Seed seed)
-    {
+    void setSeed(Seed seed) {
         long idseed = 0;
-        for (int i = 0 ; i < partitionKey.length ; i++)
-        {
+        for (int i = 0; i < partitionKey.length; i++) {
             Generator generator = this.generator.partitionKey.get(i);
             generator.setSeed(seed.seed);
             Object key = generator.generate();
@@ -68,77 +67,72 @@ public abstract class PartitionIterator implements Iterator<Row>
         this.idseed = idseed;
     }
 
-    public boolean reset(Seed seed, double useChance, double rowPopulationRatio, boolean isWrite)
-    {
+    public boolean reset(Seed seed, double useChance, double rowPopulationRatio, boolean isWrite) {
         setSeed(seed);
         this.order = generator.order;
         return reset(useChance, rowPopulationRatio, 0, isWrite, PartitionIterator.this.order);
     }
 
-    public boolean reset(Seed seed, int targetCount, double rowPopulationRatio,  boolean isWrite)
-    {
+    public boolean reset(Seed seed, int targetCount, double rowPopulationRatio, boolean isWrite) {
         setSeed(seed);
         this.order = generator.order;
-        return reset(Double.NaN, rowPopulationRatio,targetCount, isWrite,PartitionIterator.this.order);
+        return reset(Double.NaN, rowPopulationRatio, targetCount, isWrite, PartitionIterator.this.order);
     }
 
-    static class SingleRowIterator extends PartitionIterator
-    {
+    static final class SingleRowIterator extends PartitionIterator {
         boolean done;
         boolean isWrite;
         double rowPopulationRatio;
         final double totalValueColumns;
 
-        private SingleRowIterator(PartitionGenerator generator, SeedManager seedManager)
-        {
+        private SingleRowIterator(PartitionGenerator generator, SeedManager seedManager) {
             super(generator, seedManager);
 
             this.totalValueColumns = generator.valueComponents.size();
         }
 
-        public Pair<Row, Row> resetToBounds(Seed seed, int clusteringComponentDepth)
-        {
+        @Override
+        public Pair<Row, Row> resetToBounds(Seed seed, int clusteringComponentDepth) {
             assert clusteringComponentDepth == 0;
             setSeed(seed);
             reset(1d, 1d, 1, false, PartitionGenerator.Order.SORTED);
             return Pair.create(new Row(partitionKey), new Row(partitionKey));
         }
 
-        boolean reset(double useChance, double rowPopulationRatio, int targetCount, boolean isWrite, PartitionGenerator.Order order)
-        {
+        @Override
+        boolean reset(
+                double useChance,
+                double rowPopulationRatio,
+                int targetCount,
+                boolean isWrite,
+                PartitionGenerator.Order order) {
             done = false;
             this.isWrite = isWrite;
             this.rowPopulationRatio = rowPopulationRatio;
             return true;
         }
 
-        public boolean hasNext()
-        {
+        @Override
+        public boolean hasNext() {
             return !done;
         }
 
-        public Row next()
-        {
-            if (done)
-                throw new NoSuchElementException();
+        @Override
+        public Row next() {
+            if (done) throw new NoSuchElementException();
 
             double valueColumn = 0.0;
-            for (int i = 0 ; i < row.row.length ; i++)
-            {
-                if (generator.permitNulls(i) && (++valueColumn/totalValueColumns) > rowPopulationRatio)
-                {
+            for (int i = 0; i < row.row.length; i++) {
+                if (generator.permitNulls(i) && (++valueColumn / totalValueColumns) > rowPopulationRatio) {
                     row.row[i] = null;
-                }
-                else
-                {
+                } else {
                     Generator gen = generator.valueComponents.get(i);
                     gen.setSeed(idseed);
                     row.row[i] = gen.generate();
                 }
             }
             done = true;
-            if (isWrite)
-            {
+            if (isWrite) {
                 seedManager.markFirstWrite(seed, true);
                 seedManager.markLastWrite(seed, true);
             }
@@ -146,8 +140,7 @@ public abstract class PartitionIterator implements Iterator<Row>
         }
     }
 
-    static class MultiRowIterator extends PartitionIterator
-    {
+    static class MultiRowIterator extends PartitionIterator {
         final long[] clusteringSeeds = new long[generator.clusteringComponents.size()];
         final Deque<Object>[] clusteringComponents = new ArrayDeque[generator.clusteringComponents.size()];
 
@@ -159,103 +152,108 @@ public abstract class PartitionIterator implements Iterator<Row>
 
         final int[] currentRow = new int[generator.clusteringComponents.size()];
         final int[] lastRow = new int[currentRow.length];
-        boolean hasNext, isFirstWrite, isWrite;
+        boolean hasNext;
+        boolean isFirstWrite;
+        boolean isWrite;
 
         final Set<Object> unique = new HashSet<>();
         final List<Object> tosort = new ArrayList<>();
 
-        MultiRowIterator(PartitionGenerator generator, SeedManager seedManager)
-        {
+        MultiRowIterator(PartitionGenerator generator, SeedManager seedManager) {
             super(generator, seedManager);
-            for (int i = 0 ; i < clusteringComponents.length ; i++)
-                clusteringComponents[i] = new ArrayDeque<>();
+            for (int i = 0; i < clusteringComponents.length; i++) clusteringComponents[i] = new ArrayDeque<>();
             rollmodifier[0] = 1f;
             chancemodifier[0] = generator.clusteringDescendantAverages[0];
             this.totalValueColumns = generator.valueComponents.size();
         }
 
-        boolean reset(double useChance, double rowPopulationRatio, int targetCount, boolean isWrite, PartitionGenerator.Order order)
-        {
+        @Override
+        boolean reset(
+                double useChance,
+                double rowPopulationRatio,
+                int targetCount,
+                boolean isWrite,
+                PartitionGenerator.Order order) {
             this.isWrite = isWrite;
             this.rowPopulationRatio = rowPopulationRatio;
 
             this.order = order;
             generator.clusteringComponents.getFirst().setSeed(idseed);
 
-            int firstComponentCount = (int) generator.clusteringComponents.getFirst().clusteringDistribution.next();
+            int firstComponentCount = (int) generator
+                    .clusteringComponents
+                    .getFirst()
+                    .clusteringDistribution
+                    .next();
             int expectedRowCount;
 
             int position = seed.position();
 
-            if (isWrite)
-                expectedRowCount = firstComponentCount * generator.clusteringDescendantAverages[0];
-            else if (position != 0)
-                expectedRowCount = setLastRow(position - 1);
-            else
-                expectedRowCount = setNoLastRow(firstComponentCount);
+            if (isWrite) expectedRowCount = firstComponentCount * generator.clusteringDescendantAverages[0];
+            else if (position != 0) expectedRowCount = setLastRow(position - 1);
+            else expectedRowCount = setNoLastRow(firstComponentCount);
 
-            if (Double.isNaN(useChance))
-                useChance = Math.clamp(targetCount / (double) expectedRowCount, 0d, 1d);
+            if (Double.isNaN(useChance)) useChance = Math.clamp(targetCount / (double) expectedRowCount, 0d, 1d);
             setUseChance(useChance);
 
-            while (true)
-            {
+            while (true) {
 
-                for (Queue<?> q : clusteringComponents)
-                    q.clear();
+                for (Queue<?> q : clusteringComponents) q.clear();
                 fill(0);
 
-                if (!isWrite)
-                {
-                    if (seek(0) != State.SUCCESS)
-                        throw new IllegalStateException();
+                if (!isWrite) {
+                    if (seek(0) != State.SUCCESS) throw new IllegalStateException();
                     return true;
                 }
 
-                int count = seed.visits == 1 ? 1 + (int) generator.maxRowCount : Math.max(1, expectedRowCount / seed.visits);
+                int count = seed.visits == 1
+                        ? 1 + (int) generator.maxRowCount
+                        : Math.max(1, expectedRowCount / seed.visits);
                 position = seed.moveForwards(count);
                 isFirstWrite = position == 0;
                 setLastRow(position + count - 1);
 
-                switch (seek(position))
-                {
-                    case END_OF_PARTITION:
+                switch (seek(position)) {
+                    case END_OF_PARTITION -> {
                         return false;
-                    case SUCCESS:
+                    }
+                    case SUCCESS -> {
                         return true;
+                    }
+                    default -> {}
                 }
             }
         }
 
-        void setUseChance(double useChance)
-        {
-            if (this.useChance < 1d)
-            {
+        void setUseChance(double useChance) {
+            if (this.useChance < 1d) {
                 Arrays.fill(rollmodifier, 1d);
                 Arrays.fill(chancemodifier, 1d);
             }
             this.useChance = useChance;
         }
 
-        public Pair<Row, Row> resetToBounds(Seed seed, int clusteringComponentDepth)
-        {
+        @Override
+        public Pair<Row, Row> resetToBounds(Seed seed, int clusteringComponentDepth) {
             setSeed(seed);
             setUseChance(1d);
-            if (clusteringComponentDepth == 0)
-            {
+            if (clusteringComponentDepth == 0) {
                 reset(1d, 1d, -1, false, PartitionGenerator.Order.SORTED);
                 return Pair.create(new Row(partitionKey), new Row(partitionKey));
             }
 
             this.order = PartitionGenerator.Order.SORTED;
             assert clusteringComponentDepth <= clusteringComponents.length;
-            for (Queue<?> q : clusteringComponents)
-                q.clear();
+            for (Queue<?> q : clusteringComponents) q.clear();
 
             fill(0);
             Pair<int[], Object[]> bound1 = randomBound(clusteringComponentDepth);
             Pair<int[], Object[]> bound2 = randomBound(clusteringComponentDepth);
-            if (compare(bound1.left(), bound2.left()) > 0) { Pair<int[], Object[]> tmp = bound1; bound1 = bound2; bound2 = tmp;}
+            if (compare(bound1.left(), bound2.left()) > 0) {
+                Pair<int[], Object[]> tmp = bound1;
+                bound1 = bound2;
+                bound2 = tmp;
+            }
             Arrays.fill(lastRow, 0);
             System.arraycopy(bound2.left(), 0, lastRow, 0, bound2.left().length);
             Arrays.fill(currentRow, 0);
@@ -264,93 +262,69 @@ public abstract class PartitionIterator implements Iterator<Row>
             return Pair.create(new Row(partitionKey, bound1.right()), new Row(partitionKey, bound2.right()));
         }
 
-        private int setNoLastRow(int firstComponentCount)
-        {
+        private int setNoLastRow(int firstComponentCount) {
             Arrays.fill(lastRow, Integer.MAX_VALUE);
             return firstComponentCount * generator.clusteringDescendantAverages[0];
         }
 
-        private int setLastRow(int position)
-        {
-            if (position < 0)
-                throw new IllegalStateException();
+        private int setLastRow(int position) {
+            if (position < 0) throw new IllegalStateException();
 
             decompose(position, lastRow);
             int expectedRowCount = 0;
-            for (int i = 0 ; i < lastRow.length ; i++)
-            {
+            for (int i = 0; i < lastRow.length; i++) {
                 int l = lastRow[i];
                 expectedRowCount += l * generator.clusteringDescendantAverages[i];
             }
             return expectedRowCount + 1;
         }
 
-        private int compareToLastRow(int depth)
-        {
+        private int compareToLastRow(int depth) {
             int prev = 0;
-            for (int i = 0 ; i <= depth ; i++)
-            {
-                int p = currentRow[i], l = lastRow[i], r = clusteringComponents[i].size();
-                if (prev < 0)
-                {
-                    if (r > 1)
-                        return -1;
-                }
-                else if (p > l)
-                {
+            for (int i = 0; i <= depth; i++) {
+                int p = currentRow[i];
+                int l = lastRow[i];
+                int r = clusteringComponents[i].size();
+                if (prev < 0) {
+                    if (r > 1) return -1;
+                } else if (p > l) {
                     return 1;
-                }
-                else if (p == l)
-                {
-                }
-                else if (r == 1)
-                {
+                } else if (p != l) {
+                    if (r != 1) return -1;
                     prev = p - l;
-                }
-                else
-                {
-                    return -1;
                 }
             }
             return 0;
         }
 
-        private void decompose(int scalar, int[] decomposed)
-        {
-            for (int i = 0 ; i < decomposed.length ; i++)
-            {
+        private void decompose(int scalar, int[] decomposed) {
+            for (int i = 0; i < decomposed.length; i++) {
                 int avg = generator.clusteringDescendantAverages[i];
                 decomposed[i] = scalar / avg;
                 scalar %= avg;
             }
-            for (int i = lastRow.length - 1 ; i > 0 ; i--)
-            {
+            for (int i = lastRow.length - 1; i > 0; i--) {
                 int avg = generator.clusteringComponentAverages[i];
-                if (decomposed[i] >= avg)
-                {
+                if (decomposed[i] >= avg) {
                     decomposed[i - 1] += decomposed[i] / avg;
                     decomposed[i] %= avg;
                 }
             }
         }
 
-        private static int compare(int[] l, int[] r)
-        {
-            for (int i = 0 ; i < l.length ; i++)
-                if (l[i] != r[i])
-                    return Integer.compare(l[i], r[i]);
+        private static int compare(int[] l, int[] r) {
+            for (int i = 0; i < l.length; i++) if (l[i] != r[i]) return Integer.compare(l[i], r[i]);
             return 0;
         }
 
-        static enum State
-        {
-            END_OF_PARTITION, AFTER_LIMIT, SUCCESS;
+        enum State {
+            END_OF_PARTITION,
+            AFTER_LIMIT,
+            SUCCESS;
         }
 
-        private State seek(int scalar)
-        {
-            if (scalar == 0)
-            {
+        private State seek(int scalar) {
+            if (scalar == 0) {
                 this.currentRow[0] = -1;
                 clusteringComponents[0].addFirst(this);
                 return setHasNext(advance(0, true));
@@ -358,64 +332,51 @@ public abstract class PartitionIterator implements Iterator<Row>
             decompose(scalar, this.currentRow);
             return seekToCurrentRow();
         }
-        private State seekToCurrentRow()
-        {
-            int[] position = this.currentRow;
-            for (int i = 0 ; i < position.length ; i++)
-            {
-                if (i != 0)
-                    fill(i);
-                for (int c = position[i] ; c > 0 ; c--)
-                    clusteringComponents[i].poll();
 
-                if (clusteringComponents[i].isEmpty())
-                {
+        private State seekToCurrentRow() {
+            int[] position = this.currentRow;
+            for (int i = 0; i < position.length; i++) {
+                if (i != 0) fill(i);
+                for (int c = position[i]; c > 0; c--) clusteringComponents[i].poll();
+
+                if (clusteringComponents[i].isEmpty()) {
                     int j = i;
-                    while (true)
-                    {
-                        if (--j < 0)
-                            return setHasNext(false);
+                    while (true) {
+                        if (--j < 0) return setHasNext(false);
 
                         clusteringComponents[j].poll();
-                        if (!clusteringComponents[j].isEmpty())
-                            break;
+                        if (!clusteringComponents[j].isEmpty()) break;
                     }
 
                     position[j]++;
                     Arrays.fill(position, j + 1, position.length, 0);
-                    while (j < i)
-                        fill(++j);
+                    while (j < i) fill(++j);
                 }
 
                 row.row[i] = clusteringComponents[i].peek();
             }
 
-            if (compareToLastRow(currentRow.length - 1) > 0)
-                return setHasNext(false);
+            if (compareToLastRow(currentRow.length - 1) > 0) return setHasNext(false);
 
             position[position.length - 1]--;
             clusteringComponents[position.length - 1].addFirst(this);
             return setHasNext(advance(position.length - 1, true));
         }
 
-        Row advance()
-        {
+        Row advance() {
             int depth = clusteringComponents.length - 1;
             long parentSeed = clusteringSeeds[depth];
-            long rowSeed = seed(clusteringComponents[depth].peek(), generator.clusteringComponents.get(depth).type, parentSeed);
+            long rowSeed = seed(
+                    clusteringComponents[depth].peek(), generator.clusteringComponents.get(depth).type, parentSeed);
 
             Row result = row.copy();
             double valueColumn = 0.0;
 
-            for (int i = clusteringSeeds.length ; i < row.row.length ; i++)
-            {
+            for (int i = clusteringSeeds.length; i < row.row.length; i++) {
                 Generator gen = generator.valueComponents.get(i - clusteringSeeds.length);
-                if (++valueColumn / totalValueColumns > rowPopulationRatio)
-                {
+                if (++valueColumn / totalValueColumns > rowPopulationRatio) {
                     result.row[i] = null;
-                }
-                else
-                {
+                } else {
                     gen.setSeed(rowSeed);
                     result.row[i] = gen.generate();
                 }
@@ -425,41 +386,32 @@ public abstract class PartitionIterator implements Iterator<Row>
             return result;
         }
 
-        private boolean advance(int depth, boolean first)
-        {
+        private boolean advance(int depth, boolean first) {
             ThreadLocalRandom random = ThreadLocalRandom.current();
             clusteringComponents[depth].poll();
             currentRow[depth]++;
-            while (true)
-            {
-                if (clusteringComponents[depth].isEmpty())
-                {
-                    if (depth == 0)
-                        return false;
+            while (true) {
+                if (clusteringComponents[depth].isEmpty()) {
+                    if (depth == 0) return false;
                     depth--;
                     clusteringComponents[depth].poll();
-                    if (++currentRow[depth] > lastRow[depth])
-                        return false;
+                    if (++currentRow[depth] > lastRow[depth]) return false;
                     continue;
                 }
 
                 int compareToLastRow = compareToLastRow(depth);
-                if (compareToLastRow > 0)
-                {
+                if (compareToLastRow > 0) {
                     assert !first;
                     return false;
                 }
                 boolean forceReturnOne = first && compareToLastRow == 0;
 
                 double thischance = useChance * chancemodifier[depth];
-                if (forceReturnOne || thischance > 0.99999f || thischance >= random.nextDouble())
-                {
+                if (forceReturnOne || thischance > 0.99999f || thischance >= random.nextDouble()) {
                     row.row[depth] = clusteringComponents[depth].peek();
                     depth++;
-                    if (depth == clusteringComponents.length)
-                        return true;
-                    if (useChance < 1d)
-                    {
+                    if (depth == clusteringComponents.length) return true;
+                    if (useChance < 1d) {
                         rollmodifier[depth] = rollmodifier[depth - 1] / Math.min(1d, thischance);
                         chancemodifier[depth] = generator.clusteringDescendantAverages[depth] * rollmodifier[depth];
                     }
@@ -468,133 +420,109 @@ public abstract class PartitionIterator implements Iterator<Row>
                     continue;
                 }
 
-                if (compareToLastRow >= 0)
-                    return false;
+                if (compareToLastRow >= 0) return false;
 
                 clusteringComponents[depth].poll();
                 currentRow[depth]++;
             }
         }
 
-        private static Object elementAt(Deque<Object> deque, int index)
-        {
+        private static Object elementAt(Deque<Object> deque, int index) {
             Iterator<Object> iterator = deque.iterator();
-            for (int i = 0; i < index; i++)
-                iterator.next();
+            for (int i = 0; i < index; i++) iterator.next();
             return iterator.next();
         }
 
-        private Pair<int[], Object[]> randomBound(int clusteringComponentDepth)
-        {
+        private Pair<int[], Object[]> randomBound(int clusteringComponentDepth) {
             ThreadLocalRandom rnd = ThreadLocalRandom.current();
             int[] position = new int[clusteringComponentDepth];
             Object[] bound = new Object[clusteringComponentDepth];
             position[0] = rnd.nextInt(clusteringComponents[0].size());
             bound[0] = elementAt(clusteringComponents[0], position[0]);
-            for (int d = 1 ; d < clusteringComponentDepth ; d++)
-            {
+            for (int d = 1; d < clusteringComponentDepth; d++) {
                 fill(d);
                 position[d] = rnd.nextInt(clusteringComponents[d].size());
                 bound[d] = elementAt(clusteringComponents[d], position[d]);
             }
-            for (int d = 1 ; d < clusteringComponentDepth ; d++)
-                clusteringComponents[d].clear();
+            for (int d = 1; d < clusteringComponentDepth; d++) clusteringComponents[d].clear();
             return Pair.create(position, bound);
         }
 
-        void fill(int depth)
-        {
+        void fill(int depth) {
             long seed = depth == 0 ? idseed : clusteringSeeds[depth - 1];
             Generator gen = generator.clusteringComponents.get(depth);
             gen.setSeed(seed);
             fill(clusteringComponents[depth], (int) gen.clusteringDistribution.next(), gen);
-            clusteringSeeds[depth] = seed(clusteringComponents[depth].peek(), generator.clusteringComponents.get(depth).type, seed);
+            clusteringSeeds[depth] =
+                    seed(clusteringComponents[depth].peek(), generator.clusteringComponents.get(depth).type, seed);
         }
 
-        void fill(Queue<Object> queue, int count, Generator generator)
-        {
-            if (count == 1)
-            {
+        @SuppressWarnings("fallthrough")
+        void fill(Queue<Object> queue, int count, Generator generator) {
+            if (count == 1) {
                 queue.add(generator.generate());
                 return;
             }
 
-            switch (order)
-            {
+            switch (order) {
                 case SORTED:
-                    if (Comparable.class.isAssignableFrom(generator.clazz))
-                    {
+                    if (Comparable.class.isAssignableFrom(generator.clazz)) {
                         tosort.clear();
-                        for (int i = 0 ; i < count ; i++)
-                            tosort.add(generator.generate());
+                        for (int i = 0; i < count; i++) tosort.add(generator.generate());
                         Collections.sort((List<Comparable>) (List<?>) tosort);
-                        for (int i = 0 ; i < count ; i++)
+                        for (int i = 0; i < count; i++)
                             if (i == 0 || ((Comparable) tosort.get(i - 1)).compareTo(tosort.get(i)) < 0)
                                 queue.add(tosort.get(i));
                         break;
                     }
                 case ARBITRARY:
                     unique.clear();
-                    for (int i = 0 ; i < count ; i++)
-                    {
+                    for (int i = 0; i < count; i++) {
                         Object next = generator.generate();
-                        if (unique.add(next))
-                            queue.add(next);
+                        if (unique.add(next)) queue.add(next);
                     }
                     break;
                 case SHUFFLED:
                     unique.clear();
                     tosort.clear();
                     ThreadLocalRandom rand = ThreadLocalRandom.current();
-                    for (int i = 0 ; i < count ; i++)
-                    {
+                    for (int i = 0; i < count; i++) {
                         Object next = generator.generate();
-                        if (unique.add(next))
-                            tosort.add(next);
+                        if (unique.add(next)) tosort.add(next);
                     }
-                    for (int i = 0 ; i < tosort.size() ; i++)
-                    {
+                    for (int i = 0; i < tosort.size(); i++) {
                         int index = rand.nextInt(i, tosort.size());
                         Object obj = tosort.get(index);
                         tosort.set(index, tosort.get(i));
                         queue.add(obj);
                     }
                     break;
-                default:
-                    throw new IllegalStateException();
             }
         }
 
-        public boolean hasNext()
-        {
+        @Override
+        public boolean hasNext() {
             return hasNext;
         }
 
-        public Row next()
-        {
-            if (!hasNext())
-                throw new NoSuchElementException();
+        @Override
+        public Row next() {
+            if (!hasNext()) throw new NoSuchElementException();
             return advance();
         }
 
-        public boolean finishedPartition()
-        {
+        public boolean finishedPartition() {
             return clusteringComponents[0].isEmpty();
         }
 
-        private State setHasNext(boolean hasNext)
-        {
+        private State setHasNext(boolean hasNext) {
             this.hasNext = hasNext;
-            if (!hasNext)
-            {
+            if (!hasNext) {
                 boolean isLast = finishedPartition();
-                if (isWrite)
-                {
+                if (isWrite) {
                     boolean isFirst = isFirstWrite;
-                    if (isFirst)
-                        seedManager.markFirstWrite(seed, isLast);
-                    if (isLast)
-                        seedManager.markLastWrite(seed, isFirst);
+                    if (isFirst) seedManager.markFirstWrite(seed, isLast);
+                    if (isLast) seedManager.markLastWrite(seed, isFirst);
                 }
                 return isLast ? State.END_OF_PARTITION : State.AFTER_LIMIT;
             }
@@ -602,84 +530,59 @@ public abstract class PartitionIterator implements Iterator<Row>
         }
     }
 
-    public void remove()
-    {
+    @Override
+    public void remove() {
         throw new UnsupportedOperationException();
     }
 
-    static long seed(Object object, AbstractType type, long seed)
-    {
-        if (object instanceof ByteBuffer buf)
-        {
-            for (int i = buf.position() ; i < buf.limit() ; i++)
-                seed = (31 * seed) + buf.get(i);
+    static long seed(Object object, AbstractType type, long seed) {
+        if (object instanceof ByteBuffer buf) {
+            for (int i = buf.position(); i < buf.limit(); i++) seed = (31 * seed) + buf.get(i);
             return seed;
-        }
-        else if (object instanceof String str)
-        {
-            for (int i = 0 ; i < str.length() ; i++)
-                seed = (31 * seed) + str.charAt(i);
+        } else if (object instanceof String str) {
+            for (int i = 0; i < str.length(); i++) seed = (31 * seed) + str.charAt(i);
             return seed;
-        }
-        else if (object instanceof Number number)
-        {
+        } else if (object instanceof Number number) {
             return (seed * 31) + number.longValue();
-        }
-        else if (object instanceof UUID uuid)
-        {
+        } else if (object instanceof UUID uuid) {
             return seed * 31 + (uuid.getLeastSignificantBits() ^ uuid.getMostSignificantBits());
-        }
-        else
-        {
+        } else {
             return seed(type.decompose(object), BytesType.instance, seed);
         }
     }
 
-    public Object getPartitionKey(int i)
-    {
+    public Object getPartitionKey(int i) {
         return partitionKey[i];
     }
 
-    public String getKeyAsString()
-    {
+    public String getKeyAsString() {
         StringBuilder sb = new StringBuilder();
         int i = 0;
-        for (Object key : partitionKey)
-        {
-            if (i > 0)
-                sb.append("|");
+        for (Object key : partitionKey) {
+            if (i > 0) sb.append('|');
             AbstractType type = generator.partitionKey.get(i++).type;
             String typeStr = type.getString(type.decompose(key));
-            if (type instanceof BytesType)
-            {
+            if (type instanceof BytesType) {
                 String decoded = tryDecodeHexAsAscii(typeStr);
                 if (decoded != null)
-                    sb.append(decoded).append(" (hex: ").append(typeStr).append(")");
-                else
-                    sb.append(typeStr);
-            }
-            else
-            {
+                    sb.append(decoded).append(" (hex: ").append(typeStr).append(')');
+                else sb.append(typeStr);
+            } else {
                 sb.append(typeStr);
             }
         }
         return sb.toString();
     }
 
-    private static String tryDecodeHexAsAscii(String hex)
-    {
-        if (hex == null || hex.length() == 0 || hex.length() % 2 != 0)
-            return null;
+    private static String tryDecodeHexAsAscii(String hex) {
+        if (hex == null || hex.length() == 0 || hex.length() % 2 != 0) return null;
         byte[] bytes = new byte[hex.length() / 2];
-        for (int i = 0; i < bytes.length; i++)
-        {
+        for (int i = 0; i < bytes.length; i++) {
             int hi = Character.digit(hex.charAt(i * 2), 16);
             int lo = Character.digit(hex.charAt(i * 2 + 1), 16);
-            if (hi < 0 || lo < 0)
-                return null;
+            if (hi < 0 || lo < 0) return null;
             bytes[i] = (byte) ((hi << 4) | lo);
-            if (bytes[i] < 0x20 || bytes[i] > 0x7E)
-                return null;
+            if (bytes[i] < 0x20 || bytes[i] > 0x7E) return null;
         }
         return new String(bytes, java.nio.charset.StandardCharsets.US_ASCII);
     }

@@ -1,20 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.marshal;
 
-import org.apache.cassandra.stress.util.ByteBufferUtil;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import org.apache.cassandra.stress.util.ByteBufferUtil;
 
-public class DecimalSerializer implements TypeSerializer<BigDecimal>
-{
+public class DecimalSerializer implements TypeSerializer<BigDecimal> {
     public static final DecimalSerializer instance = new DecimalSerializer();
 
-    public BigDecimal deserialize(ByteBuffer bytes)
-    {
-        if (bytes == null || bytes.remaining() == 0)
-            return null;
+    @Override
+    public BigDecimal deserialize(ByteBuffer bytes) {
+        if (bytes == null || bytes.remaining() == 0) return null;
 
         bytes = bytes.duplicate();
         int scale = bytes.getInt();
@@ -25,10 +22,9 @@ public class DecimalSerializer implements TypeSerializer<BigDecimal>
         return new BigDecimal(bi, scale);
     }
 
-    public ByteBuffer serialize(BigDecimal value)
-    {
-        if (value == null)
-            return ByteBufferUtil.EMPTY_BYTE_BUFFER;
+    @Override
+    public ByteBuffer serialize(BigDecimal value) {
+        if (value == null) return ByteBufferUtil.EMPTY_BYTE_BUFFER;
 
         BigInteger bi = value.unscaledValue();
         int scale = value.scale();
@@ -41,19 +37,19 @@ public class DecimalSerializer implements TypeSerializer<BigDecimal>
         return bytes;
     }
 
-    public void validate(ByteBuffer bytes) throws MarshalException
-    {
+    @Override
+    public void validate(ByteBuffer bytes) throws MarshalException {
         if (bytes.remaining() != 0 && bytes.remaining() < 4)
             throw new MarshalException(String.format("Expected 0 or at least 4 bytes (%d)", bytes.remaining()));
     }
 
-    public String toString(BigDecimal value)
-    {
+    @Override
+    public String toString(BigDecimal value) {
         return value == null ? "" : value.toString();
     }
 
-    public Class<BigDecimal> getType()
-    {
+    @Override
+    public Class<BigDecimal> getType() {
         return BigDecimal.class;
     }
 }

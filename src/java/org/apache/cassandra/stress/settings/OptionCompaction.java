@@ -6,44 +6,38 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-class OptionCompaction extends OptionMulti
-{
+class OptionCompaction extends OptionMulti {
 
-    private final OptionSimple strategy = new OptionSimple("strategy=", new StrategyAdapter(), null, "The compaction strategy to use", false);
+    private final OptionSimple strategy =
+            new OptionSimple("strategy=", new StrategyAdapter(), null, "The compaction strategy to use", false);
 
-    public OptionCompaction()
-    {
+    OptionCompaction() {
         super("compaction", "Define the compaction strategy and any parameters", true);
     }
 
-    public String getStrategy()
-    {
+    public String getStrategy() {
         return strategy.value();
     }
 
-    public Map<String, String> getOptions()
-    {
+    public Map<String, String> getOptions() {
         return extraOptions();
     }
 
-    protected List<? extends Option> options()
-    {
+    @Override
+    protected List<? extends Option> options() {
         return Arrays.asList(strategy);
     }
 
     @Override
-    public boolean happy()
-    {
+    public boolean happy() {
         return true;
     }
 
-    private static final class StrategyAdapter implements Function<String, String>
-    {
+    private static final class StrategyAdapter implements Function<String, String> {
 
-        public String apply(String name)
-        {
+        @Override
+        public String apply(String name) {
             return CompactionStrategy.validate(name);
         }
     }
-
 }

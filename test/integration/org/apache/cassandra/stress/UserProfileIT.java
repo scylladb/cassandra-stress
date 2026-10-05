@@ -1,81 +1,126 @@
 package org.apache.cassandra.stress;
 
-import java.nio.file.Path;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
+import org.apache.cassandra.stress.CassandraStress.Driver;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import org.apache.cassandra.stress.CassandraStress.Driver;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-class UserProfileIT
-{
+class UserProfileIT {
     @TempDir
     Path dir;
 
     @ParameterizedTest
     @EnumSource(Driver.class)
-    void insertsAndRunsTheProfileQueries(Driver driver)
-    {
+    void insertsAndRunsTheProfileQueries(Driver driver) {
         ScyllaNode.dropKeyspace("stresscql");
         CassandraStress stress = new CassandraStress(dir, driver);
 
-        StressResult insert = stress.run("user", "profile=" + CassandraStress.profile("cqlstress-example.yaml"),
-                                         "ops(insert=1)", "no-warmup", "n=500", "cl=QUORUM", "-rate", "threads=2",
-                                         "-errors", "fail-fast");
+        StressResult insert = stress.run(
+                "user",
+                "profile=" + CassandraStress.profile("cqlstress-example.yaml"),
+                "ops(insert=1)",
+                "no-warmup",
+                "n=500",
+                "cl=QUORUM",
+                "-rate",
+                "threads=2",
+                "-errors",
+                "fail-fast");
         assertTrue(insert.succeeded(), insert::toString);
 
-        StressResult queries = stress.run("user", "profile=" + CassandraStress.profile("cqlstress-example.yaml"),
-                                          "ops(simple1=1,range1=1)", "no-warmup", "n=200", "-rate", "threads=2",
-                                          "-errors", "fail-fast");
+        StressResult queries = stress.run(
+                "user",
+                "profile=" + CassandraStress.profile("cqlstress-example.yaml"),
+                "ops(simple1=1,range1=1)",
+                "no-warmup",
+                "n=200",
+                "-rate",
+                "threads=2",
+                "-errors",
+                "fail-fast");
         assertTrue(queries.succeeded(), queries::toString);
         assertEquals(0L, queries.totalErrors().orElseThrow());
     }
 
     @ParameterizedTest
     @EnumSource(Driver.class)
-    void sweepsTokenRanges(Driver driver)
-    {
+    void sweepsTokenRanges(Driver driver) {
         ScyllaNode.dropKeyspace("stresscql");
         CassandraStress stress = new CassandraStress(dir, driver);
 
-        assertTrue(stress.run("user", "profile=" + CassandraStress.profile("cqlstress-example.yaml"),
-                              "ops(insert=1)", "no-warmup", "n=200", "-rate", "threads=2").succeeded());
+        assertTrue(stress.run(
+                        "user",
+                        "profile=" + CassandraStress.profile("cqlstress-example.yaml"),
+                        "ops(insert=1)",
+                        "no-warmup",
+                        "n=200",
+                        "-rate",
+                        "threads=2")
+                .succeeded());
 
-        StressResult sweep = stress.run("user", "profile=" + CassandraStress.profile("cqlstress-example.yaml"),
-                                        "ops(all_columns_tr_query=1)", "no-warmup", "n=20", "-rate", "threads=1",
-                                        "-errors", "fail-fast");
+        StressResult sweep = stress.run(
+                "user",
+                "profile=" + CassandraStress.profile("cqlstress-example.yaml"),
+                "ops(all_columns_tr_query=1)",
+                "no-warmup",
+                "n=20",
+                "-rate",
+                "threads=1",
+                "-errors",
+                "fail-fast");
         assertTrue(sweep.succeeded(), sweep::toString);
     }
 
     @ParameterizedTest
     @EnumSource(Driver.class)
-    void runsTwoProfilesAtOnce(Driver driver)
-    {
+    void runsTwoProfilesAtOnce(Driver driver) {
         ScyllaNode.dropKeyspace("stresscql");
         CassandraStress stress = new CassandraStress(dir, driver);
 
-        StressResult result = stress.run("user", "ops(alpha_workload.insert=1,beta_workload.insert=1)",
-                                         "profile=" + CassandraStress.profile("cqlstress-example-specA.yaml") + ","
-                                         + CassandraStress.profile("cqlstress-counter-example-specB.yaml"),
-                                         "no-warmup", "n=400", "cl=QUORUM", "-rate", "threads=2", "-errors", "fail-fast");
+        StressResult result = stress.run(
+                "user",
+                "ops(alpha_workload.insert=1,beta_workload.insert=1)",
+                "profile=" + CassandraStress.profile("cqlstress-example-specA.yaml") + ","
+                        + CassandraStress.profile("cqlstress-counter-example-specB.yaml"),
+                "no-warmup",
+                "n=400",
+                "cl=QUORUM",
+                "-rate",
+                "threads=2",
+                "-errors",
+                "fail-fast");
         assertTrue(result.succeeded(), result::toString);
     }
 
     @ParameterizedTest
     @EnumSource(Driver.class)
-    void validatesTheRowsItInserted(Driver driver)
-    {
+    void validatesTheRowsItInserted(Driver driver) {
         ScyllaNode.dropKeyspace("stresscql");
         CassandraStress stress = new CassandraStress(dir, driver);
 
-        assertTrue(stress.run("user", "profile=" + CassandraStress.profile("cqlstress-counter-example.yaml"),
-                              "ops(insert=1)", "no-warmup", "n=300", "-rate", "threads=2").succeeded());
-        StressResult read = stress.run("user", "profile=" + CassandraStress.profile("cqlstress-counter-example.yaml"),
-                                       "ops(simple1=1)", "no-warmup", "n=100", "-rate", "threads=2", "-errors", "fail-fast");
+        assertTrue(stress.run(
+                        "user",
+                        "profile=" + CassandraStress.profile("cqlstress-counter-example.yaml"),
+                        "ops(insert=1)",
+                        "no-warmup",
+                        "n=300",
+                        "-rate",
+                        "threads=2")
+                .succeeded());
+        StressResult read = stress.run(
+                "user",
+                "profile=" + CassandraStress.profile("cqlstress-counter-example.yaml"),
+                "ops(simple1=1)",
+                "no-warmup",
+                "n=100",
+                "-rate",
+                "threads=2",
+                "-errors",
+                "fail-fast");
         assertTrue(read.succeeded(), read::toString);
     }
 }

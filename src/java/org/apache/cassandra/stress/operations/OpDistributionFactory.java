@@ -3,9 +3,10 @@ package org.apache.cassandra.stress.operations;
 
 import org.apache.cassandra.stress.StressAction.MeasurementSink;
 
-public interface OpDistributionFactory
-{
-    public OpDistribution get(boolean isWarmup, MeasurementSink sink);
-    public String desc();
+public interface OpDistributionFactory {
+    OpDistribution get(boolean isWarmup, MeasurementSink sink);
+
+    String desc();
+
     Iterable<OpDistributionFactory> each();
 }

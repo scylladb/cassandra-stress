@@ -23,11 +23,12 @@ SPDX license line and carries no other comment.
 Located in `docs/standards/backend/`.
 
 #### Java conventions (`standards/backend/java-conventions.md`)
-The code style follows `ide/idea/codeStyleSettings.xml`: braces on their own
-line, four-space indentation, no tabs. A file with K&R braces keeps its own
-style. Imports use four groups, with static imports last. The code targets
-Java 21 with `release="21"`, and CI runs it on JDK 21 and 25. No code or
-dependency calls `sun.misc.Unsafe`.
+palantir-java-format formats every Java file through `ant format`, and
+`ant format-check` fails on unformatted code. `ant lint` runs the format
+check, Error Prone, Checkstyle, PMD and SpotBugs with the rules in `lint/`,
+and a deliberate exception gets a `@SuppressWarnings` on the smallest
+element. No star imports. The code targets Java 21 with `release="21"`, and
+CI runs it on JDK 21 and 25. No code or dependency calls `sun.misc.Unsafe`.
 
 ### Testing standards
 

@@ -3,16 +3,13 @@ package org.apache.cassandra.stress.generate.values;
 
 import org.apache.cassandra.stress.marshal.DoubleType;
 
-public class Doubles extends Generator<Double>
-{
-    public Doubles(String name, GeneratorConfig config)
-    {
+public class Doubles extends Generator<Double> {
+    public Doubles(String name, GeneratorConfig config) {
         super(DoubleType.instance, config, name, Double.class);
     }
 
     @Override
-    public Double generate()
-    {
+    public Double generate() {
         return identityDistribution.nextDouble();
     }
 }

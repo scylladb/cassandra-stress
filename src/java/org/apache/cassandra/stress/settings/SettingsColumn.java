@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.DistributionFixed;
 import org.apache.cassandra.stress.util.ResultLogger;
 
-public class SettingsColumn
-{
+public class SettingsColumn {
 
     public final int maxColumnsPerKey;
     public List<ByteBuffer> names;
@@ -23,20 +23,17 @@ public class SettingsColumn
     public final DistributionFactory sizeDistribution;
     public final DistributionFactory countDistribution;
 
-    public SettingsColumn(GroupedOptions options)
-    {
-        this((Options) options,
-                options instanceof NameOptions ? (NameOptions) options : null,
-                options instanceof CountOptions ? (CountOptions) options : null
-        );
+    public SettingsColumn(GroupedOptions options) {
+        this(
+                (Options) options,
+                options instanceof NameOptions nameOptions ? nameOptions : null,
+                options instanceof CountOptions countOptions ? countOptions : null);
     }
 
-    public SettingsColumn(Options options, NameOptions name, CountOptions count)
-    {
+    public SettingsColumn(Options options, NameOptions name, CountOptions count) {
         sizeDistribution = options.size.get();
         timestamp = options.timestamp.value();
-        if (name != null)
-        {
+        if (name != null) {
             assert count == null;
 
             List<ByteBuffer> sortedNames = new ArrayList<>();
@@ -46,22 +43,21 @@ public class SettingsColumn
             this.namestrs = decode(this.names);
 
             final int nameCount = this.names.size();
-            countDistribution = new DistributionFactory()
-            {
+            countDistribution = new DistributionFactory() {
                 @Override
-                public Distribution get()
-                {
+                public Distribution get() {
                     return new DistributionFixed(nameCount);
                 }
+
                 @Override
-                public String getConfigAsString(){return String.format("Count:  fixed=%d", nameCount);}
+                public String getConfigAsString() {
+                    return String.format("Count:  fixed=%d", nameCount);
+                }
             };
-        }
-        else
-        {
+        } else {
             this.countDistribution = count.count.get();
             List<ByteBuffer> generatedNames = new ArrayList<>();
-            for (int i = 0 ; i < (int) countDistribution.get().maxValue() ; i++)
+            for (int i = 0; i < (int) countDistribution.get().maxValue(); i++)
                 generatedNames.add(ByteBuffer.wrap(("C" + i).getBytes(StandardCharsets.UTF_8)));
             this.names = sortedByUnsignedBytes(generatedNames);
             this.namestrs = decode(this.names);
@@ -71,80 +67,74 @@ public class SettingsColumn
         slice = options.slice.setByUser();
     }
 
-    private static List<ByteBuffer> sortedByUnsignedBytes(List<ByteBuffer> names)
-    {
+    private static List<ByteBuffer> sortedByUnsignedBytes(List<ByteBuffer> names) {
         names.sort((left, right) -> Arrays.compareUnsigned(bytesOf(left), bytesOf(right)));
         return names;
     }
 
-    private static byte[] bytesOf(ByteBuffer buffer)
-    {
+    private static byte[] bytesOf(ByteBuffer buffer) {
         byte[] bytes = new byte[buffer.remaining()];
         buffer.duplicate().get(bytes);
         return bytes;
     }
 
-    private static List<String> decode(List<ByteBuffer> names)
-    {
+    private static List<String> decode(List<ByteBuffer> names) {
         List<String> decoded = new ArrayList<>(names.size());
-        for (ByteBuffer columnName : names)
-            decoded.add(new String(bytesOf(columnName), StandardCharsets.UTF_8));
+        for (ByteBuffer columnName : names) decoded.add(new String(bytesOf(columnName), StandardCharsets.UTF_8));
         return decoded;
     }
 
-    private static abstract class Options extends GroupedOptions
-    {
-        final OptionSimple slice = new OptionSimple("slice", "", null, "If set, range slices will be used for reads, otherwise a names query will be", false);
-        final OptionSimple timestamp = new OptionSimple("timestamp=", "[0-9]+", null, "If set, all columns will be written with the given timestamp", false);
+    private abstract static class Options extends GroupedOptions {
+        final OptionSimple slice = new OptionSimple(
+                "slice",
+                "",
+                null,
+                "If set, range slices will be used for reads, otherwise a names query will be",
+                false);
+        final OptionSimple timestamp = new OptionSimple(
+                "timestamp=", "[0-9]+", null, "If set, all columns will be written with the given timestamp", false);
         final OptionDistribution size = new OptionDistribution("size=", "FIXED(34)", "Cell size distribution");
     }
 
-    private static final class NameOptions extends Options
-    {
+    private static final class NameOptions extends Options {
         final OptionSimple name = new OptionSimple("names=", ".*", null, "Column names", true);
 
         @Override
-        public List<? extends Option> options()
-        {
+        public List<? extends Option> options() {
             return Arrays.asList(name, slice, timestamp, size);
         }
     }
 
-    private static final class CountOptions extends Options
-    {
-        final OptionDistribution count = new OptionDistribution("n=", "FIXED(5)", "Cell count distribution, per operation");
+    private static final class CountOptions extends Options {
+        final OptionDistribution count =
+                new OptionDistribution("n=", "FIXED(5)", "Cell count distribution, per operation");
 
         @Override
-        public List<? extends Option> options()
-        {
+        public List<? extends Option> options() {
             return Arrays.asList(count, slice, timestamp, size);
         }
     }
 
-    public void printSettings(ResultLogger out)
-    {
-        out.printf("  Max Columns Per Key: %d%n",maxColumnsPerKey);
-        out.printf("  Column Names: %s%n",namestrs);
+    public void printSettings(ResultLogger out) {
+        out.printf("  Max Columns Per Key: %d%n", maxColumnsPerKey);
+        out.printf("  Column Names: %s%n", namestrs);
         out.printf("  Timestamp: %s%n", timestamp);
         out.printf("  Variable Column Count: %b%n", variableColumnCount);
         out.printf("  Slice: %b%n", slice);
-        if (sizeDistribution != null){
+        if (sizeDistribution != null) {
             out.println("  Size Distribution: " + sizeDistribution.getConfigAsString());
-        };
-        if (sizeDistribution != null){
+        }
+        if (countDistribution != null) {
             out.println("  Count Distribution: " + countDistribution.getConfigAsString());
-        };
+        }
     }
 
-    static SettingsColumn get(Map<String, String[]> clArgs)
-    {
+    static SettingsColumn get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-col");
-        if (params == null)
-            return new SettingsColumn(new CountOptions());
+        if (params == null) return new SettingsColumn(new CountOptions());
 
         GroupedOptions options = GroupedOptions.select(params, new NameOptions(), new CountOptions());
-        if (options == null)
-        {
+        if (options == null) {
             printHelp();
             System.out.println("Invalid -col options provided, see output for valid options");
             System.exit(1);
@@ -152,13 +142,11 @@ public class SettingsColumn
         return new SettingsColumn(options);
     }
 
-    static void printHelp()
-    {
+    static void printHelp() {
         GroupedOptions.printOptions(System.out, "-col", new NameOptions(), new CountOptions());
     }
 
-    static Runnable helpPrinter()
-    {
+    static Runnable helpPrinter() {
         return () -> printHelp();
     }
 }

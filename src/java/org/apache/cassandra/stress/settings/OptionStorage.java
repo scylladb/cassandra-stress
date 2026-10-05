@@ -3,26 +3,23 @@ package org.apache.cassandra.stress.settings;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
-class OptionStorage extends OptionMulti
-{
+class OptionStorage extends OptionMulti {
     private final OptionSimple type = new OptionSimple("type=", "LOCAL|S3", null, "The storage backend to use", false);
-    private final OptionSimple endpoint = new OptionSimple("endpoint=", ".*", null, "The server address of S3 server", false);
-    private final OptionSimple bucket = new OptionSimple("bucket=", ".*", null, "The bucket hosting the keyspace", false);
+    private final OptionSimple endpoint =
+            new OptionSimple("endpoint=", ".*", null, "The server address of S3 server", false);
+    private final OptionSimple bucket =
+            new OptionSimple("bucket=", ".*", null, "The bucket hosting the keyspace", false);
 
-    public OptionStorage()
-    {
+    OptionStorage() {
         super("storage", "Define the storage backend parameters", true);
     }
 
-    public String getType()
-    {
+    public String getType() {
         return type.value();
     }
 
-    public Map<String, String> getOptions()
-    {
+    public Map<String, String> getOptions() {
         Map<String, String> options = extraOptions();
         if (endpoint.present()) {
             options.put("endpoint", endpoint.value());
@@ -33,18 +30,17 @@ class OptionStorage extends OptionMulti
         return options;
     }
 
-    protected List<? extends Option> options()
-    {
+    @Override
+    protected List<? extends Option> options() {
         return Arrays.asList(type, endpoint, bucket);
     }
 
     @Override
-    public boolean happy()
-    {
+    public boolean happy() {
         if (!type.present()) {
             return true;
         }
-        if (type.value().equals("LOCAL")) {
+        if ("LOCAL".equals(type.value())) {
             return true;
         }
         return endpoint.present() && bucket.present();

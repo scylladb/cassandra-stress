@@ -1,17 +1,14 @@
 package org.apache.cassandra.stress.util;
 
-import java.nio.ByteBuffer;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.ByteBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-class ByteBufferUtilTest
-{
-    private static ByteBuffer hex(String hex)
-    {
+class ByteBufferUtilTest {
+    private static ByteBuffer hex(String hex) {
         return ByteBufferUtil.hexToBytes(hex);
     }
 
@@ -28,14 +25,12 @@ class ByteBufferUtilTest
         "'', 00, -1",
         "0001ff, 0002, -1",
     })
-    void comparesAsUnsignedBytes(String left, String right, int expected)
-    {
+    void comparesAsUnsignedBytes(String left, String right, int expected) {
         assertEquals(expected, ByteBufferUtil.compareUnsigned(hex(left), hex(right)));
     }
 
     @Test
-    void comparesFromThePositionOfEachBuffer()
-    {
+    void comparesFromThePositionOfEachBuffer() {
         ByteBuffer left = hex("ff0102");
         ByteBuffer right = hex("0102");
         left.position(1);
@@ -44,14 +39,12 @@ class ByteBufferUtilTest
     }
 
     @Test
-    void convertsHexBothWays()
-    {
+    void convertsHexBothWays() {
         assertEquals("00ff7f80", ByteBufferUtil.bytesToHex(hex("00FF7F80")));
     }
 
     @Test
-    void readsBytesAndAdvancesTheSource()
-    {
+    void readsBytesAndAdvancesTheSource() {
         ByteBuffer source = hex("0102030405");
         ByteBuffer read = ByteBufferUtil.readBytes(source, 2);
         assertEquals("0102", ByteBufferUtil.bytesToHex(read));
@@ -59,9 +52,9 @@ class ByteBufferUtilTest
     }
 
     @Test
-    void copiesTheRemainingBytes()
-    {
-        ByteBuffer direct = ByteBuffer.allocateDirect(3).put(new byte[]{ 7, 8, 9 }).flip();
+    void copiesTheRemainingBytes() {
+        ByteBuffer direct =
+                ByteBuffer.allocateDirect(3).put(new byte[] {7, 8, 9}).flip();
         direct.position(1);
         assertEquals("0809", ByteBufferUtil.bytesToHex(ByteBuffer.wrap(ByteBufferUtil.getArray(direct))));
     }

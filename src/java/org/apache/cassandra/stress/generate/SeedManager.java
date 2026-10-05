@@ -5,13 +5,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
-
 import org.apache.cassandra.stress.Operation;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.LockedDynamicList;
 
-public class SeedManager
-{
+public class SeedManager {
 
     final Distribution visits;
     final Generator writes;
@@ -23,26 +21,25 @@ public class SeedManager
     final int sampleSize;
     final boolean updateSampleImmediately;
 
-    public SeedManager(StressSettings settings)
-    {
-        Generator writes, reads;
-        if (settings.generate.sequence != null)
-        {
+    public SeedManager(StressSettings settings) {
+        Generator writes;
+        Generator reads;
+        if (settings.generate.sequence != null) {
             long[] seq = settings.generate.sequence;
-            if (settings.generate.readlookback != null)
-            {
-                LookbackableWriteGenerator series = new LookbackableWriteGenerator(seq[0], seq[1], settings.generate.wrap, settings.generate.readlookback.get());
+            if (settings.generate.readlookback != null) {
+                LookbackableWriteGenerator series = new LookbackableWriteGenerator(
+                        seq[0], seq[1], settings.generate.wrap, settings.generate.readlookback.get());
                 writes = series;
                 reads = series.reads;
+            } else {
+                Generator series = new SeriesGenerator(seq[0], seq[1], settings.generate.wrap);
+                writes = series;
+                reads = series;
             }
-            else
-            {
-                writes = reads = new SeriesGenerator(seq[0], seq[1], settings.generate.wrap);
-            }
-        }
-        else
-        {
-            writes = reads = new RandomGenerator(settings.generate.distribution.get());
+        } else {
+            Generator random = new RandomGenerator(settings.generate.distribution.get());
+            writes = random;
+            reads = random;
         }
         this.visits = settings.insert.visits.get();
         this.writes = writes;
@@ -58,134 +55,108 @@ public class SeedManager
         this.updateSampleImmediately = visits.average() > 1;
     }
 
-    public Seed next(Operation op)
-    {
-        if (!op.isWrite())
-        {
+    public Seed next(Operation op) {
+        if (!op.isWrite()) {
             Seed seed = reads.next(-1);
-            if (seed == null)
-                return null;
-            Seed managing = this.managing.get(seed);
+            if (seed == null) return null;
+            Seed managing = this.managing.get(seed.seed);
             return managing == null ? seed : managing;
         }
 
-        while (true)
-        {
+        while (true) {
             int index = (int) (sample.next() - sampleOffset);
             Seed seed = sampleFrom.get(index);
-            if (seed != null && seed.isSaved())
-                return seed;
+            if (seed != null && seed.isSaved()) return seed;
 
             seed = writes.next((int) visits.next());
-            if (seed == null)
-                return null;
-            if (managing.putIfAbsent(seed.seed, seed) == null)
-            {
-                if (!updateSampleImmediately || seed.save(sampleFrom, sampleSize))
-                    return seed;
+            if (seed == null) return null;
+            if (managing.putIfAbsent(seed.seed, seed) == null) {
+                if (!updateSampleImmediately || seed.save(sampleFrom, sampleSize)) return seed;
                 managing.remove(seed.seed, seed);
             }
         }
     }
 
-    public void markLastWrite(Seed seed, boolean first)
-    {
-        if (managing.remove(seed.seed, seed) && !first)
-            seed.remove(sampleFrom);
+    public void markLastWrite(Seed seed, boolean first) {
+        if (managing.remove(seed.seed, seed) && !first) seed.remove(sampleFrom);
     }
 
-    public void markFirstWrite(Seed seed, boolean last)
-    {
-        if (!last && !updateSampleImmediately)
-            seed.save(sampleFrom, Integer.MAX_VALUE);
+    public void markFirstWrite(Seed seed, boolean last) {
+        if (!last && !updateSampleImmediately) seed.save(sampleFrom, Integer.MAX_VALUE);
         writes.finishWrite(seed);
     }
 
-    private abstract class Generator
-    {
+    private abstract static class Generator {
         abstract Seed next(int visits);
-        void finishWrite(Seed seed) { }
+
+        void finishWrite(Seed seed) {}
     }
 
-    private class RandomGenerator extends Generator
-    {
+    private static class RandomGenerator extends Generator {
 
         final Distribution distribution;
 
-        public RandomGenerator(Distribution distribution)
-        {
+        RandomGenerator(Distribution distribution) {
             this.distribution = distribution;
         }
 
-        public Seed next(int visits)
-        {
+        @Override
+        public Seed next(int visits) {
             return new Seed(distribution.next(), visits);
         }
     }
 
-    private class SeriesGenerator extends Generator
-    {
+    private static class SeriesGenerator extends Generator {
 
         final long start;
         final long totalCount;
         final boolean wrap;
         final AtomicLong next = new AtomicLong();
 
-        public SeriesGenerator(long start, long end, boolean wrap)
-        {
+        SeriesGenerator(long start, long end, boolean wrap) {
             this.wrap = wrap;
-            if (start > end)
-                throw new IllegalStateException();
+            if (start > end) throw new IllegalStateException();
             this.start = start;
             this.totalCount = 1 + end - start;
         }
 
-        public Seed next(int visits)
-        {
+        @Override
+        public Seed next(int visits) {
             long next = this.next.getAndIncrement();
-            if (!wrap && next >= totalCount)
-                return null;
+            if (!wrap && next >= totalCount) return null;
             return new Seed(start + (next % totalCount), visits);
         }
     }
 
-    private class LookbackableWriteGenerator extends SeriesGenerator
-    {
+    private class LookbackableWriteGenerator extends SeriesGenerator {
 
         final AtomicLong writeCount = new AtomicLong();
         final ConcurrentSkipListMap<Seed, Seed> afterMin = new ConcurrentSkipListMap<>();
         final LookbackReadGenerator reads;
 
-        public LookbackableWriteGenerator(long start, long end, boolean wrap, Distribution readLookback)
-        {
+        LookbackableWriteGenerator(long start, long end, boolean wrap, Distribution readLookback) {
             super(start, end, wrap);
             this.writeCount.set(0);
             reads = new LookbackReadGenerator(readLookback);
         }
 
-        public Seed next(int visits)
-        {
+        @Override
+        public Seed next(int visits) {
             long next = this.next.getAndIncrement();
-            if (!wrap && next >= totalCount)
-                return null;
+            if (!wrap && next >= totalCount) return null;
             return new Seed(start + (next % totalCount), visits);
         }
 
-        void finishWrite(Seed seed)
-        {
-            if (seed.seed <= writeCount.get())
-                return;
+        @Override
+        void finishWrite(Seed seed) {
+            if (seed.seed <= writeCount.get()) return;
             afterMin.put(seed, seed);
-            while (true)
-            {
+            while (true) {
                 Map.Entry<Seed, Seed> head = afterMin.firstEntry();
-                if (head == null)
-                    return;
+                if (head == null) return;
                 long min = this.writeCount.get();
-                if (head.getKey().seed <= min)
-                    return;
-                if (head.getKey().seed == min + 1 && this.writeCount.compareAndSet(min, min + 1))
-                {
+                if (head.getKey().seed <= min) return;
+                if (head.getKey().seed == min + 1 && this.writeCount.compareAndSet(min, min + 1)) {
                     afterMin.remove(head.getKey());
                     continue;
                 }
@@ -193,34 +164,29 @@ public class SeedManager
             }
         }
 
-        private class LookbackReadGenerator extends Generator
-        {
+        private class LookbackReadGenerator extends Generator {
 
             final Distribution lookback;
 
-            public LookbackReadGenerator(Distribution lookback)
-            {
+            LookbackReadGenerator(Distribution lookback) {
                 this.lookback = lookback;
                 if (lookback.maxValue() > start + totalCount)
-                    throw new IllegalArgumentException("Invalid lookback distribution; max value is " + lookback.maxValue()
-                                                       + ", but series only ranges from " + writeCount + " to " + (start + totalCount));
+                    throw new IllegalArgumentException(
+                            "Invalid lookback distribution; max value is " + lookback.maxValue()
+                                    + ", but series only ranges from " + writeCount + " to " + (start + totalCount));
             }
 
-            public Seed next(int visits)
-            {
+            @Override
+            public Seed next(int visits) {
                 long lookback = this.lookback.next();
                 long range = writeCount.get();
                 long startOffset = range - lookback;
-                if (startOffset < 0)
-                {
-                    if (range == totalCount && !wrap)
-                        return null;
+                if (startOffset < 0) {
+                    if (range == totalCount && !wrap) return null;
                     startOffset = range == 0 ? 0 : lookback % range;
                 }
                 return new Seed(start + startOffset, visits);
             }
         }
-
     }
-
 }

@@ -1,45 +1,38 @@
 package org.apache.cassandra.stress.report;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-class TimingIntervalTest
-{
+class TimingIntervalTest {
     private static Locale previous;
 
     @BeforeAll
-    static void useUsLocale()
-    {
+    static void useUsLocale() {
         previous = Locale.getDefault();
         Locale.setDefault(Locale.US);
     }
 
     @AfterAll
-    static void restoreLocale()
-    {
+    static void restoreLocale() {
         Locale.setDefault(previous);
     }
 
-    private static TimingInterval interval(boolean fixed, long startNs, long endNs, long... serviceNanos)
-    {
+    private static TimingInterval interval(boolean fixed, long startNs, long endNs, long... serviceNanos) {
         TimingInterval interval = new TimingInterval(fixed);
         interval.startNanos(startNs);
         interval.endNanos(endNs);
-        for (long nanos : serviceNanos)
-            interval.serviceTime().recordValue(nanos);
+        for (long nanos : serviceNanos) interval.serviceTime().recordValue(nanos);
         return interval;
     }
 
     @Test
-    void computesRatesOverTheInterval()
-    {
+    void computesRatesOverTheInterval() {
         TimingInterval interval = interval(false, 0, 2_000_000_000L, 1_000_000, 3_000_000);
         interval.partitionCount = 10;
         interval.rowCount = 40;
@@ -51,8 +44,7 @@ class TimingIntervalTest
     }
 
     @Test
-    void reportsLatenciesInMilliseconds()
-    {
+    void reportsLatenciesInMilliseconds() {
         TimingInterval interval = interval(false, 0, 1_000_000_000L, 1_000_000, 2_000_000, 3_000_000);
         assertEquals(2.0, interval.meanLatencyMs(), 0.01);
         assertEquals(3.0, interval.maxLatencyMs(), 0.01);
@@ -61,8 +53,7 @@ class TimingIntervalTest
     }
 
     @Test
-    void fixedRateUsesResponseTimeWhenRecorded()
-    {
+    void fixedRateUsesResponseTimeWhenRecorded() {
         TimingInterval interval = interval(true, 0, 1_000_000_000L, 1_000_000);
         assertEquals(1.0, interval.maxLatencyMs(), 0.01);
         interval.responseTime().recordValue(9_000_000);
@@ -70,8 +61,7 @@ class TimingIntervalTest
     }
 
     @Test
-    void addMergesBoundsCountsAndHistograms()
-    {
+    void addMergesBoundsCountsAndHistograms() {
         TimingInterval total = new TimingInterval(false);
         TimingInterval first = interval(false, 100, 200, 1_000);
         first.errorCount = 1;
@@ -95,8 +85,7 @@ class TimingIntervalTest
     }
 
     @Test
-    void resetClearsEverything()
-    {
+    void resetClearsEverything() {
         TimingInterval interval = interval(false, 1, 2, 1_000);
         interval.responseTime().recordValue(1);
         interval.waitTime().recordValue(1);
@@ -111,8 +100,7 @@ class TimingIntervalTest
     }
 
     @Test
-    void formatsEachParameter()
-    {
+    void formatsEachParameter() {
         TimingInterval interval = interval(false, 0, 1_000_000_000L, 1_500_000);
         interval.errorCount = 1234;
         interval.partitionCount = 5;
@@ -130,8 +118,7 @@ class TimingIntervalTest
     }
 
     @Test
-    void intervalsJoinEachOperationType()
-    {
+    void intervalsJoinEachOperationType() {
         Map<String, TimingInterval> map = new LinkedHashMap<>();
         map.put("READ", interval(false, 0, 1_000_000_000L, 1_000_000, 1_000_000));
         map.put("WRITE", interval(false, 500_000_000L, 2_000_000_000L, 2_000_000));

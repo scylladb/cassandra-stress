@@ -3,17 +3,15 @@ package org.apache.cassandra.stress.marshal;
 
 import java.util.Date;
 
-public final class DateType extends AbstractType<Date>
-{
+public final class DateType extends AbstractType<Date> {
     public static final DateType instance = new DateType();
 
-    private DateType()
-    {
+    private DateType() {
         super(true);
     }
 
-    public TypeSerializer<Date> getSerializer()
-    {
+    @Override
+    public TypeSerializer<Date> getSerializer() {
         return TimestampSerializer.instance;
     }
 }

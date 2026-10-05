@@ -1,20 +1,18 @@
 package org.apache.cassandra.stress;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-class StressProfileTest
-{
+class StressProfileTest {
     private static final String PROFILE = """
         keyspace: test_keyspace
         table: test_table
@@ -36,15 +34,13 @@ class StressProfileTest
     @TempDir
     Path dir;
 
-    private StressProfile load(String yaml) throws Exception
-    {
+    private StressProfile load(String yaml) throws Exception {
         Path file = Files.writeString(dir.resolve("profile.yaml"), yaml);
         return StressProfile.load(file.toUri());
     }
 
     @Test
-    void loadsKeyspaceAndTableNames() throws Exception
-    {
+    void loadsKeyspaceAndTableNames() throws Exception {
         StressProfile profile = load(PROFILE);
         assertEquals("test_keyspace", profile.keyspaceName);
         assertEquals("test_table", profile.tableName);
@@ -52,27 +48,27 @@ class StressProfileTest
     }
 
     @ParameterizedTest
-    @CsvSource(delimiter = '|', value = {
-        "keyspace: test_keyspace | keyspace name is required in yaml file",
-        "table: test_table       | table name is required in yaml file",
-    })
-    void rejectsAProfileWithoutARequiredName(String line, String message)
-    {
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> load(PROFILE.replace(line + "\n", "")));
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                "keyspace: test_keyspace | keyspace name is required in yaml file",
+                "table: test_table       | table name is required in yaml file",
+            })
+    void rejectsAProfileWithoutARequiredName(String line, String message) {
+        IllegalArgumentException e =
+                assertThrows(IllegalArgumentException.class, () -> load(PROFILE.replace(line + "\n", "")));
         assertEquals(message, e.getMessage());
     }
 
     @Test
-    void rejectsAProfileWithoutQueries()
-    {
+    void rejectsAProfileWithoutQueries() {
         String yaml = PROFILE.substring(0, PROFILE.indexOf("queries:"));
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> load(yaml));
         assertEquals("queries map is required in yaml file", e.getMessage());
     }
 
     @Test
-    void lowerCasesMapKeysAndKeepsValues()
-    {
+    void lowerCasesMapKeysAndKeepsValues() {
         Map<String, String> map = new HashMap<>();
         map.put("UpperCase", "a");
         map.put("lowercase", "b");

@@ -5,16 +5,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-
-import com.datastax.driver.core.BatchStatement;
 import org.apache.cassandra.stress.core.BatchStatementType;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.RatioDistributionFactory;
-import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
+import org.apache.cassandra.stress.util.ResultLogger;
 
-public class SettingsInsert
-{
+public final class SettingsInsert {
 
     public final DistributionFactory revisit;
     public final DistributionFactory visits;
@@ -25,90 +22,100 @@ public class SettingsInsert
     public final ConsistencyLevel consistencyLevel;
     public final ConsistencyLevel serialConsistencyLevel;
 
-    private SettingsInsert(InsertOptions options)
-    {
-        this.visits= options.visits.get();
+    private SettingsInsert(InsertOptions options) {
+        this.visits = options.visits.get();
         this.revisit = options.revisit.get();
         this.batchsize = options.partitions.get();
         this.selectRatio = options.selectRatio.get();
         this.rowPopulationRatio = options.rowPopulationRatio.get();
         if (options.consistencyLevel.present())
-            this.consistencyLevel = ConsistencyLevel.valueOf(options.consistencyLevel.value().toUpperCase(Locale.ROOT));
-        else
-            this.consistencyLevel = null;
+            this.consistencyLevel =
+                    ConsistencyLevel.valueOf(options.consistencyLevel.value().toUpperCase(Locale.ROOT));
+        else this.consistencyLevel = null;
         if (options.serialConsistencyLevel.present())
-            this.serialConsistencyLevel = ConsistencyLevel.valueOf(options.serialConsistencyLevel.value().toUpperCase(Locale.ROOT));
-        else
-            this.serialConsistencyLevel = null;
+            this.serialConsistencyLevel = ConsistencyLevel.valueOf(
+                    options.serialConsistencyLevel.value().toUpperCase(Locale.ROOT));
+        else this.serialConsistencyLevel = null;
         this.batchType = !options.batchType.setByUser() ? null : BatchStatementType.valueOf(options.batchType.value());
     }
 
-    private static class InsertOptions extends GroupedOptions
-    {
-        final OptionDistribution visits = new OptionDistribution("visits=", "fixed(1)", "The target number of inserts to split a partition into; if more than one, the partition will be placed in the revisit set");
-        final OptionDistribution revisit = new OptionDistribution("revisit=", "uniform(1..1M)", "The distribution with which we revisit partial writes (see visits); implicitly defines size of revisit collection");
-        final OptionDistribution partitions = new OptionDistribution("partitions=", null, "The number of partitions to update in a single batch", false);
-        final OptionSimple batchType = new OptionSimple("batchtype=", "unlogged|logged|counter", null, "Specify the type of batch statement (LOGGED, UNLOGGED or COUNTER)", false);
-        final OptionRatioDistribution selectRatio = new OptionRatioDistribution("select-ratio=", null, "The uniform probability of visiting any CQL row in the generated partition", false);
-        final OptionRatioDistribution rowPopulationRatio = new OptionRatioDistribution("row-population-ratio=", "fixed(1)/1", "The percent of a given rows columns to populate", false);
-        final OptionSimple consistencyLevel = new OptionSimple("cl=", "ONE|QUORUM|LOCAL_QUORUM|EACH_QUORUM|ALL|ANY|TWO|THREE|LOCAL_ONE|SERIAL|LOCAL_SERIAL", null, "Consistency level to use", false);
-        final OptionSimple serialConsistencyLevel = new OptionSimple("serial-cl=", "SERIAL|LOCAL_SERIAL", null, "Serial consistency level to use", false);
+    private static final class InsertOptions extends GroupedOptions {
+        final OptionDistribution visits = new OptionDistribution(
+                "visits=",
+                "fixed(1)",
+                "The target number of inserts to split a partition into; if more than one, the partition will be"
+                        + " placed in the revisit set");
+        final OptionDistribution revisit = new OptionDistribution(
+                "revisit=",
+                "uniform(1..1M)",
+                "The distribution with which we revisit partial writes (see visits); implicitly defines size of"
+                        + " revisit collection");
+        final OptionDistribution partitions = new OptionDistribution(
+                "partitions=", null, "The number of partitions to update in a single batch", false);
+        final OptionSimple batchType = new OptionSimple(
+                "batchtype=",
+                "unlogged|logged|counter",
+                null,
+                "Specify the type of batch statement (LOGGED, UNLOGGED or COUNTER)",
+                false);
+        final OptionRatioDistribution selectRatio = new OptionRatioDistribution(
+                "select-ratio=",
+                null,
+                "The uniform probability of visiting any CQL row in the generated partition",
+                false);
+        final OptionRatioDistribution rowPopulationRatio = new OptionRatioDistribution(
+                "row-population-ratio=", "fixed(1)/1", "The percent of a given rows columns to populate", false);
+        final OptionSimple consistencyLevel = new OptionSimple(
+                "cl=",
+                "ONE|QUORUM|LOCAL_QUORUM|EACH_QUORUM|ALL|ANY|TWO|THREE|LOCAL_ONE|SERIAL|LOCAL_SERIAL",
+                null,
+                "Consistency level to use",
+                false);
+        final OptionSimple serialConsistencyLevel =
+                new OptionSimple("serial-cl=", "SERIAL|LOCAL_SERIAL", null, "Serial consistency level to use", false);
 
         @Override
-        public List<? extends Option> options()
-        {
+        public List<? extends Option> options() {
             return Arrays.asList(revisit, visits, partitions, batchType, selectRatio, rowPopulationRatio);
         }
     }
 
-    public void printSettings(ResultLogger out)
-    {
+    public void printSettings(ResultLogger out) {
 
-        if (revisit != null)
-        {
-            out.println("  Revisits: " +revisit.getConfigAsString());
+        if (revisit != null) {
+            out.println("  Revisits: " + revisit.getConfigAsString());
         }
-        if (visits != null)
-        {
+        if (visits != null) {
             out.println("  Visits: " + visits.getConfigAsString());
         }
-        if (batchsize != null)
-        {
-            out.println("  Batchsize: " +batchsize.getConfigAsString());
+        if (batchsize != null) {
+            out.println("  Batchsize: " + batchsize.getConfigAsString());
         }
-        if (batchsize != null)
-        {
-            out.println("  Select Ratio: " +selectRatio.getConfigAsString());
+        if (batchsize != null) {
+            out.println("  Select Ratio: " + selectRatio.getConfigAsString());
         }
-        if (rowPopulationRatio != null)
-        {
-            out.println("  Row Population Ratio: " +rowPopulationRatio.getConfigAsString());
+        if (rowPopulationRatio != null) {
+            out.println("  Row Population Ratio: " + rowPopulationRatio.getConfigAsString());
         }
-        if (consistencyLevel != null)
-        {
+        if (consistencyLevel != null) {
             out.printf("  Consistency Level: %s%n", consistencyLevel.toString());
         }
-        if (serialConsistencyLevel != null)
-        {
+        if (serialConsistencyLevel != null) {
             out.printf("  Serial Consistency Level: %s%n", serialConsistencyLevel.toString());
         }
-        if (batchType != null)
-        {
+        if (batchType != null) {
             out.printf("  Batch Type: %s%n", batchType);
         } else {
             out.println("  Batch Type: not batching");
         }
     }
 
-    public static SettingsInsert get(Map<String, String[]> clArgs)
-    {
+    public static SettingsInsert get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-insert");
-        if (params == null)
-            return new SettingsInsert(new InsertOptions());
+        if (params == null) return new SettingsInsert(new InsertOptions());
 
         InsertOptions options = GroupedOptions.select(params, new InsertOptions());
-        if (options == null)
-        {
+        if (options == null) {
             printHelp();
             System.out.println("Invalid -insert options provided, see output for valid options");
             System.exit(1);
@@ -116,14 +123,11 @@ public class SettingsInsert
         return new SettingsInsert(options);
     }
 
-    public static void printHelp()
-    {
+    public static void printHelp() {
         GroupedOptions.printOptions(System.out, "-insert", new InsertOptions());
     }
 
-    public static Runnable helpPrinter()
-    {
+    public static Runnable helpPrinter() {
         return () -> printHelp();
     }
 }
-

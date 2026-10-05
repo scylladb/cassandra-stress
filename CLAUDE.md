@@ -13,6 +13,10 @@ ant coverage
 ant integration-test
 # One report for unit and integration tests
 ant coverage-all
+# Format all Java sources (palantir-java-format)
+ant format
+# Format check, Error Prone, Checkstyle, PMD and SpotBugs
+ant lint
 ```
 
 <!-- qatools-sdlc:begin -->
