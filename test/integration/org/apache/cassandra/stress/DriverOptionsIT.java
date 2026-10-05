@@ -327,4 +327,62 @@ class DriverOptionsIT {
         assertTrue(validate.succeeded(), validate::toString);
         assertEquals(0L, validate.totalErrors().orElseThrow(), validate::toString);
     }
+
+    @Test
+    void writesAndValidatesEveryRowOfADeeplyClusteredPartition() throws IOException {
+        ScyllaNode.dropKeyspace("driveroptions");
+        Path profile = Files.writeString(dir.resolve("deep.yaml"), """
+            keyspace: driveroptions
+            keyspace_definition: |
+              CREATE KEYSPACE driveroptions WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 1};
+            table: deep
+            table_definition: |
+              CREATE TABLE deep (pk bigint, a int, b text, c bigint, d int, v text, PRIMARY KEY (pk, a, b, c, d))
+            columnspec:
+              - name: a
+                cluster: fixed(3)
+              - name: b
+                cluster: fixed(2)
+              - name: c
+                cluster: fixed(2)
+              - name: d
+                cluster: fixed(2)
+            insert:
+              partitions: fixed(1)
+              select: fixed(1)/1
+              batchtype: UNLOGGED
+            queries:
+              bykey:
+                cql: select * from deep where pk = ?
+            """);
+        CassandraStress stress = new CassandraStress(dir);
+
+        StressResult insert = stress.run(
+                "user",
+                "profile=" + profile,
+                "ops(insert=1)",
+                "no-warmup",
+                "n=50",
+                "-pop",
+                "seq=1..50",
+                "-rate",
+                "threads=2");
+        assertTrue(insert.succeeded(), insert::toString);
+        assertEquals(50L * 24, ScyllaNode.count("driveroptions", "deep"));
+
+        StressResult validate = stress.run(
+                "user",
+                "profile=" + profile,
+                "ops(validate=1)",
+                "no-warmup",
+                "n=200",
+                "-pop",
+                "seq=1..50",
+                "-rate",
+                "threads=2",
+                "-errors",
+                "fail-fast");
+        assertTrue(validate.succeeded(), validate::toString);
+        assertEquals(0L, validate.totalErrors().orElseThrow(), validate::toString);
+    }
 }

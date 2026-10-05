@@ -319,6 +319,11 @@ public abstract class PartitionIterator implements Iterator<Row> {
             }
         }
 
+        private boolean isPastLastRow(int depth) {
+            for (int i = 0; i <= depth; i++) if (currentRow[i] != lastRow[i]) return currentRow[i] > lastRow[i];
+            return false;
+        }
+
         private static int compare(int[] l, int[] r) {
             for (int i = 0; i < l.length; i++) if (l[i] != r[i]) return Integer.compare(l[i], r[i]);
             return 0;
@@ -402,7 +407,8 @@ public abstract class PartitionIterator implements Iterator<Row> {
                     if (depth == 0) return false;
                     depth--;
                     clusteringComponents[depth].poll();
-                    if (++currentRow[depth] > lastRow[depth]) return false;
+                    currentRow[depth]++;
+                    if (isPastLastRow(depth)) return false;
                     continue;
                 }
 

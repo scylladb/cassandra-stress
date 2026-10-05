@@ -68,28 +68,53 @@ class GeneratedDataCompatibilityTest {
         return sb.toString();
     }
 
-    @ParameterizedTest
-    @CsvSource({
-        "ARBITRARY, true, 30, 26eab19f69444b220f3ab6d2333822c201a6d5ef508ff7ea446c944b4d3d9592",
-        "SORTED, true, 30, 7ddc71bc9f71d9b6282f7a3b4f85b39f4a386bf044cffa180aa17b77d38a3fe8",
-        "ARBITRARY, false, 360, 372af9cb3353929ea37b874a95454ba1bff8e709a81329b51690d6ff3b70b73d",
-        "SORTED, false, 360, 9c1e8327710242e85b04809064234bd0799f2b0b83ad2472b0e2cce9b1f8e142",
-    })
-    void writesAndReadsTheRowsOfThePreviousRelease(
-            PartitionGenerator.Order order, boolean isWrite, int rowCount, String digest) throws Exception {
+    private static List<List<String>> partitions(PartitionGenerator.Order order, boolean isWrite) {
         PartitionGenerator generator = generator(order);
         SeedManager seeds = new SeedManager(StressSettings.parse(new String[] {"write", "n=100"}));
-        List<String> rows = new ArrayList<>();
+        List<List<String>> partitions = new ArrayList<>();
         for (long seed = 1; seed <= 15; seed++) {
             PartitionIterator iterator = PartitionIterator.get(generator, seeds);
             iterator.reset(new Seed(seed, 1), 1d, 1d, isWrite);
+            List<String> rows = new ArrayList<>();
             while (iterator.hasNext()) rows.add(describe(generator, iterator.next()));
+            partitions.add(rows);
         }
-        assertEquals(rowCount, rows.size());
-        assertEquals(
-                digest,
-                HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256")
-                                .digest(String.join("\n", rows).getBytes(StandardCharsets.UTF_8))));
+        return partitions;
+    }
+
+    private static String sha256(List<String> rows) throws Exception {
+        return HexFormat.of()
+                .formatHex(MessageDigest.getInstance("SHA-256")
+                        .digest(String.join("\n", rows).getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "ARBITRARY, 372af9cb3353929ea37b874a95454ba1bff8e709a81329b51690d6ff3b70b73d",
+        "SORTED, 9c1e8327710242e85b04809064234bd0799f2b0b83ad2472b0e2cce9b1f8e142",
+    })
+    void readsTheRowsOfThePreviousRelease(PartitionGenerator.Order order, String digest) throws Exception {
+        List<String> rows =
+                partitions(order, false).stream().flatMap(List::stream).toList();
+        assertEquals(360, rows.size());
+        assertEquals(digest, sha256(rows));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "ARBITRARY, 26eab19f69444b220f3ab6d2333822c201a6d5ef508ff7ea446c944b4d3d9592",
+        "SORTED, 7ddc71bc9f71d9b6282f7a3b4f85b39f4a386bf044cffa180aa17b77d38a3fe8",
+    })
+    void writesTheRowsOfThePreviousReleaseFirst(PartitionGenerator.Order order, String digest) throws Exception {
+        List<String> firstRows = partitions(order, true).stream()
+                .flatMap(rows -> rows.subList(0, 2).stream())
+                .toList();
+        assertEquals(digest, sha256(firstRows));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ARBITRARY", "SORTED"})
+    void writesEveryRowThatItReads(PartitionGenerator.Order order) {
+        assertEquals(partitions(order, false), partitions(order, true));
     }
 }
