@@ -287,3 +287,20 @@ stays in every plan built from a spec.
 - [x] Exclude `j2objc-annotations` and `metrics-core`, and remove the remaining Thrift references.
 - [x] Run `ant test` and `ant integration-test`.
 
+## Task 20 — Driver 4.x only, settings errors and runtime upgrades
+
+**Files:**
+- Create: `S/settings/InvalidSettingsException.java`, `S/util/HostAndPort.java`, `S/core/CqlTypes.java`, `S/util/codecs/{EpochDayCodec,NanoOfDayCodec}.java`, `S/ProfileGenerators.java`, `S/ProfileInsert.java`, `T/integration/.../DriverOptionsIT.java`
+- Delete: `S/core/{BatchStatementType,BoundStatement,ColumnDefinitions,ColumnMetadata,DataType,TableMetadata}.java`, `S/settings/ConnectionAPI.java`, `S/util/JavaDriverV4{ConfigBuilder,SessionBuilder}.java`
+- Modify: `S/util/JavaDriverClient.java`, `S/StressProfile.java`, `S/StressServer.java`, `S/Stress.java`, the `Settings*` parsers, the user-defined and predefined operations, `build.xml`, `conf/logback.xml`, `conf/jvm-clients.options`, `README.md`, `renovate.json`
+
+**Internals:** `JavaDriverClient` is the driver 4.x client. `StressProfile` keeps the YAML and the lazy state, `ProfileInsert` builds the insert CQL and its options, and `ProfileGenerators` builds the column generators. `StressSettings.output()` carries the result logger, so stressd sends the connection and schema messages to its client.
+
+- [x] Replace `System.exit` in the parsers with `InvalidSettingsException`, and test stressd with an invalid command.
+- [x] Close the stressd sockets with try-with-resources, and add `-p` and `host:port`.
+- [x] Upgrade logback, slf4j, commons-math3, snakeyaml, jackson and lz4-java.
+- [x] Remove driver 3.x, guava and the driver override targets, and port load balancing, whitelist, token ranges and the date and time binding to driver 4.x.
+- [x] Split `StressProfile`, and convert the fall-through switches.
+- [x] Check every SCT command, profile, output parser and log event against `master`, and keep the SCT schema agreement event.
+- [x] Make `ops(validate=1)` read clustered rows, collections and dates back as the insert wrote them, with a failing test first for each bug.
+- [x] Run `ant lint`, `ant test`, `ant integration-test` and `ant coverage-all`.

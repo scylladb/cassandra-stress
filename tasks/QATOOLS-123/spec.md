@@ -8,7 +8,7 @@ The change deletes the Cassandra server tree and the stress features that run on
 
 - Generated data stays byte-identical. `PartitionIterator` seeds each row from the serialized key bytes, so a new release must produce the bytes that an old release wrote.
 - A command line that uses a removed option fails at argument parsing, before stress connects to the cluster.
-- Both drivers run on JDK 25. A driver failure on JDK 25 blocks the merge of this pull request.
+- The driver runs on JDK 25. A driver failure on JDK 25 blocks the merge of this pull request.
 - `build.xml` uses plain Maven coordinates only, so the Gradle build can copy the dependency list as-is.
 
 ## Design
@@ -57,19 +57,19 @@ A file that comes from a Cassandra original starts with `// SPDX-License-Identif
 
 ### Build and CI
 
-`build.xml` declares the jars that stress code imports, plus the logging and compression jars that the drivers load at run time. The resolver brings the transitive dependencies from the 3.x driver POM. The resolver also brings the 4.x driver with its `native-protocol` and `java-driver-guava-shaded` jars. The two drivers have no class path in common, so neither jar is relocated. HdrHistogram moves from 2.1.12 to 2.2.2, the version that both drivers declare. Both versions write the same HDR log, format 1.3. Guava, Netty, slf4j and lz4-java take the versions that the 3.x driver declares. `build.xml` declares the dependencies in two resolver `<dependencies>` sets, one for run time and one for the tests, and writes no POM.
+`build.xml` declares the jars that stress code imports, plus the logging and compression jars that the driver loads at run time. Stress uses the Scylla Java driver 4.x only. The resolver brings it with its `native-protocol` and `java-driver-guava-shaded` jars, and no jar is relocated. HdrHistogram moves from 2.1.12 to 2.2.2. Both versions write the same HDR log, format 1.3. `build.xml` pins `jackson-core` to the `jackson-databind` version, because the driver POM declares an older `jackson-core`. `build.xml` declares the dependencies in resolver `<dependencies>` sets, one for run time and one for each test and tool set, and writes no POM.
 
 | Scope | Coordinates |
 |---|---|
-| runtime | `scylla-driver-core` 3.x, `java-driver-core-shaded` 4.x, guava, commons-math3, snakeyaml, jackson-databind, jctools-core 4.0.7, HdrHistogram 2.2.2, config, slf4j-api, logback-classic, lz4-java, snappy-java |
+| runtime | `java-driver-core-shaded` 4.x, commons-math3 3.6.1, snakeyaml, jackson-core, jackson-databind, jctools-core 4.0.7, HdrHistogram 2.2.2, config, slf4j-api 2.x, logback-classic 1.6, `at.yawk.lz4:lz4-java`, snappy-java |
 | test | junit-jupiter 6.1.3, junit-platform-launcher 6.1.3, testcontainers-scylladb 2.0.5 (integration tests) |
 | build | `maven-resolver-ant-tasks`, `org.jacoco.ant` 0.8.15 (only for `coverage`) |
 
 Every other coordinate goes, `compile-command-annotations` and joda-time included. `<javac>` sets `--release 21` and `-proc:none`. With no annotation processor, the `build` target stops copying `META-INF/hotspot_compiler`, and the `artifacts` target stops excluding it. `conf/jvm-clients.options` keeps only the flags that the drivers need. The integration tests on JDK 21 and 25 decide that list.
 
-No class on the classpath calls `sun.misc.Unsafe`. The 3.x driver comes without `jnr-ffi` and `jnr-posix`, so both drivers use the Java clock and `jffi` leaves the classpath. The work queues of `StressAction` are the `jctools` atomic queues. `conf/jvm-clients.options` sets `-Dcom.datastax.shaded.netty.noUnsafe=true` and `-Dcom.datastax.oss.driver.shaded.netty.noUnsafe=true`, the relocated names of the Netty property in the two driver jars. The JDK 25 integration tests run with `--sun-misc-unsafe-memory-access=deny`, so an `Unsafe` call fails CI.
+No class on the classpath calls `sun.misc.Unsafe`. The driver comes without `jnr-posix`, so it uses the Java clock. The work queues of `StressAction` are the `jctools` atomic queues. `conf/jvm-clients.options` sets `-Dcom.datastax.oss.driver.shaded.netty.noUnsafe=true`, the relocated name of the Netty property in the driver jar. The JDK 25 integration tests run with `--sun-misc-unsafe-memory-access=deny`, so an `Unsafe` call fails CI.
 
-`build.xml` keeps the targets that CI, the Makefile, the Dockerfile and packaging call: `init`, `clean`, `realclean`, `resolver-init`, `resolver-retrieve-build`, `scylla-driver-core.override`, `build`, `jar`, `artifacts`, `build-test` and `test`. `test` runs every unit test through `junitlauncher` in one forked JVM, or one class with `-Dtest.name=ClassNameTest`. `coverage` runs the same tests under the JaCoCo agent and writes HTML, XML and CSV reports to `build/coverage`. `integration-test` runs the `*IT` classes in `test/integration` against one Testcontainers ScyllaDB node, and `coverage-all` reports the unit and integration tests together. CI runs `test` and `coverage-all` on JDK 21 and 25 and uploads the report. `artifacts` empties `build/dist` first, so a jar that left the dependency list does not stay in the tarball. `build-project` writes the stress version to the `org/apache/cassandra/stress/stress.version` resource in `build/classes/main`. The `jar` target also writes it to the `Implementation-Version` attribute of the jar manifest. The CI build, unit test and integration test matrices are `["21", "25"]`. The deb and rpm package tests stay on JDK 21, the runtime of the packages. The build workflow passes no `source.version` or `target.version`, so a JDK 25 build still writes Java 21 bytecode.
+`build.xml` keeps the targets that CI, the Makefile, the Dockerfile and packaging call: `init`, `clean`, `realclean`, `resolver-init`, `resolver-retrieve-build`, `build`, `jar`, `artifacts`, `build-test` and `test`. `test` runs every unit test through `junitlauncher` in one forked JVM, or one class with `-Dtest.name=ClassNameTest`. `coverage` runs the same tests under the JaCoCo agent and writes HTML, XML and CSV reports to `build/coverage`. `integration-test` runs the `*IT` classes in `test/integration` against one Testcontainers ScyllaDB node, and `coverage-all` reports the unit and integration tests together. CI runs `test` and `coverage-all` on JDK 21 and 25 and uploads the report. `artifacts` empties `build/dist` first, so a jar that left the dependency list does not stay in the tarball. `build-project` writes the stress version to the `org/apache/cassandra/stress/stress.version` resource in `build/classes/main`. The `jar` target also writes it to the `Implementation-Version` attribute of the jar manifest. The CI build, unit test and integration test matrices are `["21", "25"]`. The deb and rpm package tests stay on JDK 21, the runtime of the packages. The build workflow passes no `source.version` or `target.version`, so a JDK 25 build still writes Java 21 bytecode.
 
 The server tree, the server tests, the Thrift and ANTLR sources, and the build files that only they use leave the repository. `ide/idea/` goes too, because palantir-java-format now sets the code style.
 
@@ -97,12 +97,12 @@ The interval and summary header loses the five GC fields. The summary loses its 
 type, total ops, op/s, pk/s, row/s, mean, med, .95, .99, .999, max, time, stderr, errors
 ```
 
-`cassandra-stress version` prints these lines, as today. SCT parses them for Argus. The stress version comes from the `stress.version` resource that the build writes, so a source checkout and the jar print the same version. Each driver version comes from the `driver.version` key of the `Driver.properties` file in the driver jar: `com/datastax/driver/core/Driver.properties` for 3.x and `com/datastax/oss/driver/Driver.properties` for 4.x. These are the files that `Cluster.getDriverVersion()` and `Session.OSS_DRIVER_COORDINATES` read:
+`cassandra-stress version` prints these lines, as today. SCT parses them for Argus. The stress version comes from the `stress.version` resource that the build writes, so a source checkout and the jar print the same version. The driver version comes from the `driver.version` key of `com/datastax/oss/driver/Driver.properties` in the driver jar, the file that `Session.OSS_DRIVER_COORDINATES` reads. Both driver lines print it, so the SCT parser finds the key it reads:
 
 ```
 Version: <version>
-scylla-java-driver: <3.x driver version>
-scylla-java-driver-4x: <4.x driver version>
+scylla-java-driver: <driver version>
+scylla-java-driver-4x: <driver version>
 ```
 
 The distribution keeps `bin/cassandra-stress`, `conf/`, `lib/` and the jar name. The launcher classpath drops `$classes/thrift`.
@@ -192,3 +192,12 @@ public enum CompactionStrategy {
 - The runtime leaves out `j2objc-annotations` and `metrics-core`. Guava needs the annotations only at compile time, driver 3.x bundles its own metrics, and driver 4.x uses metrics-core only when stress turns on driver metrics. Both drivers pass the integration tests without them. (review)
 - Every workflow sets `permissions: contents: read`, and `build.yml` drops `contents: write`, because it only uploads artifacts. The release workflow keeps its own write permission. (review)
 - palantir-java-format formats all Java code, and `ant lint` runs the format check, Error Prone, Checkstyle, PMD and SpotBugs in CI. The IntelliJ settings in `ide/idea/` go, because their Cassandra code style contradicts the formatter. (review)
+- Stress uses driver 4.x only, and `-mode cql3 native` and `-mode cql3 4x` both select it. Driver 3.x doubled every client, operation and metadata path, and it kept guava, failureaccess and the 3.x jar on the classpath. (review)
+- Driver 4.x reads `-node loadbalance=`: `rr` uses `BasicLoadBalancingPolicy` with every node local, `dc` and `rack` use `DcInferringLoadBalancingPolicy` with the local datacenter, the local rack and `remote-dc=`. `whitelist` ignores every node that is not a contact point. `DcInferringLoadBalancingPolicy` takes the local datacenter from the contact points when `datacenter=` is absent. (review)
+- `EpochDayCodec` and `NanoOfDayCodec` bind the generated `date` and `time` values, days since the epoch and nanoseconds of the day, as driver 3.x did. Without them driver 4.x rejects the `Integer` and `Long` values. (review)
+- A settings parser throws `InvalidSettingsException`, and only `Stress.main` exits. A bad option sent to stressd stopped the daemon for every client. (review)
+- stressd takes `-p <port>`, and `-send-to` takes `host:port`. Contact points and the daemon address go through `HostAndPort`, which reads IPv6 addresses. (review)
+- The runtime moves to logback 1.6 and slf4j 2, commons-math3 3.6.1, snakeyaml 2.7, jackson 2.22 and the maintained `at.yawk.lz4` fork of lz4-java. commons-math3 3.6.1 samples the same sequences as 3.2, and its inverse CDFs differ from 3.2 only in the last bit. (review)
+- Renovate reads `base.javaDriverVersion` as `java-driver-core-shaded`, and reads every literal `<dependency>` version in `build.xml`. It groups the jackson and the logging updates, because each group must move together. (review)
+- `ops(validate=1)` checks clustered tables, collections and `date` columns. The validation path seeds each row from the clustering value that the insert order puts first, sets the full row population on its bounds, and skips the unused lookup of the bind names, which ScyllaDB returns as `(ck)[0]`. `Sets` and `Lists` seed their size per row, and `LocalDates` reads a stored date back as days since the epoch. The insert path keeps its seeds, so generated data stays byte-identical. (review)
+- A schema statement without schema agreement logs the driver 3.x warning `No schema agreement from live replicas after <n> s. The schema may not be up to date on some nodes.`, because the SCT `SchemaDisagreement` event matches that text and starts its debug collection. Driver 4.x logs a different text. (review)
