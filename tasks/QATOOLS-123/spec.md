@@ -34,7 +34,7 @@ The change deletes the Cassandra server tree and the stress features that run on
 
 A profile that names a strategy in its own `CREATE KEYSPACE` text passes it to the cluster unchanged.
 
-The user profile flow stays as it is. `StressProfile` creates the keyspace and the table, then reads the table through the `MetadataProvider` that `JavaDriverClient` and `JavaDriverV4Client` implement. The generators bind to the driver columns. Only the parse of the keyspace and the table name from the profile CQL moves, from `CQLFragmentParser` to `stress.util.CqlNames`.
+The user profile flow stays as it is. `StressProfile` creates the keyspace and the table, then reads the table through the `MetadataProvider` that `JavaDriverClient` implements. The generators bind to the driver columns. Only the parse of the keyspace and the table name from the profile CQL moves, from `CQLFragmentParser` to `stress.util.CqlNames`.
 
 ### What changes in the code
 
@@ -51,7 +51,7 @@ The user profile flow stays as it is. `StressProfile` creates the keyspace and t
 | `DatabaseDescriptor.clientInitialization` | `Stress` | Removed |
 | `ByteBufferUtil`, `Pair`, `UUIDGen`, `MurmurHash`, `DynamicList`, `LockedDynamicList`, `ConsistencyLevel`, `EncryptionOptions`, `SSLFactory` | many | Trimmed copies in `stress.util` |
 | `WindowsTimer`, `FBUtilities`, `NamedThreadFactory`, `FileUtils` | `Stress`, `StressServer`, `SettingsGraph` | Removed, or replaced with JDK classes |
-| commons-lang3, commons-cli, json-simple, netty-common | `StressGraph`, `StressMetrics`, `TimestampSerializer`, `Legacy`, `StressServer` | Replaced with JDK classes and the Jackson that driver 3.x ships, so the four jars leave `lib/` |
+| commons-lang3, commons-cli, json-simple, netty-common | `StressGraph`, `StressMetrics`, `TimestampSerializer`, `Legacy`, `StressServer` | Replaced with JDK classes and the Jackson that `build.xml` declares, so the four jars leave `lib/` |
 
 A file that comes from a Cassandra original starts with `// SPDX-License-Identifier: Apache-2.0`. A unit test compares the serialized bytes of each `stress.marshal` type with fixed bytes that master produces, sets of every element type with a custom comparator included. An end-to-end check writes the column shape of the SCT restore snapshots in `defaults/manager_restore_benchmark_snapshots.yaml` with the released `scylladb/cassandra-stress:3.21.1` image, and the new build reads and validates every row.
 
@@ -145,8 +145,8 @@ public enum CompactionStrategy {
 |---|---|
 | A ported serializer changes the bytes, and validation of old data fails | Port the serializer bodies as-is. The `stress.marshal` byte-format test fixes the bytes that master produces for each type. The new build validates data that the 3.21.1 image wrote |
 | SCT passes a removed option or strategy, or parses the GC fields | SCT pins `scylladb/cassandra-stress:3.21.1`, so nothing breaks until SCT bumps the image. The bump changes SCT to the new command line and output: it removes `-port jmx=6868` from eight test cases and configurations, changes `SimpleStrategy` to `NetworkTopologyStrategy` in the two Cassandra provision tests, and drops the GC fields from its output parser. A `logback-tools.xml` that names `shaded.com.datastax.oss` loggers changes them to `com.datastax.oss` |
-| Without the hand-pinned transitive jars, the resolver picks other versions of Netty, Guava or Jackson for the drivers | Compare the `build/lib/jars` list against master in the plan. Pin a version only when the integration tests or a CVE require it. Before the SCT bump, one SCT performance run gives the same latency as the current image, and one run each with `use_hdrhistogram: true` and `client_encrypt: true` passes |
-| Driver 3.x or 4.x, or the Netty in them, fails on JDK 25 | Add the JVM flags that the JDK 25 integration tests show to be needed, or move to a driver version that runs on JDK 25 |
+| Without the hand-pinned transitive jars, the resolver picks other versions of Netty or Jackson for the driver | Compare the `build/lib/jars` list against master in the plan. Pin a version only when the integration tests or a CVE require it. Before the SCT bump, one SCT performance run gives the same latency as the current image, and one run each with `use_hdrhistogram: true` and `client_encrypt: true` passes |
+| The driver, or the Netty in it, fails on JDK 25 | Add the JVM flags that the JDK 25 integration tests show to be needed, or move to a driver version that runs on JDK 25 |
 | The diff is too large to review | Remove files in separate commits (Thrift, simplenative, offline and JMX, server tree, server tests) before the rewrite commits |
 
 ## Deferred work
@@ -199,5 +199,5 @@ public enum CompactionStrategy {
 - stressd takes `-p <port>`, and `-send-to` takes `host:port`. Contact points and the daemon address go through `HostAndPort`, which reads IPv6 addresses. (review)
 - The runtime moves to logback 1.6 and slf4j 2, commons-math3 3.6.1, snakeyaml 2.7, jackson 2.22 and the maintained `at.yawk.lz4` fork of lz4-java. commons-math3 3.6.1 samples the same sequences as 3.2, and its inverse CDFs differ from 3.2 only in the last bit. (review)
 - Renovate reads `base.javaDriverVersion` as `java-driver-core-shaded`, and reads every literal `<dependency>` version in `build.xml`. It groups the jackson and the logging updates, because each group must move together. (review)
-- `ops(validate=1)` checks clustered tables, collections and `date` columns. The validation path seeds each row from the clustering value that the insert order puts first, sets the full row population on its bounds, and skips the unused lookup of the bind names, which ScyllaDB returns as `(ck)[0]`. `Sets` and `Lists` seed their size per row, and `LocalDates` reads a stored date back as days since the epoch. The insert path keeps its seeds, so generated data stays byte-identical. (review)
+- `ops(validate=1)` checks clustered tables, collections and `date` columns. The validation path seeds each row from the clustering value that the insert order puts first, sets the full row population on its bounds, and skips the unused lookup of the bind names, which ScyllaDB returns as `(ck)[0]`. `Sets` and `Lists` seed their size per row, and `LocalDates` reads a stored date back as days since the epoch. The insert path keeps its seeds, so scalar columns stay byte-identical. `list` and `set` lengths now follow the row seed. They were random on every run before, so no stored data depends on them. (review)
 - A schema statement without schema agreement logs the driver 3.x warning `No schema agreement from live replicas after <n> s. The schema may not be up to date on some nodes.`, because the SCT `SchemaDisagreement` event matches that text and starts its debug collection. Driver 4.x logs a different text. (review)
