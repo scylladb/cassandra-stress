@@ -71,7 +71,7 @@ No class on the classpath calls `sun.misc.Unsafe`. The 3.x driver comes without 
 
 `build.xml` keeps the targets that CI, the Makefile, the Dockerfile and packaging call: `init`, `clean`, `realclean`, `resolver-init`, `resolver-retrieve-build`, `scylla-driver-core.override`, `build`, `jar`, `artifacts`, `build-test` and `test`. `test` runs every unit test through `junitlauncher` in one forked JVM, or one class with `-Dtest.name=ClassNameTest`. `coverage` runs the same tests under the JaCoCo agent and writes HTML, XML and CSV reports to `build/coverage`. `integration-test` runs the `*IT` classes in `test/integration` against one Testcontainers ScyllaDB node, and `coverage-all` reports the unit and integration tests together. CI runs `test` and `coverage-all` on JDK 21 and 25 and uploads the report. `artifacts` empties `build/dist` first, so a jar that left the dependency list does not stay in the tarball. `build-project` writes the stress version to the `org/apache/cassandra/stress/stress.version` resource in `build/classes/main`. The `jar` target also writes it to the `Implementation-Version` attribute of the jar manifest. The CI build, unit test and integration test matrices are `["21", "25"]`. The deb and rpm package tests stay on JDK 21, the runtime of the packages. The build workflow passes no `source.version` or `target.version`, so a JDK 25 build still writes Java 21 bytecode.
 
-The server tree, the server tests, the Thrift and ANTLR sources, and the build files that only they use leave the repository. `ide/idea/` stays, because the Java standard reads its code style.
+The server tree, the server tests, the Thrift and ANTLR sources, and the build files that only they use leave the repository. `ide/idea/` goes too, because palantir-java-format now sets the code style.
 
 ## Contracts
 
@@ -191,4 +191,4 @@ public enum CompactionStrategy {
 - The code keeps no Thrift name, the removal messages included, so `-mode thrift` and `-port thrift=` fail as unknown options. (review)
 - The runtime leaves out `j2objc-annotations` and `metrics-core`. Guava needs the annotations only at compile time, driver 3.x bundles its own metrics, and driver 4.x uses metrics-core only when stress turns on driver metrics. Both drivers pass the integration tests without them. (review)
 - Every workflow sets `permissions: contents: read`, and `build.yml` drops `contents: write`, because it only uploads artifacts. The release workflow keeps its own write permission. (review)
-
+- palantir-java-format formats all Java code, and `ant lint` runs the format check, Error Prone, Checkstyle, PMD and SpotBugs in CI. The IntelliJ settings in `ide/idea/` go, because their Cassandra code style contradicts the formatter. (review)
