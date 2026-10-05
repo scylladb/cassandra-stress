@@ -303,5 +303,7 @@ stays in every plan built from a spec.
 - [x] Split `StressProfile`, and convert the fall-through switches.
 - [x] Check every SCT command, profile, output parser and log event against `master`, and keep the SCT schema agreement event.
 - [x] Rerun the old-data check with driver 4.x on JDK 21 and 25: data that the 3.21.1 image wrote validates, and a read with another column size fails every row.
+- [x] Fix the retry, validation order, `-send-to` exit code, profile consistency keys, key-only insert, empty-page and overload findings, each with a test that fails without the fix.
+- [x] Pin the generated rows in `GeneratedDataCompatibilityTest`, and validate data that the 3.21.1 image wrote in `PreviousReleaseIT`.
 - [x] Make `ops(validate=1)` read clustered rows, collections and dates back as the insert wrote them, with a failing test first for each bug.
 - [x] Run `ant lint`, `ant test`, `ant integration-test` and `ant coverage-all`.
