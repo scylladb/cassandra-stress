@@ -118,21 +118,25 @@ class DriverOptionsIT {
     @Test
     void validatesClusteredRowsWithCollectionsDatesAndTimes() throws IOException {
         ScyllaNode.dropKeyspace("driveroptions");
-        Path profile =
-                profile("validated", true, "tags set<text>, nums list<int>, day date, at time, label text", """
-                      - name: tags
-                        size: uniform(1..3)
-                      - name: nums
-                        size: uniform(1..3)
-                      - name: day
-                        population: uniform(1..1000)
-                      - name: at
-                        population: uniform(1..1000000)\
-                    """, """
-                      bykey:
-                        cql: select * from validated where pk = ?
-                        fields: samerow\
-                    """);
+        Path profile = profile(
+                "validated",
+                true,
+                "tags set<text>, nums list<int>, day date, at time, label text, m map<text, int>",
+                """
+                  - name: tags
+                    size: uniform(1..3)
+                  - name: nums
+                    size: uniform(1..3)
+                  - name: day
+                    population: uniform(1..1000)
+                  - name: at
+                    population: uniform(1..1000000)\
+                """,
+                """
+                  bykey:
+                    cql: select * from validated where pk = ?
+                    fields: samerow\
+                """);
         CassandraStress stress = new CassandraStress(dir);
 
         StressResult insert = stress.run(
@@ -146,7 +150,8 @@ class DriverOptionsIT {
                 "-rate",
                 "threads=1",
                 "-errors",
-                "fail-fast");
+                "fail-fast",
+                "skip-unsupported-columns");
         assertTrue(insert.succeeded(), insert::toString);
 
         StressResult validate = stress.run(
@@ -160,7 +165,8 @@ class DriverOptionsIT {
                 "-rate",
                 "threads=2",
                 "-errors",
-                "fail-fast");
+                "fail-fast",
+                "skip-unsupported-columns");
         assertTrue(validate.succeeded(), validate::toString);
         assertEquals(0L, validate.totalErrors().orElseThrow());
     }
@@ -265,5 +271,60 @@ class DriverOptionsIT {
                 "fail-fast");
         assertTrue(sweep.succeeded(), sweep::toString);
         assertEquals(rows, sweep.totalPartitions().orElseThrow(), sweep::toString);
+    }
+
+    @Test
+    void validatesDescendingBlobAndTimeuuidClustering() throws IOException {
+        ScyllaNode.dropKeyspace("driveroptions");
+        Path profile = Files.writeString(dir.resolve("descending.yaml"), """
+            keyspace: driveroptions
+            keyspace_definition: |
+              CREATE KEYSPACE driveroptions WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 1};
+            table: descending
+            table_definition: |
+              CREATE TABLE descending (pk bigint, c_blob blob, c_timeuuid timeuuid, v text,
+                PRIMARY KEY (pk, c_blob, c_timeuuid)) WITH CLUSTERING ORDER BY (c_blob DESC, c_timeuuid DESC)
+            columnspec:
+              - name: c_blob
+                size: fixed(4)
+                cluster: fixed(6)
+              - name: c_timeuuid
+                cluster: fixed(4)
+            insert:
+              partitions: fixed(1)
+              select: fixed(1)/1
+              batchtype: UNLOGGED
+            queries:
+              bykey:
+                cql: select * from descending where pk = ?
+            """);
+        CassandraStress stress = new CassandraStress(dir);
+
+        StressResult insert = stress.run(
+                "user",
+                "profile=" + profile,
+                "ops(insert=1)",
+                "no-warmup",
+                "n=100",
+                "-pop",
+                "seq=1..100",
+                "-rate",
+                "threads=2");
+        assertTrue(insert.succeeded(), insert::toString);
+
+        StressResult validate = stress.run(
+                "user",
+                "profile=" + profile,
+                "ops(validate=1)",
+                "no-warmup",
+                "n=300",
+                "-pop",
+                "seq=1..100",
+                "-rate",
+                "threads=2",
+                "-errors",
+                "fail-fast");
+        assertTrue(validate.succeeded(), validate::toString);
+        assertEquals(0L, validate.totalErrors().orElseThrow(), validate::toString);
     }
 }

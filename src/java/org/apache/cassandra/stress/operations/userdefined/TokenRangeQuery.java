@@ -13,6 +13,7 @@ import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -129,17 +130,13 @@ public class TokenRangeQuery extends Operation {
             ResultSet results = client.getSession().execute(statement.build());
             state.pagingState = results.getExecutionInfo().getPagingState();
 
-            int remaining = results.getAvailableWithoutFetching();
-            rowCount += remaining;
+            int page = results.getAvailableWithoutFetching();
+            rowCount += page;
 
-            for (Row row : results) {
-                Object partition = getPartitionKeyToken(row);
-                if (!state.partitions.contains(partition)) {
-                    partitionCount += 1;
-                    state.partitions.add(partition);
-                }
-
-                if (--remaining == 0) break;
+            Iterator<Row> rows = results.iterator();
+            for (int i = 0; i < page; i++) {
+                Object partition = getPartitionKeyToken(rows.next());
+                if (state.partitions.add(partition)) partitionCount += 1;
             }
 
             if (results.isFullyFetched() || isWarmup) {

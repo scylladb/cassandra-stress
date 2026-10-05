@@ -15,6 +15,11 @@ public class LocalDates extends Generator<Integer> {
     }
 
     @Override
+    public int compareStored(Object left, Object right) {
+        return Integer.compare((Integer) left, (Integer) right);
+    }
+
+    @Override
     Object fromStoredValue(Object value) {
         return value == null ? null : (Integer) value ^ Integer.MIN_VALUE;
     }

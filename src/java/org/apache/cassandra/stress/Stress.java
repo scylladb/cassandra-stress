@@ -65,7 +65,9 @@ public final class Stress {
             }
 
             if (settings.sendToDaemon != null) {
-                sendToDaemon(HostAndPort.parse(settings.sendToDaemon, StressServer.DEFAULT_PORT), arguments, logout);
+                if (!sendToDaemon(
+                        HostAndPort.parse(settings.sendToDaemon, StressServer.DEFAULT_PORT), arguments, logout))
+                    return 1;
             } else {
                 StressAction stressAction = new StressAction(settings, logout);
                 stressAction.run();
@@ -81,8 +83,7 @@ public final class Stress {
         return 0;
     }
 
-    private static void sendToDaemon(HostAndPort daemon, String[] arguments, MultiResultLogger logout)
-            throws IOException {
+    static boolean sendToDaemon(HostAndPort daemon, String[] arguments, MultiResultLogger logout) throws IOException {
         try (Socket socket = new Socket(daemon.host(), daemon.port());
                 DataOutputStream out = new DataOutputStream(socket.getOutputStream());
                 BufferedReader inp = new BufferedReader(new InputStreamReader(socket.getInputStream(), UTF_8))) {
@@ -93,13 +94,14 @@ public final class Stress {
                 while (!socket.isClosed() && (line = inp.readLine()) != null) {
                     if ("END".equals(line) || "FAILURE".equals(line)) {
                         out.writeInt(1);
-                        break;
+                        return "END".equals(line);
                     }
                     logout.println(line);
                 }
             } catch (SocketException e) {
                 if (!stopped) throw e;
             }
+            return false;
         }
     }
 

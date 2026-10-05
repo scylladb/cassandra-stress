@@ -4,11 +4,13 @@ package org.apache.cassandra.stress.operations.userdefined;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -66,12 +68,33 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
         return true;
     }
 
+    private static final int UNKNOWN_COLUMN = Integer.MIN_VALUE;
+
+    int indexOf(String column) {
+        return spec.partitionGenerator.contains(column) ? spec.partitionGenerator.indexOf(column) : UNKNOWN_COLUMN;
+    }
+
     abstract class Runner implements RunOp {
         int partitionCount;
         int rowCount;
         String validationError;
         final PartitionIterator iter;
         final int statementIndex;
+        private List<Row> expected;
+
+        List<Row> expectedRows() {
+            if (expected == null) {
+                List<Row> rows = new ArrayList<>();
+                if (!statements[statementIndex].inclusiveStart && iter.hasNext()) iter.next();
+                while (iter.hasNext()) {
+                    Row row = iter.next();
+                    if (!statements[statementIndex].inclusiveEnd && !iter.hasNext()) break;
+                    rows.add(row);
+                }
+                expected = rows;
+            }
+            return expected;
+        }
 
         protected Runner(PartitionIterator iter) {
             this.iter = iter;
@@ -115,11 +138,7 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
 
             rowCount = 0;
             Iterator<com.datastax.oss.driver.api.core.cql.Row> results = rs.iterator();
-            if (!statements[statementIndex].inclusiveStart && iter.hasNext()) iter.next();
-            while (iter.hasNext()) {
-                Row expectedRow = iter.next();
-                if (!statements[statementIndex].inclusiveEnd && !iter.hasNext()) break;
-
+            for (Row expectedRow : expectedRows()) {
                 if (!results.hasNext()) {
                     validationError = String.format(
                             "Data returned was not validated: expected row %d but result set exhausted (row"
@@ -131,6 +150,7 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
                 rowCount++;
                 com.datastax.oss.driver.api.core.cql.Row actualRow = results.next();
                 for (int i = 0; i < actualRow.getColumnDefinitions().size(); i++) {
+                    if (valueIndex[i] == UNKNOWN_COLUMN) continue;
                     Object expectedValue = expectedRow.get(valueIndex[i]);
                     Object actualValue = spec.partitionGenerator.convert(valueIndex[i], actualRow.getBytesUnsafe(i));
                     if (!Objects.equals(expectedValue, actualValue)) {
@@ -203,67 +223,65 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
         }
     }
 
+    record Slice(String cql, boolean inclusiveStart, boolean inclusiveEnd) {}
+
     public static List<Factory> create(TableMetadata metadata, StressSettings settings) {
         List<Factory> factories = new ArrayList<>();
-        StringBuilder sb = new StringBuilder();
+        List<List<Slice>> queries = queries(metadata);
+        for (int depth = 0; depth < queries.size(); depth++) {
+            List<Slice> slices = queries.get(depth);
+            ValidatingStatement[] statements = new ValidatingStatement[slices.size()];
+            for (int i = 0; i < statements.length; i++)
+                statements[i] = prepare(
+                        settings,
+                        slices.get(i).cql(),
+                        slices.get(i).inclusiveStart(),
+                        slices.get(i).inclusiveEnd());
+            factories.add(new Factory(statements, depth));
+        }
+        return factories;
+    }
+
+    static List<List<Slice>> queries(TableMetadata metadata) {
+        StringBuilder sb = new StringBuilder("SELECT * FROM ")
+                .append(metadata.getName().asCql(true))
+                .append(" WHERE");
         boolean first = true;
-        sb.append("SELECT * FROM ");
-        sb.append(metadata.getName().asCql(true));
-        sb.append(" WHERE");
         for (ColumnMetadata column : metadata.getPartitionKey()) {
-            sb.append(first ? " " : " AND ");
-            sb.append(column.getName().asCql(true));
-            sb.append(" = ?");
+            sb.append(first ? " " : " AND ")
+                    .append(column.getName().asCql(true))
+                    .append(" = ?");
             first = false;
         }
         String base = sb.toString();
 
-        factories.add(new Factory(new ValidatingStatement[] {prepare(settings, base, true, true)}, 0));
+        List<List<Slice>> queries = new ArrayList<>();
+        queries.add(List.of(new Slice(base, true, true)));
 
-        List<String> clusteringColumnNames = metadata.getClusteringColumns().keySet().stream()
-                .map(column -> column.getName().asCql(true))
-                .toList();
+        List<String> names = new ArrayList<>();
+        List<ClusteringOrder> orders = new ArrayList<>();
+        metadata.getClusteringColumns().forEach((column, order) -> {
+            names.add(column.getName().asCql(true));
+            orders.add(order);
+        });
 
-        int maxDepth = clusteringColumnNames.size() - 1;
-        for (int depth = 0; depth <= maxDepth; depth++) {
-            StringBuilder cc = new StringBuilder();
-            StringBuilder arg = new StringBuilder();
-            cc.append('(');
-            arg.append('(');
-            for (int d = 0; d <= depth; d++) {
-                if (d > 0) {
-                    cc.append(',');
-                    arg.append(',');
-                }
-                cc.append(clusteringColumnNames.get(d));
-                arg.append('?');
-            }
-            cc.append(')');
-            arg.append(')');
-
-            ValidatingStatement[] statements = new ValidatingStatement[depth < maxDepth ? 1 : 4];
-            int i = 0;
+        int maxDepth = names.size() - 1;
+        for (int depth = 0; depth <= maxDepth && orders.get(depth) == orders.getFirst(); depth++) {
+            boolean descending = orders.getFirst() == ClusteringOrder.DESC;
+            String columns = "(" + String.join(",", names.subList(0, depth + 1)) + ")";
+            String values = "(" + String.join(",", Collections.nCopies(depth + 1, "?")) + ")";
+            List<Slice> slices = new ArrayList<>();
             for (boolean incLb : depth < maxDepth ? new boolean[] {true} : new boolean[] {true, false}) {
                 for (boolean incUb : depth < maxDepth ? new boolean[] {false} : new boolean[] {true, false}) {
-                    String lb = incLb ? ">=" : ">";
-                    String ub = incUb ? "<=" : "<";
-                    sb.setLength(0);
-                    sb.append(base);
-                    sb.append(" AND ");
-                    sb.append(cc);
-                    sb.append(lb);
-                    sb.append(arg);
-                    sb.append(" AND ");
-                    sb.append(cc);
-                    sb.append(ub);
-                    sb.append(arg);
-                    statements[i++] = prepare(settings, sb.toString(), incLb, incUb);
+                    String lb = descending ? (incLb ? "<=" : "<") : (incLb ? ">=" : ">");
+                    String ub = descending ? (incUb ? ">=" : ">") : (incUb ? "<=" : "<");
+                    slices.add(new Slice(
+                            base + " AND " + columns + lb + values + " AND " + columns + ub + values, incLb, incUb));
                 }
             }
-            factories.add(new Factory(statements, depth + 1));
+            queries.add(List.copyOf(slices));
         }
-
-        return factories;
+        return queries;
     }
 
     private static final class ValidatingStatement {

@@ -44,6 +44,7 @@ public class SchemaInsert extends SchemaStatement {
 
     private final class JavaDriverRun extends Runner {
         final JavaDriverClient client;
+        private List<BatchableStatement<?>> stmts;
 
         private JavaDriverRun(JavaDriverClient client) {
             this.client = client;
@@ -51,13 +52,14 @@ public class SchemaInsert extends SchemaStatement {
 
         @Override
         public boolean run() throws Exception {
-            List<BatchableStatement<?>> stmts = new ArrayList<>();
-            partitionCount = partitions.size();
-
-            for (PartitionIterator iterator : partitions)
-                while (iterator.hasNext()) stmts.add(bindRow(iterator.next()));
-
-            rowCount += stmts.size();
+            if (stmts == null) {
+                List<BatchableStatement<?>> bound = new ArrayList<>();
+                for (PartitionIterator iterator : partitions)
+                    while (iterator.hasNext()) bound.add(bindRow(iterator.next()));
+                stmts = bound;
+                partitionCount = partitions.size();
+                rowCount = stmts.size();
+            }
 
             for (int j = 0; j < stmts.size(); j += MAX_BATCH_SIZE)
                 client.getSession().execute(statement(stmts.subList(j, Math.min(stmts.size(), j + MAX_BATCH_SIZE))));

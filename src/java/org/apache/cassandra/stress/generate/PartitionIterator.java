@@ -6,6 +6,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -32,6 +33,7 @@ public abstract class PartitionIterator implements Iterator<Row> {
     public abstract Pair<Row, Row> resetToBounds(Seed seed, int clusteringComponentDepth);
 
     PartitionGenerator.Order order;
+    boolean validating;
     long idseed;
     Seed seed;
 
@@ -70,12 +72,14 @@ public abstract class PartitionIterator implements Iterator<Row> {
     public boolean reset(Seed seed, double useChance, double rowPopulationRatio, boolean isWrite) {
         setSeed(seed);
         this.order = generator.order;
+        this.validating = false;
         return reset(useChance, rowPopulationRatio, 0, isWrite, PartitionIterator.this.order);
     }
 
     public boolean reset(Seed seed, int targetCount, double rowPopulationRatio, boolean isWrite) {
         setSeed(seed);
         this.order = generator.order;
+        this.validating = false;
         return reset(Double.NaN, rowPopulationRatio, targetCount, isWrite, PartitionIterator.this.order);
     }
 
@@ -237,6 +241,7 @@ public abstract class PartitionIterator implements Iterator<Row> {
         public Pair<Row, Row> resetToBounds(Seed seed, int clusteringComponentDepth) {
             setSeed(seed);
             setUseChance(1d);
+            validating = true;
             if (clusteringComponentDepth == 0) {
                 reset(1d, 1d, -1, false, PartitionGenerator.Order.SORTED);
                 return Pair.create(new Row(partitionKey), new Row(partitionKey));
@@ -454,53 +459,71 @@ public abstract class PartitionIterator implements Iterator<Row> {
             long seed = depth == 0 ? idseed : clusteringSeeds[depth - 1];
             Generator gen = generator.clusteringComponents.get(depth);
             gen.setSeed(seed);
-            Object firstGenerated = fill(clusteringComponents[depth], (int) gen.clusteringDistribution.next(), gen);
-            Object seedElement = order != generator.order && generator.order == PartitionGenerator.Order.ARBITRARY
-                    ? firstGenerated
-                    : clusteringComponents[depth].peek();
+            int count = (int) gen.clusteringDistribution.next();
+            Object seedElement = validating
+                    ? fillInStoredOrder(clusteringComponents[depth], count, gen, generator.clusteringOrder(depth))
+                    : fillInGeneratorOrder(clusteringComponents[depth], count, gen);
             clusteringSeeds[depth] = seed(seedElement, generator.clusteringComponents.get(depth).type, seed);
         }
 
-        Object fill(Queue<Object> queue, int count, Generator generator) {
-            if (count == 1) {
-                Object only = generator.generate();
-                queue.add(only);
-                return only;
-            }
-
-            return switch (order) {
-                case SORTED ->
-                    Comparable.class.isAssignableFrom(generator.clazz)
-                            ? fillSorted(queue, count, generator)
-                            : fillUnique(queue, count, generator);
-                case ARBITRARY -> fillUnique(queue, count, generator);
-                case SHUFFLED -> fillShuffled(queue, count, generator);
-            };
+        private Object fillInGeneratorOrder(Queue<Object> queue, int count, Generator gen) {
+            fill(queue, count, gen);
+            return queue.peek();
         }
 
         @SuppressWarnings({"unchecked", "rawtypes"})
-        private Object fillSorted(Queue<Object> queue, int count, Generator generator) {
+        private Object fillInStoredOrder(Queue<Object> queue, int count, Generator gen, Comparator<Object> stored) {
+            tosort.clear();
+            for (int i = 0; i < count; i++) tosort.add(gen.generate());
+            Object first = tosort.getFirst();
+            Object seedElement = switch (generator.order) {
+                case ARBITRARY -> first;
+                case SORTED ->
+                    Comparable.class.isAssignableFrom(gen.clazz)
+                            ? Collections.min((List<Comparable>) (List<?>) tosort)
+                            : first;
+                case SHUFFLED -> null;
+            };
+            tosort.sort(stored);
+            for (int i = 0; i < tosort.size(); i++)
+                if (i == 0 || stored.compare(tosort.get(i - 1), tosort.get(i)) != 0) queue.add(tosort.get(i));
+            return seedElement != null ? seedElement : queue.peek();
+        }
+
+        void fill(Queue<Object> queue, int count, Generator generator) {
+            if (count == 1) {
+                queue.add(generator.generate());
+                return;
+            }
+
+            switch (order) {
+                case SORTED -> {
+                    if (Comparable.class.isAssignableFrom(generator.clazz)) fillSorted(queue, count, generator);
+                    else fillUnique(queue, count, generator);
+                }
+                case ARBITRARY -> fillUnique(queue, count, generator);
+                case SHUFFLED -> fillShuffled(queue, count, generator);
+            }
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private void fillSorted(Queue<Object> queue, int count, Generator generator) {
             tosort.clear();
             for (int i = 0; i < count; i++) tosort.add(generator.generate());
-            Object first = tosort.getFirst();
             Collections.sort((List<Comparable>) (List<?>) tosort);
             for (int i = 0; i < count; i++)
                 if (i == 0 || ((Comparable) tosort.get(i - 1)).compareTo(tosort.get(i)) < 0) queue.add(tosort.get(i));
-            return first;
         }
 
-        private Object fillUnique(Queue<Object> queue, int count, Generator generator) {
+        private void fillUnique(Queue<Object> queue, int count, Generator generator) {
             unique.clear();
-            Object first = null;
             for (int i = 0; i < count; i++) {
                 Object next = generator.generate();
-                if (i == 0) first = next;
                 if (unique.add(next)) queue.add(next);
             }
-            return first;
         }
 
-        private Object fillShuffled(Queue<Object> queue, int count, Generator generator) {
+        private void fillShuffled(Queue<Object> queue, int count, Generator generator) {
             unique.clear();
             tosort.clear();
             ThreadLocalRandom rand = ThreadLocalRandom.current();
@@ -508,14 +531,12 @@ public abstract class PartitionIterator implements Iterator<Row> {
                 Object next = generator.generate();
                 if (unique.add(next)) tosort.add(next);
             }
-            Object first = tosort.getFirst();
             for (int i = 0; i < tosort.size(); i++) {
                 int index = rand.nextInt(i, tosort.size());
                 Object obj = tosort.get(index);
                 tosort.set(index, tosort.get(i));
                 queue.add(obj);
             }
-            return first;
         }
 
         @Override

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
+import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ final class ProfileGenerators {
     private final List<ColumnInfo> partitionKeys = new ArrayList<>();
     private final List<ColumnInfo> clusteringColumns = new ArrayList<>();
     private final List<ColumnInfo> valueColumns = new ArrayList<>();
+    private final boolean[] descendingClustering;
 
     ProfileGenerators(TableMetadata table, Map<String, GeneratorConfig> columnConfigs, boolean skipUnsupportedColumns) {
         List<ColumnInfo> unsupportedKeys = new ArrayList<>();
@@ -47,6 +49,10 @@ final class ProfileGenerators {
 
         add(table.getPartitionKey(), partitionKeys, columnConfigs, unsupportedKeys);
         add(table.getClusteringColumns().keySet(), clusteringColumns, columnConfigs, unsupportedKeys);
+        descendingClustering = new boolean[table.getClusteringColumns().size()];
+        int depth = 0;
+        for (ClusteringOrder order : table.getClusteringColumns().values())
+            descendingClustering[depth++] = order == ClusteringOrder.DESC;
         add(
                 table.getColumns().values().stream()
                         .filter(column -> !keyColumns.contains(column))
@@ -87,7 +93,8 @@ final class ProfileGenerators {
                 generators(partitionKeys),
                 generators(clusteringColumns),
                 generators(valueColumns),
-                settings.generate.order);
+                settings.generate.order,
+                descendingClustering.clone());
     }
 
     private static List<Generator> generators(List<ColumnInfo> columns) {

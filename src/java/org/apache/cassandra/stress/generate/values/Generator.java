@@ -42,6 +42,11 @@ public abstract class Generator<T> {
         return value;
     }
 
+    @SuppressWarnings("unchecked")
+    public int compareStored(Object left, Object right) {
+        return type.compare(type.decompose((T) left), type.decompose((T) right));
+    }
+
     DistributionFactory defaultIdentityDistribution() {
         return OptionDistribution.get("uniform(1..100B)");
     }

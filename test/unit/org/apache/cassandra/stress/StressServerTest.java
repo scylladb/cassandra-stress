@@ -2,8 +2,10 @@ package org.apache.cassandra.stress;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -12,6 +14,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -22,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.HostAndPort;
+import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -138,5 +143,39 @@ class StressServerTest {
     void namesTheExceptionWhenItHasNoMessage() {
         assertEquals("IllegalArgumentException", StressServer.failureMessage(new IllegalArgumentException()));
         assertEquals("bad", StressServer.failureMessage(new IllegalArgumentException("bad")));
+    }
+
+    @Test
+    void answersFailureForAnyErrorWhileParsing() throws Exception {
+        List<String> reply = sendToServer("write", "n=10", "-node", "file=/nonexistent/stress-nodes");
+        assertEquals("FAILURE", reply.getLast());
+        assertTrue(reply.getFirst().contains("NoSuchFileException"), reply.toString());
+    }
+
+    private static boolean sendThroughFakeDaemon(String... reply) throws Exception {
+        try (ServerSocket daemon = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+            CompletableFuture<Void> served = CompletableFuture.runAsync(() -> {
+                try (Socket client = daemon.accept();
+                        PrintStream out = new PrintStream(client.getOutputStream(), true, StandardCharsets.UTF_8)) {
+                    StressServer.readCommand(new DataInputStream(client.getInputStream()));
+                    for (String line : reply) out.println(line);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+            boolean succeeded = Stress.sendToDaemon(
+                    new HostAndPort("127.0.0.1", daemon.getLocalPort()),
+                    new String[] {"write", "n=1"},
+                    new MultiResultLogger(new PrintStream(OutputStream.nullOutputStream())));
+            served.get(10, TimeUnit.SECONDS);
+            return succeeded;
+        }
+    }
+
+    @Test
+    void theClientSucceedsOnlyWhenTheDaemonEnds() throws Exception {
+        assertTrue(sendThroughFakeDaemon("Results:", "END"));
+        assertFalse(sendThroughFakeDaemon("Invalid parameter bogus", "FAILURE"));
+        assertFalse(sendThroughFakeDaemon("Results:"));
     }
 }

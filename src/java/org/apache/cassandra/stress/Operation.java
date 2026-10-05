@@ -62,6 +62,8 @@ public abstract class Operation {
             } catch (NoSuchElementException e) {
                 throw e;
             } catch (OverloadedException e) {
+                exceptionMessage = getExceptionMessage(e);
+                if (tries + 1 >= settings.errors.tries) continue;
                 try {
                     if (settings.log.level.compareTo(SettingsLog.Level.MINIMAL) > 0) {
                         System.err.println(

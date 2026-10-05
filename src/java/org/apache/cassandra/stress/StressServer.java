@@ -94,7 +94,7 @@ public final class StressServer {
             StressSettings settings;
             try {
                 settings = StressSettings.parse(readCommand(in));
-            } catch (IllegalArgumentException e) {
+            } catch (RuntimeException e) {
                 out.println(failureMessage(e));
                 out.println("FAILURE");
                 return;

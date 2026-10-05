@@ -52,10 +52,10 @@ record ProfileInsert(
                 insert,
                 OptionRatioDistribution.BUILDER);
         ConsistencyLevel consistencyLevel = selectConsistency(
-                settings.insert.consistencyLevel, "consistencyLevel", settings.command.consistencyLevel, insert);
+                settings.insert.consistencyLevel, "consistencylevel", settings.command.consistencyLevel, insert);
         ConsistencyLevel serialConsistencyLevel = selectConsistency(
                 settings.insert.serialConsistencyLevel,
-                "serialConsistencyLevel",
+                "serialconsistencylevel",
                 settings.command.serialConsistencyLevel,
                 insert);
         String batchType = insert.remove("batchtype");
@@ -108,7 +108,11 @@ record ProfileInsert(
                 }
             }
         }
-        return isKeyOnlyTable ? insertCql(table, tableName) : updateCql(keyColumns, allColumns, tableName);
+        boolean hasSupportedValue = allColumns.stream()
+                .anyMatch(column -> !keyColumns.contains(column) && CqlTypes.isSupported(column.getType()));
+        return isKeyOnlyTable || !hasSupportedValue
+                ? insertCql(table, tableName)
+                : updateCql(keyColumns, allColumns, tableName);
     }
 
     private static String updateCql(Set<ColumnMetadata> keyColumns, Set<ColumnMetadata> allColumns, String tableName) {

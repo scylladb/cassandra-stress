@@ -161,6 +161,7 @@
         <resolver:dependencies id="test-deps">
             <dependency groupId="org.junit.jupiter" artifactId="junit-jupiter" version="${junit.version}" scope="test" />
             <dependency groupId="org.junit.platform" artifactId="junit-platform-launcher" version="${junit.version}" scope="test" />
+            <dependency groupId="org.reactivestreams" artifactId="reactive-streams" version="1.0.4" scope="test" />
         </resolver:dependencies>
 
         <resolver:dependencies id="integration-deps">

@@ -51,6 +51,7 @@ public class SchemaQuery extends SchemaStatement {
 
     private final class JavaDriverRun extends Runner {
         final JavaDriverClient client;
+        private BoundStatement bound;
 
         private JavaDriverRun(JavaDriverClient client) {
             this.client = client;
@@ -58,7 +59,8 @@ public class SchemaQuery extends SchemaStatement {
 
         @Override
         public boolean run() throws Exception {
-            ResultSet rs = client.getSession().execute(bindArgs());
+            if (bound == null) bound = bindArgs();
+            ResultSet rs = client.getSession().execute(bound);
             rowCount = rs.all().size();
             partitionCount = Math.min(1, rowCount);
             return true;
