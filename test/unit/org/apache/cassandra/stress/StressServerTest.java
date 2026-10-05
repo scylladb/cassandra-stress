@@ -133,4 +133,10 @@ class StressServerTest {
                 sendToServer("write", "n=10", "-rate", "threads=4", "auto"));
         assertEquals(List.of("Invalid parameter bogus", "FAILURE"), sendToServer("write", "n=10", "-rate", "bogus"));
     }
+
+    @Test
+    void namesTheExceptionWhenItHasNoMessage() {
+        assertEquals("IllegalArgumentException", StressServer.failureMessage(new IllegalArgumentException()));
+        assertEquals("bad", StressServer.failureMessage(new IllegalArgumentException("bad")));
+    }
 }

@@ -83,6 +83,10 @@ public final class StressServer {
         return arguments;
     }
 
+    static String failureMessage(Exception e) {
+        return e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+    }
+
     static void serve(Socket socket) throws IOException, InterruptedException {
         try (socket;
                 DataInputStream in = new DataInputStream(socket.getInputStream());
@@ -91,7 +95,7 @@ public final class StressServer {
             try {
                 settings = StressSettings.parse(readCommand(in));
             } catch (IllegalArgumentException e) {
-                out.println(e.getMessage());
+                out.println(failureMessage(e));
                 out.println("FAILURE");
                 return;
             }

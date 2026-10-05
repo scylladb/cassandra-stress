@@ -1,16 +1,19 @@
 package org.apache.cassandra.stress.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodecs;
 import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
+import java.net.InetAddress;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class JavaDriverClientTest {
@@ -42,5 +45,16 @@ class JavaDriverClientTest {
     void keepsTheDriverCodecsForDriverTypes() {
         assertEquals(TypeCodecs.DATE, registry.codecFor(DataTypes.DATE, LocalDate.ofEpochDay(1)));
         assertEquals(TypeCodecs.BIGINT, registry.codecFor(DataTypes.BIGINT, 1L));
+    }
+
+    @Test
+    void whiteListResolvesEveryContactPoint() {
+        assertEquals(
+                Set.of(InetAddress.getLoopbackAddress()),
+                new JavaDriverClient.WhiteList(List.of(new HostAndPort("127.0.0.1", 9042))).addresses());
+        IllegalArgumentException e = assertThrows(
+                IllegalArgumentException.class,
+                () -> new JavaDriverClient.WhiteList(List.of(new HostAndPort("no-such-host.invalid", 9042))));
+        assertEquals("Cannot resolve the whitelisted node no-such-host.invalid", e.getMessage());
     }
 }

@@ -167,11 +167,14 @@ public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataPr
 
     record WhiteList(Set<InetAddress> addresses) implements NodeDistanceEvaluator {
         WhiteList(List<HostAndPort> contactPoints) {
-            this(contactPoints.stream()
-                    .map(HostAndPort::toSocketAddress)
-                    .map(InetSocketAddress::getAddress)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toUnmodifiableSet()));
+            this(contactPoints.stream().map(WhiteList::resolve).collect(Collectors.toUnmodifiableSet()));
+        }
+
+        private static InetAddress resolve(HostAndPort contactPoint) {
+            InetAddress address = contactPoint.toSocketAddress().getAddress();
+            if (address == null)
+                throw new IllegalArgumentException("Cannot resolve the whitelisted node " + contactPoint.host());
+            return address;
         }
 
         @Override

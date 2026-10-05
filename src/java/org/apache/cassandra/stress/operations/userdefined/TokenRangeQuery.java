@@ -59,19 +59,19 @@ public class TokenRangeQuery extends Operation {
     }
 
     private static final class State {
-        public final TokenRange tokenRange;
+        public final String bounds;
         public final String query;
         public ByteBuffer pagingState;
         public Set<Object> partitions = new HashSet<>();
 
-        State(TokenRange tokenRange, String query) {
-            this.tokenRange = tokenRange;
+        State(String bounds, String query) {
+            this.bounds = bounds;
             this.query = query;
         }
 
         @Override
         public String toString() {
-            return String.format("[%s, %s]", tokenRange.getStart(), tokenRange.getEnd());
+            return bounds;
         }
     }
 
@@ -118,7 +118,8 @@ public class TokenRangeQuery extends Operation {
 
                 TokenMap tokenMap = client.getTokenMap()
                         .orElseThrow(() -> new IllegalStateException("The driver has no token map"));
-                state = new State(range, buildQuery(range, tokenMap));
+                String bounds = "[" + tokenMap.format(range.getStart()) + ", " + tokenMap.format(range.getEnd()) + "]";
+                state = new State(bounds, buildQuery(range, tokenMap));
                 currentState.set(state);
             }
 
