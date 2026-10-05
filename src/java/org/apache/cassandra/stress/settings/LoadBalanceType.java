@@ -1,37 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
-import com.datastax.driver.core.policies.LoadBalancingPolicy;
-import com.datastax.driver.core.policies.RackAwareRoundRobinPolicy;
-import com.datastax.driver.core.policies.RoundRobinPolicy;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import java.util.Locale;
-import java.util.function.Function;
 
 public enum LoadBalanceType {
-    ROUND_ROBIN(settings -> new RoundRobinPolicy()),
-    DC_AWARE(settings -> {
-        DCAwareRoundRobinPolicy.Builder builder = DCAwareRoundRobinPolicy.builder();
-        if (settings.node.datacenter != null) builder.withLocalDc(settings.node.datacenter);
-        if (settings.node.usedHostsPerRemoteDc != null)
-            builder.withUsedHostsPerRemoteDc(settings.node.usedHostsPerRemoteDc);
-        return builder.build();
-    }),
-    RACK_AWARE(settings -> {
-        RackAwareRoundRobinPolicy.Builder builder = RackAwareRoundRobinPolicy.builder();
-        if (settings.node.datacenter != null) builder.withLocalDc(settings.node.datacenter);
-        if (settings.node.rack != null) builder.withLocalRack(settings.node.rack);
-        return builder.build();
-    });
+    ROUND_ROBIN,
+    DC_AWARE,
+    RACK_AWARE;
 
-    private final Function<StressSettings, LoadBalancingPolicy> strategy;
-
-    LoadBalanceType(Function<StressSettings, LoadBalancingPolicy> strategy) {
-        this.strategy = strategy;
+    public static LoadBalanceType of(SettingsNode node) {
+        if (node.loadBalance != null) return node.loadBalance;
+        return node.rack != null ? RACK_AWARE : DC_AWARE;
     }
 
-    public LoadBalancingPolicy createPolicy(StressSettings settings) {
-        return strategy.apply(settings);
+    public ProgrammaticDriverConfigLoaderBuilder applyTo(
+            ProgrammaticDriverConfigLoaderBuilder builder, SettingsNode node) {
+        if (this == ROUND_ROBIN)
+            return builder.withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS, "BasicLoadBalancingPolicy");
+        if (node.datacenter != null)
+            builder = builder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER, node.datacenter);
+        if (this == RACK_AWARE && node.rack != null)
+            builder = builder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_RACK, node.rack);
+        if (this == DC_AWARE && node.usedHostsPerRemoteDc != null)
+            builder = builder.withInt(
+                    DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_MAX_NODES_PER_REMOTE_DC, node.usedHostsPerRemoteDc);
+        return builder;
     }
 
     public static LoadBalanceType fromString(String value) {

@@ -25,7 +25,7 @@
       "managerFilePatterns": [
         "/(^|/)build\\.xml$/"
       ],
-      "depNameTemplate": "com.scylladb:scylla-driver-core",
+      "depNameTemplate": "com.scylladb:java-driver-core-shaded",
       "matchStrings": [
         "<property name=\"base.javaDriverVersion\" value=\"(?<currentValue>[\\w+\\.\\-]*)\""
       ]
@@ -36,30 +36,31 @@
       "managerFilePatterns": [
         "/(^|/)build\\.xml$/"
       ],
-      "depNameTemplate": "com.scylladb:java-driver-core-shaded",
+      "depNameTemplate": "{{{groupId}}}:{{{artifactId}}}",
       "matchStrings": [
-        "<property name=\"base.java4DriverVersion\" value=\"(?<currentValue>[\\w+\\.\\-]*)\""
-      ]
-    },
-    {
-      "customType": "regex",
-      "datasourceTemplate": "maven",
-      "managerFilePatterns": [
-        "/(^|/)build\\.xml$/"
-      ],
-      "depNameTemplate": "com.scylladb:native-protocol",
-      "matchStrings": [
-        "<property name=\"base.java4NativeProtocolVersion\" value=\"(?<currentValue>[\\w+\\.\\-]*)\""
+        "<dependency groupId=\"(?<groupId>[^\"]+)\" artifactId=\"(?<artifactId>[^\"]+)\"\\s+version=\"(?<currentValue>[^\"$]+)\""
       ]
     }
   ],
   "packageRules": [
     {
       "matchPackageNames": [
-        "com.scylladb:java-driver-core-shaded",
-        "com.scylladb:native-protocol"
+        "com.scylladb:java-driver-core-shaded"
       ],
-      "groupName": "scylla java4 driver stack"
+      "groupName": "scylla java driver"
+    },
+    {
+      "matchPackageNames": [
+        "/^com\\.fasterxml\\.jackson\\.core:/"
+      ],
+      "groupName": "jackson"
+    },
+    {
+      "matchPackageNames": [
+        "/^org\\.slf4j:/",
+        "/^ch\\.qos\\.logback:/"
+      ],
+      "groupName": "logging"
     }
   ]
 }

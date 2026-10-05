@@ -102,9 +102,8 @@ public class SettingsRate {
         }
         GroupedOptions options = GroupedOptions.select(params, new AutoOptions(), new ThreadOptions());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -rate options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -rate options provided, see output for valid options", SettingsRate::printHelp);
         }
         if (options instanceof AutoOptions auto) return new SettingsRate(auto);
         else if (options instanceof ThreadOptions threads) return new SettingsRate(threads);

@@ -135,9 +135,8 @@ public class SettingsColumn {
 
         GroupedOptions options = GroupedOptions.select(params, new NameOptions(), new CountOptions());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -col options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -col options provided, see output for valid options", SettingsColumn::printHelp);
         }
         return new SettingsColumn(options);
     }

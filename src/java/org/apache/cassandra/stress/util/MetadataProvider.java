@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
-import org.apache.cassandra.stress.core.TableMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 
 @FunctionalInterface
 public interface MetadataProvider {

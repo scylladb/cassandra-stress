@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
-import com.datastax.driver.core.ResultSet;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
 import java.io.IOException;
 import java.util.Random;
-import org.apache.cassandra.stress.core.BoundStatement;
 import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.generate.DistributionFixed;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
@@ -14,7 +14,6 @@ import org.apache.cassandra.stress.generate.SeedManager;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
 
 public class SchemaQuery extends SchemaStatement {
     public enum ArgSelect {
@@ -59,24 +58,7 @@ public class SchemaQuery extends SchemaStatement {
 
         @Override
         public boolean run() throws Exception {
-            ResultSet rs = client.getSession().execute(bindArgs().toV3Value());
-            rowCount = rs.all().size();
-            partitionCount = Math.min(1, rowCount);
-            return true;
-        }
-    }
-
-    private final class JavaDriverV4Run extends Runner {
-        final JavaDriverV4Client client;
-
-        private JavaDriverV4Run(JavaDriverV4Client client) {
-            this.client = client;
-        }
-
-        @Override
-        public boolean run() throws Exception {
-            com.datastax.oss.driver.api.core.cql.ResultSet rs =
-                    client.getSession().execute(bindArgs().toV4Value());
+            ResultSet rs = client.getSession().execute(bindArgs());
             rowCount = rs.all().size();
             partitionCount = Math.min(1, rowCount);
             return true;
@@ -113,10 +95,5 @@ public class SchemaQuery extends SchemaStatement {
     @Override
     public void run(JavaDriverClient client) throws IOException {
         timeWithRetry(new JavaDriverRun(client));
-    }
-
-    @Override
-    public void run(JavaDriverV4Client client) throws IOException {
-        timeWithRetry(new JavaDriverV4Run(client));
     }
 }

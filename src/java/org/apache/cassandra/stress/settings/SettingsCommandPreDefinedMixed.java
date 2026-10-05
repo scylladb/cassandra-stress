@@ -89,9 +89,9 @@ public class SettingsCommandPreDefinedMixed extends SettingsCommandPreDefined {
                 new Options(new SettingsCommand.Count()),
                 new Options(new SettingsCommand.Duration()));
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid MIXED options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid MIXED options provided, see output for valid options",
+                    SettingsCommandPreDefinedMixed::printHelp);
         }
         return new SettingsCommandPreDefinedMixed((Options) options);
     }

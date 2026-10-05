@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
+import com.datastax.oss.driver.api.core.cql.DefaultBatchType;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import org.apache.cassandra.stress.core.BatchStatementType;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.RatioDistributionFactory;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
@@ -18,7 +18,7 @@ public final class SettingsInsert {
     public final DistributionFactory batchsize;
     public final RatioDistributionFactory selectRatio;
     public final RatioDistributionFactory rowPopulationRatio;
-    public final BatchStatementType batchType;
+    public final DefaultBatchType batchType;
     public final ConsistencyLevel consistencyLevel;
     public final ConsistencyLevel serialConsistencyLevel;
 
@@ -36,7 +36,7 @@ public final class SettingsInsert {
             this.serialConsistencyLevel = ConsistencyLevel.valueOf(
                     options.serialConsistencyLevel.value().toUpperCase(Locale.ROOT));
         else this.serialConsistencyLevel = null;
-        this.batchType = !options.batchType.setByUser() ? null : BatchStatementType.valueOf(options.batchType.value());
+        this.batchType = !options.batchType.setByUser() ? null : DefaultBatchType.valueOf(options.batchType.value());
     }
 
     private static final class InsertOptions extends GroupedOptions {
@@ -116,9 +116,8 @@ public final class SettingsInsert {
 
         InsertOptions options = GroupedOptions.select(params, new InsertOptions());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -insert options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -insert options provided, see output for valid options", SettingsInsert::printHelp);
         }
         return new SettingsInsert(options);
     }

@@ -20,6 +20,7 @@ public class Lists<T> extends Generator<List<T>> {
     @Override
     public void setSeed(long seed) {
         super.setSeed(seed);
+        sizeDistribution.setSeed(seed);
         valueType.setSeed(seed * 31);
     }
 
@@ -28,5 +29,13 @@ public class Lists<T> extends Generator<List<T>> {
         int size = (int) sizeDistribution.next();
         for (int i = 0; i < size; i++) buffer[i] = valueType.generate();
         return new ArrayList<>(Arrays.asList(Arrays.copyOf(buffer, size)));
+    }
+
+    @Override
+    Object fromStoredValue(Object value) {
+        if (value == null) return null;
+        List<Object> list = new ArrayList<>();
+        for (Object element : (List<?>) value) list.add(valueType.fromStoredValue(element));
+        return list;
     }
 }

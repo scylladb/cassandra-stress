@@ -91,9 +91,8 @@ public class SettingsLog {
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -log options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -log options provided, see output for valid options", SettingsLog::printHelp);
         }
         return new SettingsLog((Options) options);
     }

@@ -83,9 +83,8 @@ public class SettingsGraph {
         }
         GraphOptions options = GroupedOptions.select(params, new GraphOptions());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -graph options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -graph options provided, see output for valid options", SettingsGraph::printHelp);
         }
         return new SettingsGraph(options, stressCommand);
     }

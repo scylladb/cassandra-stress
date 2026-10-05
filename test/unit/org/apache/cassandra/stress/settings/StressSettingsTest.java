@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Locale;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class StressSettingsTest {
     @Test
@@ -36,5 +38,37 @@ class StressSettingsTest {
         } finally {
             Locale.setDefault(previous);
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                "write n=10 -rate threads=4 auto|Invalid -rate options provided, see output for valid options",
+                "write n=10 -rate throttle=100/s|Invalid -rate options provided, see output for valid options",
+                "write n=10 -mode native|Invalid -mode options provided, see output for valid options",
+                "write n=10 -pop seq=1..10 dist=gauss(1..10)|Invalid -pop options provided, see output for valid"
+                        + " options",
+                "write n=10 -col n=2 names=a,b|Invalid -col options provided, see output for valid options",
+                "write n=10 -graph title=x|Invalid -graph options provided, see output for valid options",
+                "write n=10 duration=1m|Invalid WRITE options provided, see output for valid options",
+                "mixed n=10 duration=1m|Invalid MIXED options provided, see output for valid options",
+                "user n=10 duration=1m|Invalid USER options provided, see output for valid options",
+                "print|Invalid print options provided, see output for valid options",
+                "write n=10 -send-to a b|Invalid -sendto specifier: [a, b]",
+                "write n=10 -send-to host:x|Invalid port: x",
+                "write n=10 -bogus 1|Error processing command line arguments. The following were ignored:",
+            })
+    void invalidOptionsThrowWithTheirHelp(String command, String message) {
+        InvalidSettingsException e =
+                assertThrows(InvalidSettingsException.class, () -> StressSettings.parse(command.split(" ")));
+        assertEquals(message, e.getMessage().lines().findFirst().orElseThrow());
+    }
+
+    @Test
+    void anEmptyCommandLineThrows() {
+        InvalidSettingsException e =
+                assertThrows(InvalidSettingsException.class, () -> StressSettings.parse(new String[0]));
+        assertEquals("No command provided", e.getMessage());
     }
 }

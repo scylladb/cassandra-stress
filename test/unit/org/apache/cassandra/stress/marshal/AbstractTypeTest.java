@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.InetAddress;
@@ -26,6 +27,18 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class AbstractTypeTest {
     private record Sample(AbstractType<Object> type, Object value) {}
+
+    private static final Map<String, Sample> SAMPLES;
+    private static final Map<String, String> MASTER;
+
+    static {
+        try {
+            SAMPLES = samples();
+            MASTER = fixture("master.txt");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
     @SuppressWarnings("unchecked")
     private static Sample sample(AbstractType<?> type, Object value) {
@@ -167,29 +180,27 @@ class AbstractTypeTest {
         return HexFormat.of().formatHex(array);
     }
 
-    static Stream<String> sampleNames() throws IOException {
-        return samples().keySet().stream();
+    static Stream<String> sampleNames() {
+        return SAMPLES.keySet().stream();
     }
 
     @Test
-    void fixtureCoversEverySample() throws IOException {
-        assertEquals(samples().keySet(), fixture("master.txt").keySet());
+    void fixtureCoversEverySample() {
+        assertEquals(SAMPLES.keySet(), MASTER.keySet());
     }
 
     @ParameterizedTest
     @MethodSource("sampleNames")
-    void decomposeMatchesMasterBytes(String name) throws IOException {
-        Sample sample = samples().get(name);
-        assertEquals(fixture("master.txt").get(name), hex(sample.type().decompose(sample.value())));
+    void decomposeMatchesMasterBytes(String name) {
+        Sample sample = SAMPLES.get(name);
+        assertEquals(MASTER.get(name), hex(sample.type().decompose(sample.value())));
     }
 
     @ParameterizedTest
     @MethodSource("sampleNames")
-    void composeReadsMasterBytes(String name) throws IOException {
-        Sample sample = samples().get(name);
-        Object composed = sample.type()
-                .compose(ByteBuffer.wrap(
-                        HexFormat.of().parseHex(fixture("master.txt").get(name))));
+    void composeReadsMasterBytes(String name) {
+        Sample sample = SAMPLES.get(name);
+        Object composed = sample.type().compose(ByteBuffer.wrap(HexFormat.of().parseHex(MASTER.get(name))));
         if (sample.value() instanceof ByteBuffer expected) assertEquals(hex(expected), hex((ByteBuffer) composed));
         else assertEquals(sample.value(), composed);
     }

@@ -10,7 +10,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import org.apache.cassandra.stress.StressServer;
 import org.apache.cassandra.stress.generate.Distribution;
+import org.apache.cassandra.stress.util.HostAndPort;
 
 final class SettingsMisc {
     private SettingsMisc() {}
@@ -36,9 +38,8 @@ final class SettingsMisc {
         if (args == null) return false;
         final PrintDistribution dist = new PrintDistribution();
         if (null == GroupedOptions.select(args, dist)) {
-            printHelpPrinter().run();
-            System.out.println("Invalid print options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid print options provided, see output for valid options", printHelpPrinter());
         }
         printDistribution(dist.dist.get().get());
         return true;
@@ -81,17 +82,16 @@ final class SettingsMisc {
 
     private static boolean maybePrintVersion(Map<String, String[]> clArgs) {
         if (clArgs.containsKey("version")) {
-            System.out.println(versionLines(stressVersion(), driver3Version(), driver4Version())
-                    .trim());
+            System.out.println(versionLines(stressVersion(), driverVersion()).trim());
             return true;
         }
         return false;
     }
 
-    static String versionLines(String stressVersion, String driver3Version, String driver4Version) {
+    static String versionLines(String stressVersion, String driverVersion) {
         return "Version: " + stressVersion + "\n"
-                + "scylla-java-driver: " + driver3Version + "\n"
-                + "scylla-java-driver-4x: " + driver4Version + "\n";
+                + "scylla-java-driver: " + driverVersion + "\n"
+                + "scylla-java-driver-4x: " + driverVersion + "\n";
     }
 
     static String stressVersion() {
@@ -103,16 +103,9 @@ final class SettingsMisc {
         }
     }
 
-    static String driver3Version() {
-        return driverVersion("com/datastax/driver/core/Driver.properties");
-    }
-
-    static String driver4Version() {
-        return driverVersion("com/datastax/oss/driver/Driver.properties");
-    }
-
-    private static String driverVersion(String resource) {
-        try (InputStream in = SettingsMisc.class.getClassLoader().getResourceAsStream(resource)) {
+    static String driverVersion() {
+        try (InputStream in =
+                SettingsMisc.class.getClassLoader().getResourceAsStream("com/datastax/oss/driver/Driver.properties")) {
             if (in == null) return "unknown";
             Properties properties = new Properties();
             properties.load(in);
@@ -176,9 +169,10 @@ final class SettingsMisc {
 
     static Runnable sendToDaemonHelpPrinter() {
         return () -> {
-            System.out.println("Usage: -sendto <host>");
+            System.out.println("Usage: -sendto <host>[:<port>]");
             System.out.println();
-            System.out.println("Specify a host running the stress server to send this stress command to");
+            System.out.println("Specify a host running the stress server to send this stress command to.");
+            System.out.println("The default port is " + StressServer.DEFAULT_PORT + ".");
         };
     }
 
@@ -187,9 +181,13 @@ final class SettingsMisc {
         if (params == null) params = clArgs.remove("-sendto");
         if (params == null) return null;
         if (params.length != 1) {
-            sendToDaemonHelpPrinter().run();
-            System.out.println("Invalid -sendto specifier: " + Arrays.toString(params));
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -sendto specifier: " + Arrays.toString(params), sendToDaemonHelpPrinter());
+        }
+        try {
+            HostAndPort.parse(params[0], StressServer.DEFAULT_PORT);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidSettingsException(e.getMessage(), sendToDaemonHelpPrinter(), e);
         }
         return params[0];
     }

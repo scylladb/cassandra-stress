@@ -154,9 +154,8 @@ public class SettingsCommandUser extends SettingsCommand {
         GroupedOptions options = GroupedOptions.select(
                 params, new Options(new Uncertainty()), new Options(new Duration()), new Options(new Count()));
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid USER options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid USER options provided, see output for valid options", SettingsCommandUser::printHelp);
         }
         return new SettingsCommandUser((Options) options);
     }

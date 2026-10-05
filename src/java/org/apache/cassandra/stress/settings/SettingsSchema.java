@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import com.datastax.driver.core.exceptions.AlreadyExistsException;
+import com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
 
@@ -44,34 +45,24 @@ public class SettingsSchema {
     @SuppressWarnings("EmptyCatch")
     public void createKeySpacesNative(StressSettings settings) {
 
-        QueryExecutor client;
-        if (settings.mode.api == ConnectionAPI.JAVA_DRIVER4_NATIVE) {
-            client = (QueryExecutor) settings.getJavaDriverV4Client(false);
-        } else {
-            client = (QueryExecutor) settings.getJavaDriverClient(false);
-        }
+        QueryExecutor client = settings.getJavaDriverClient(false);
 
         try {
-            client.execute(
-                    createKeyspaceStatementCQL3(), org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
+            client.execute(createKeyspaceStatementCQL3(), ConsistencyLevel.LOCAL_QUORUM);
 
-            client.execute("USE \"" + keyspace + "\"", org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
+            client.execute("USE \"" + keyspace + "\"", ConsistencyLevel.LOCAL_QUORUM);
 
-            client.execute(
-                    createStandard1StatementCQL3(settings),
-                    org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
+            client.execute(createStandard1StatementCQL3(settings), ConsistencyLevel.LOCAL_QUORUM);
 
             if (cmdType == Command.COUNTER_WRITE) {
-                client.execute(
-                        createCounter1StatementCQL3(settings),
-                        org.apache.cassandra.stress.util.ConsistencyLevel.LOCAL_QUORUM);
+                client.execute(createCounter1StatementCQL3(settings), ConsistencyLevel.LOCAL_QUORUM);
             }
 
-            System.out.println(
-                    String.format("Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
+            settings.output()
+                    .println(String.format(
+                            "Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
             Thread.sleep(settings.node.nodes.size() * 1000L);
-        } catch (AlreadyExistsException
-                | com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException ignored) {
+        } catch (AlreadyExistsException ignored) {
         } catch (Exception e) {
             throw new RuntimeException("Encountered exception creating schema", e);
         }
@@ -236,9 +227,8 @@ public class SettingsSchema {
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -schema options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -schema options provided, see output for valid options", SettingsSchema::printHelp);
         }
         return new SettingsSchema((Options) options, command);
     }

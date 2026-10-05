@@ -1,28 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
-import com.datastax.driver.core.PagingState;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.SimpleStatement;
-import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.Token;
-import com.datastax.driver.core.TokenRange;
+import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
+import com.datastax.oss.driver.api.core.metadata.TokenMap;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.datastax.oss.driver.api.core.metadata.token.Token;
+import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.cassandra.stress.Operation;
 import org.apache.cassandra.stress.StressYaml;
 import org.apache.cassandra.stress.WorkManager;
-import org.apache.cassandra.stress.core.TableMetadata;
 import org.apache.cassandra.stress.generate.TokenRangeIterator;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
 
 public class TokenRangeQuery extends Operation {
     @SuppressWarnings("ThreadLocalUsage")
@@ -52,14 +53,15 @@ public class TokenRangeQuery extends Operation {
     private static String sanitizeColumns(String columns, TableMetadata tableMetadata) {
         if (!"*".equals(columns)) return columns;
 
-        return String.join(", ", tableMetadata.getColumnNames());
+        return tableMetadata.getColumns().keySet().stream()
+                .map(name -> name.asCql(true))
+                .collect(Collectors.joining(", "));
     }
 
     private static final class State {
         public final TokenRange tokenRange;
         public final String query;
-        public PagingState pagingState;
-        public ByteBuffer pagingStateV4;
+        public ByteBuffer pagingState;
         public Set<Object> partitions = new HashSet<>();
 
         State(TokenRange tokenRange, String query) {
@@ -89,64 +91,16 @@ public class TokenRangeQuery extends Operation {
     }
 
     private final class JavaDriverRun extends Runner {
+        private static final Pattern TOKEN_COLUMN_NAME = Pattern.compile("(?i)(?:system\\.)?token\\(.*\\)");
+
         final JavaDriverClient client;
 
         private JavaDriverRun(JavaDriverClient client) {
             this.client = client;
         }
 
-        @Override
-        public boolean run() throws Exception {
-            State state = currentState.get();
-            if (state == null) {
-                TokenRange range = tokenRangeIterator.next();
-                if (range == null) return true;
-
-                state = new State(range, buildQuery(range));
-                currentState.set(state);
-            }
-
-            ResultSet results;
-            Statement statement = new SimpleStatement(state.query);
-            statement.setFetchSize(pageSize);
-
-            if (state.pagingState != null) statement.setPagingState(state.pagingState);
-
-            results = client.getSession().execute(statement);
-            state.pagingState = results.getExecutionInfo().getPagingState();
-
-            int remaining = results.getAvailableWithoutFetching();
-            rowCount += remaining;
-
-            for (Row row : results) {
-                Object partition = row.getPartitionKeyToken();
-                if (!state.partitions.contains(partition)) {
-                    partitionCount += 1;
-                    state.partitions.add(partition);
-                }
-
-                if (--remaining == 0) break;
-            }
-
-            if (results.isExhausted() || isWarmup) {
-                currentState.set(null);
-            }
-
-            return true;
-        }
-    }
-
-    private final class JavaDriverV4Run extends Runner {
-        final JavaDriverV4Client client;
-        private static final Pattern TOKEN_COLUMN_NAME = Pattern.compile("(?i)(?:system\\.)?token\\(.*\\)");
-
-        private JavaDriverV4Run(JavaDriverV4Client client) {
-            this.client = client;
-        }
-
-        private com.datastax.oss.driver.api.core.metadata.token.Token getPartitionKeyToken(
-                com.datastax.oss.driver.api.core.cql.Row row) {
-            com.datastax.oss.driver.api.core.cql.ColumnDefinitions metadata = row.getColumnDefinitions();
+        private static Token getPartitionKeyToken(Row row) {
+            ColumnDefinitions metadata = row.getColumnDefinitions();
             for (int i = 0; i < metadata.size(); i++) {
                 String colName = metadata.get(i).getName().asInternal();
                 if (TOKEN_COLUMN_NAME.matcher(colName).matches()) return row.getToken(i);
@@ -162,24 +116,22 @@ public class TokenRangeQuery extends Operation {
                 TokenRange range = tokenRangeIterator.next();
                 if (range == null) return true;
 
-                state = new State(range, buildQuery(range));
+                TokenMap tokenMap = client.getTokenMap()
+                        .orElseThrow(() -> new IllegalStateException("The driver has no token map"));
+                state = new State(range, buildQuery(range, tokenMap));
                 currentState.set(state);
             }
 
-            com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder statement =
-                    new com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder(state.query);
-            statement.setFetchSize(pageSize);
+            SimpleStatementBuilder statement = new SimpleStatementBuilder(state.query).setPageSize(pageSize);
+            if (state.pagingState != null) statement.setPagingState(state.pagingState);
 
-            if (state.pagingStateV4 != null) statement.setPagingState(state.pagingStateV4);
-
-            com.datastax.oss.driver.api.core.cql.ResultSet results =
-                    client.getSession().execute(statement.build());
-            state.pagingStateV4 = results.getExecutionInfo().getPagingState();
+            ResultSet results = client.getSession().execute(statement.build());
+            state.pagingState = results.getExecutionInfo().getPagingState();
 
             int remaining = results.getAvailableWithoutFetching();
             rowCount += remaining;
 
-            for (com.datastax.oss.driver.api.core.cql.Row row : results) {
+            for (Row row : results) {
                 Object partition = getPartitionKeyToken(row);
                 if (!state.partitions.contains(partition)) {
                     partitionCount += 1;
@@ -197,45 +149,24 @@ public class TokenRangeQuery extends Operation {
         }
     }
 
-    private String buildQuery(TokenRange tokenRange) {
+    private String buildQuery(TokenRange tokenRange, TokenMap tokenMap) {
         Token start = tokenRange.getStart();
         Token end = tokenRange.getEnd();
-        List<String> pkColumns = tableMetadata.getPartitionKeyNames();
+        List<String> pkColumns = tableMetadata.getPartitionKey().stream()
+                .map(ColumnMetadata::getName)
+                .map(name -> name.asCql(true))
+                .toList();
         String tokenStatement = String.format("token(%s)", String.join(", ", pkColumns));
 
-        StringBuilder ret = new StringBuilder();
-        ret.append("SELECT ");
-        ret.append(tokenStatement);
-        ret.append(", ");
-        ret.append(columns);
-        ret.append(" FROM ");
-        ret.append(tableMetadata.getName());
-        if (start != null || end != null) ret.append(" WHERE ");
-        if (start != null) {
-            ret.append(tokenStatement);
-            ret.append(" > ");
-            ret.append(start.toString());
-        }
-
-        if (start != null && end != null) ret.append(" AND ");
-
-        if (end != null) {
-            ret.append(tokenStatement);
-            ret.append(" <= ");
-            ret.append(end.toString());
-        }
-
-        return ret.toString();
+        return "SELECT " + tokenStatement + ", " + columns + " FROM "
+                + tableMetadata.getName().asCql(true)
+                + " WHERE " + tokenStatement + " > " + tokenMap.format(start)
+                + " AND " + tokenStatement + " <= " + tokenMap.format(end);
     }
 
     @Override
     public void run(JavaDriverClient client) throws IOException {
         timeWithRetry(new JavaDriverRun(client));
-    }
-
-    @Override
-    public void run(JavaDriverV4Client client) throws IOException {
-        timeWithRetry(new JavaDriverV4Run(client));
     }
 
     @Override

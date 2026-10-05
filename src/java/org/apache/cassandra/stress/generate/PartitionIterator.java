@@ -243,6 +243,8 @@ public abstract class PartitionIterator implements Iterator<Row> {
             }
 
             this.order = PartitionGenerator.Order.SORTED;
+            this.rowPopulationRatio = 1d;
+            this.isWrite = false;
             assert clusteringComponentDepth <= clusteringComponents.length;
             for (Queue<?> q : clusteringComponents) q.clear();
 
@@ -452,52 +454,68 @@ public abstract class PartitionIterator implements Iterator<Row> {
             long seed = depth == 0 ? idseed : clusteringSeeds[depth - 1];
             Generator gen = generator.clusteringComponents.get(depth);
             gen.setSeed(seed);
-            fill(clusteringComponents[depth], (int) gen.clusteringDistribution.next(), gen);
-            clusteringSeeds[depth] =
-                    seed(clusteringComponents[depth].peek(), generator.clusteringComponents.get(depth).type, seed);
+            Object firstGenerated = fill(clusteringComponents[depth], (int) gen.clusteringDistribution.next(), gen);
+            Object seedElement = order != generator.order && generator.order == PartitionGenerator.Order.ARBITRARY
+                    ? firstGenerated
+                    : clusteringComponents[depth].peek();
+            clusteringSeeds[depth] = seed(seedElement, generator.clusteringComponents.get(depth).type, seed);
         }
 
-        @SuppressWarnings("fallthrough")
-        void fill(Queue<Object> queue, int count, Generator generator) {
+        Object fill(Queue<Object> queue, int count, Generator generator) {
             if (count == 1) {
-                queue.add(generator.generate());
-                return;
+                Object only = generator.generate();
+                queue.add(only);
+                return only;
             }
 
-            switch (order) {
-                case SORTED:
-                    if (Comparable.class.isAssignableFrom(generator.clazz)) {
-                        tosort.clear();
-                        for (int i = 0; i < count; i++) tosort.add(generator.generate());
-                        Collections.sort((List<Comparable>) (List<?>) tosort);
-                        for (int i = 0; i < count; i++)
-                            if (i == 0 || ((Comparable) tosort.get(i - 1)).compareTo(tosort.get(i)) < 0)
-                                queue.add(tosort.get(i));
-                        break;
-                    }
-                case ARBITRARY:
-                    unique.clear();
-                    for (int i = 0; i < count; i++) {
-                        Object next = generator.generate();
-                        if (unique.add(next)) queue.add(next);
-                    }
-                    break;
-                case SHUFFLED:
-                    unique.clear();
-                    tosort.clear();
-                    ThreadLocalRandom rand = ThreadLocalRandom.current();
-                    for (int i = 0; i < count; i++) {
-                        Object next = generator.generate();
-                        if (unique.add(next)) tosort.add(next);
-                    }
-                    for (int i = 0; i < tosort.size(); i++) {
-                        int index = rand.nextInt(i, tosort.size());
-                        Object obj = tosort.get(index);
-                        tosort.set(index, tosort.get(i));
-                        queue.add(obj);
-                    }
-                    break;
+            return switch (order) {
+                case SORTED ->
+                    Comparable.class.isAssignableFrom(generator.clazz)
+                            ? fillSorted(queue, count, generator)
+                            : fillUnique(queue, count, generator);
+                case ARBITRARY -> fillUnique(queue, count, generator);
+                case SHUFFLED -> fillShuffled(queue, count, generator);
+            };
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private Object fillSorted(Queue<Object> queue, int count, Generator generator) {
+            tosort.clear();
+            for (int i = 0; i < count; i++) tosort.add(generator.generate());
+            Object first = tosort.getFirst();
+            Collections.sort((List<Comparable>) (List<?>) tosort);
+            for (int i = 0; i < count; i++)
+                if (i == 0 || ((Comparable) tosort.get(i - 1)).compareTo(tosort.get(i)) < 0) queue.add(tosort.get(i));
+            return first;
+        }
+
+        private Object fillUnique(Queue<Object> queue, int count, Generator generator) {
+            unique.clear();
+            Object first = null;
+            for (int i = 0; i < count; i++) {
+                Object next = generator.generate();
+                if (i == 0) first = next;
+                if (unique.add(next)) queue.add(next);
             }
+            return first;
+        }
+
+        private Object fillShuffled(Queue<Object> queue, int count, Generator generator) {
+            unique.clear();
+            tosort.clear();
+            ThreadLocalRandom rand = ThreadLocalRandom.current();
+            for (int i = 0; i < count; i++) {
+                Object next = generator.generate();
+                if (unique.add(next)) tosort.add(next);
+            }
+            Object first = tosort.getFirst();
+            for (int i = 0; i < tosort.size(); i++) {
+                int index = rand.nextInt(i, tosort.size());
+                Object obj = tosort.get(index);
+                tosort.set(index, tosort.get(i));
+                queue.add(obj);
+            }
+            return first;
         }
 
         @Override

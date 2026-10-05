@@ -30,11 +30,7 @@ public enum ConsistencyLevel {
         return this == SERIAL || this == LOCAL_SERIAL;
     }
 
-    public com.datastax.driver.core.ConsistencyLevel toV3Value() {
-        return com.datastax.driver.core.ConsistencyLevel.valueOf(name());
-    }
-
-    public com.datastax.oss.driver.api.core.ConsistencyLevel toV4Value() {
+    public com.datastax.oss.driver.api.core.ConsistencyLevel toDriver() {
         return DefaultConsistencyLevel.valueOf(name());
     }
 }

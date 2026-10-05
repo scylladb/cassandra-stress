@@ -16,6 +16,7 @@ public class Sets<T> extends Generator<Set<T>> {
     @Override
     public void setSeed(long seed) {
         super.setSeed(seed);
+        sizeDistribution.setSeed(seed);
         valueType.setSeed(seed * 31);
     }
 
@@ -24,6 +25,14 @@ public class Sets<T> extends Generator<Set<T>> {
         final Set<T> set = new HashSet<T>();
         int size = (int) sizeDistribution.next();
         for (int i = 0; i < size; i++) set.add(valueType.generate());
+        return set;
+    }
+
+    @Override
+    Object fromStoredValue(Object value) {
+        if (value == null) return null;
+        Set<Object> set = new HashSet<>();
+        for (Object element : (Set<?>) value) set.add(valueType.fromStoredValue(element));
         return set;
     }
 }

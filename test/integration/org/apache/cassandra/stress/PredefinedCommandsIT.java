@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import org.apache.cassandra.stress.CassandraStress.Driver;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class PredefinedCommandsIT {
     private static final String REPLICATION = "replication(strategy=NetworkTopologyStrategy,replication_factor=1)";
@@ -16,17 +16,15 @@ class PredefinedCommandsIT {
     @TempDir
     Path dir;
 
-    private static String keyspace(String test, Driver driver) {
-        String keyspace = (test + "_" + driver).toLowerCase(java.util.Locale.ROOT);
+    private static String keyspace(String keyspace) {
         ScyllaNode.dropKeyspace(keyspace);
         return keyspace;
     }
 
-    @ParameterizedTest
-    @EnumSource(Driver.class)
-    void readValidatesEveryRowThatWriteInserted(Driver driver) {
-        CassandraStress stress = new CassandraStress(dir, driver);
-        String keyspace = keyspace("write_read", driver);
+    @Test
+    void readValidatesEveryRowThatWriteInserted() {
+        CassandraStress stress = new CassandraStress(dir);
+        String keyspace = keyspace("write_read");
 
         StressResult write = stress.run(
                 "write",
@@ -66,11 +64,10 @@ class PredefinedCommandsIT {
         assertEquals(0L, read.totalErrors().orElseThrow());
     }
 
-    @ParameterizedTest
-    @EnumSource(Driver.class)
-    void readFailsWhenTheDataDoesNotMatch(Driver driver) {
-        CassandraStress stress = new CassandraStress(dir, driver);
-        String keyspace = keyspace("mismatch", driver);
+    @Test
+    void readFailsWhenTheDataDoesNotMatch() {
+        CassandraStress stress = new CassandraStress(dir);
+        String keyspace = keyspace("mismatch");
 
         assertTrue(stress.run(
                         "write",
@@ -104,11 +101,10 @@ class PredefinedCommandsIT {
         assertFalse(read.succeeded(), read::toString);
     }
 
-    @ParameterizedTest
-    @EnumSource(Driver.class)
-    void mixedRunsBothOperations(Driver driver) {
-        CassandraStress stress = new CassandraStress(dir, driver);
-        String keyspace = keyspace("mixed", driver);
+    @Test
+    void mixedRunsBothOperations() {
+        CassandraStress stress = new CassandraStress(dir);
+        String keyspace = keyspace("mixed");
 
         assertTrue(stress.run(
                         "write",
@@ -139,10 +135,10 @@ class PredefinedCommandsIT {
     }
 
     @ParameterizedTest
-    @EnumSource(Driver.class)
-    void unpreparedStatementsWithCompressionWork(Driver driver) {
-        CassandraStress stress = new CassandraStress(dir, driver);
-        String keyspace = keyspace("unprepared", driver);
+    @ValueSource(strings = {"lz4", "snappy"})
+    void unpreparedStatementsWithCompressionWork(String compression) {
+        CassandraStress stress = new CassandraStress(dir);
+        String keyspace = keyspace("unprepared_" + compression);
 
         StressResult write = stress.run(
                 "write",
@@ -154,9 +150,9 @@ class PredefinedCommandsIT {
                 "threads=2",
                 "-mode",
                 "cql3",
-                driver.mode,
+                "native",
                 "unprepared",
-                "compression=lz4",
+                "compression=" + compression,
                 "-schema",
                 "keyspace=" + keyspace,
                 REPLICATION);
@@ -164,11 +160,10 @@ class PredefinedCommandsIT {
         assertEquals(300, ScyllaNode.count(keyspace, "standard1"));
     }
 
-    @ParameterizedTest
-    @EnumSource(Driver.class)
-    void fixedRateRunsForTheGivenDuration(Driver driver) {
-        CassandraStress stress = new CassandraStress(dir, driver);
-        String keyspace = keyspace("duration", driver);
+    @Test
+    void fixedRateRunsForTheGivenDuration() {
+        CassandraStress stress = new CassandraStress(dir);
+        String keyspace = keyspace("duration");
 
         StressResult write = stress.run(
                 "write",

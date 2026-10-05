@@ -3,14 +3,15 @@ package org.apache.cassandra.stress.settings;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.datastax.oss.driver.api.core.session.Session;
 import org.junit.jupiter.api.Test;
 
 class SettingsMiscTest {
     @Test
-    void printsTheThreeVersionLines() {
+    void printsTheVersionLines() {
         assertEquals(
-                "Version: 1.0.0\nscylla-java-driver: 3.11.5.18\nscylla-java-driver-4x: 4.19.2.1\n",
-                SettingsMisc.versionLines("1.0.0", "3.11.5.18", "4.19.2.1"));
+                "Version: 1.0.0\nscylla-java-driver: 4.19.2.1\nscylla-java-driver-4x: 4.19.2.1\n",
+                SettingsMisc.versionLines("1.0.0", "4.19.2.1"));
     }
 
     @Test
@@ -20,12 +21,7 @@ class SettingsMiscTest {
     }
 
     @Test
-    void readsTheDriverVersionsFromTheDriverJars() {
-        assertEquals(com.datastax.driver.core.Cluster.getDriverVersion(), SettingsMisc.driver3Version());
-        assertEquals(
-                com.datastax.oss.driver.api.core.session.Session.OSS_DRIVER_COORDINATES
-                        .getVersion()
-                        .toString(),
-                SettingsMisc.driver4Version());
+    void readsTheDriverVersionFromTheDriverJar() {
+        assertEquals(Session.OSS_DRIVER_COORDINATES.getVersion().toString(), SettingsMisc.driverVersion());
     }
 }

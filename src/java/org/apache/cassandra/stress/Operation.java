@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
-import com.datastax.driver.core.exceptions.OverloadedException;
+import com.datastax.oss.driver.api.core.servererrors.OverloadedException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HexFormat;
@@ -10,7 +10,6 @@ import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.SettingsLog;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
 
 public abstract class Operation {
     public final StressSettings settings;
@@ -46,13 +45,7 @@ public abstract class Operation {
         return false;
     }
 
-    public void run(JavaDriverClient client) throws IOException {
-        throw new UnsupportedOperationException();
-    }
-
-    public void run(JavaDriverV4Client client) throws IOException {
-        throw new UnsupportedOperationException();
-    }
+    public abstract void run(JavaDriverClient client) throws IOException;
 
     @SuppressWarnings("EmptyCatch")
     public final void timeWithRetry(RunOp run) throws IOException {

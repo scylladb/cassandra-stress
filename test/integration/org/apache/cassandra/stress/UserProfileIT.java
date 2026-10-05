@@ -4,20 +4,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import org.apache.cassandra.stress.CassandraStress.Driver;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 class UserProfileIT {
     @TempDir
     Path dir;
 
-    @ParameterizedTest
-    @EnumSource(Driver.class)
-    void insertsAndRunsTheProfileQueries(Driver driver) {
+    @Test
+    void insertsAndRunsTheProfileQueries() {
         ScyllaNode.dropKeyspace("stresscql");
-        CassandraStress stress = new CassandraStress(dir, driver);
+        CassandraStress stress = new CassandraStress(dir);
 
         StressResult insert = stress.run(
                 "user",
@@ -46,11 +43,10 @@ class UserProfileIT {
         assertEquals(0L, queries.totalErrors().orElseThrow());
     }
 
-    @ParameterizedTest
-    @EnumSource(Driver.class)
-    void sweepsTokenRanges(Driver driver) {
+    @Test
+    void sweepsTokenRanges() {
         ScyllaNode.dropKeyspace("stresscql");
-        CassandraStress stress = new CassandraStress(dir, driver);
+        CassandraStress stress = new CassandraStress(dir);
 
         assertTrue(stress.run(
                         "user",
@@ -75,11 +71,10 @@ class UserProfileIT {
         assertTrue(sweep.succeeded(), sweep::toString);
     }
 
-    @ParameterizedTest
-    @EnumSource(Driver.class)
-    void runsTwoProfilesAtOnce(Driver driver) {
+    @Test
+    void runsTwoProfilesAtOnce() {
         ScyllaNode.dropKeyspace("stresscql");
-        CassandraStress stress = new CassandraStress(dir, driver);
+        CassandraStress stress = new CassandraStress(dir);
 
         StressResult result = stress.run(
                 "user",
@@ -96,11 +91,10 @@ class UserProfileIT {
         assertTrue(result.succeeded(), result::toString);
     }
 
-    @ParameterizedTest
-    @EnumSource(Driver.class)
-    void validatesTheRowsItInserted(Driver driver) {
+    @Test
+    void validatesTheRowsItInserted() {
         ScyllaNode.dropKeyspace("stresscql");
-        CassandraStress stress = new CassandraStress(dir, driver);
+        CassandraStress stress = new CassandraStress(dir);
 
         assertTrue(stress.run(
                         "user",

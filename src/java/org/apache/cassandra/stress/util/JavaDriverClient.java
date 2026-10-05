@@ -6,12 +6,16 @@ import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
-import com.datastax.oss.driver.api.core.cql.BoundStatementBuilder;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
+import com.datastax.oss.driver.api.core.loadbalancing.NodeDistance;
+import com.datastax.oss.driver.api.core.loadbalancing.NodeDistanceEvaluator;
 import com.datastax.oss.driver.api.core.metadata.EndPoint;
 import com.datastax.oss.driver.api.core.metadata.Metadata;
 import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.TokenMap;
+import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.ssl.ProgrammaticSslEngineFactory;
 import com.datastax.oss.driver.api.core.ssl.SslEngineFactory;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodec;
@@ -20,254 +24,168 @@ import com.datastax.oss.driver.api.core.type.codec.registry.MutableCodecRegistry
 import com.datastax.oss.driver.internal.core.config.typesafe.DefaultProgrammaticDriverConfigLoaderBuilder;
 import com.datastax.oss.driver.internal.core.type.codec.registry.CodecRegistryConstants;
 import com.datastax.oss.driver.internal.core.type.codec.registry.DefaultCodecRegistry;
+import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 import org.apache.cassandra.stress.core.PreparedStatement;
-import org.apache.cassandra.stress.core.TableMetadata;
+import org.apache.cassandra.stress.settings.LoadBalanceType;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
+import org.apache.cassandra.stress.settings.SettingsMode;
+import org.apache.cassandra.stress.settings.SettingsNode;
 import org.apache.cassandra.stress.settings.StressSettings;
+import org.apache.cassandra.stress.util.codecs.EpochDayCodec;
+import org.apache.cassandra.stress.util.codecs.NanoOfDayCodec;
 import org.apache.cassandra.stress.util.codecs.TimestampCodec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@SuppressWarnings("PMD.CloseResource")
-public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, MetadataProvider {
+public class JavaDriverClient implements QueryExecutor, QueryPrepare, MetadataProvider {
+    private static final Logger LOGGER = LoggerFactory.getLogger(JavaDriverClient.class);
 
-    public final List<String> hosts;
-    public final int port;
-    public final String username;
-    public final String password;
-    public final JavaDriverV4SessionBuilder authProvider;
+    public final List<HostAndPort> contactPoints;
     public final Integer maxPendingPerConnection;
     public final int connectionsPerHost;
     public final int requestTimeout;
 
+    private final ResultLogger output;
+    private final SettingsMode mode;
+    private final SettingsNode node;
     private final ProtocolVersion protocolVersion;
     private final EncryptionOptions encryptionOptions;
-    private CqlSession session;
-    private final JavaDriverV4ConfigBuilder loadBalancingPolicy;
+    private final ConcurrentMap<String, PreparedStatement> statements = new ConcurrentHashMap<>();
+    private volatile CqlSession session;
 
-    private final ConcurrentMap<String, PreparedStatement> stmts = new ConcurrentHashMap<>();
-
-    public JavaDriverV4Client(StressSettings settings, List<String> hosts, int port) {
+    public JavaDriverClient(StressSettings settings, List<String> hosts, int port) {
         this(settings, hosts, port, new EncryptionOptions());
     }
 
-    public JavaDriverV4Client(
+    public JavaDriverClient(
             StressSettings settings, List<String> hosts, int port, EncryptionOptions encryptionOptions) {
-        this.protocolVersion = settings.mode.protocolVersion.toJavaDriverV4();
-        this.hosts = hosts;
-        this.port = port;
-        this.username = settings.mode.username;
-        this.password = settings.mode.password;
-        this.authProvider = settings.mode.authProvider.toJavaDriverV4();
+        this.contactPoints =
+                hosts.stream().map(host -> HostAndPort.parse(host, port)).toList();
+        this.output = settings.output();
+        this.mode = settings.mode;
+        this.node = settings.node;
+        this.protocolVersion = settings.mode.protocolVersion.toDriver();
         this.encryptionOptions = encryptionOptions;
-        this.loadBalancingPolicy = loadBalancingPolicy(settings);
         this.connectionsPerHost = Objects.requireNonNullElse(settings.mode.connectionsPerHost, 8);
         this.requestTimeout = Objects.requireNonNullElse(settings.mode.requestTimeout, 12000);
-
-        maxPendingPerConnection = settings.mode.maxPendingPerConnection;
-    }
-
-    private JavaDriverV4ConfigBuilder loadBalancingPolicy(StressSettings settings) {
-        return new JavaDriverV4ConfigBuilder() {
-
-            @Override
-            public ProgrammaticDriverConfigLoaderBuilder applyConfig(ProgrammaticDriverConfigLoaderBuilder builder) {
-                if (settings.node.rack != null) {
-                    builder = builder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_RACK, settings.node.rack);
-                }
-
-                if (settings.node.datacenter != null) {
-                    builder = builder.withString(
-                            DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER, settings.node.datacenter);
-                }
-
-                if (settings.node.isWhiteList)
-                    throw new IllegalArgumentException("Whitelist policy is not supported by Driver 4.x");
-                return builder;
-            }
-        };
+        this.maxPendingPerConnection = settings.mode.maxPendingPerConnection;
     }
 
     @Override
     public PreparedStatement prepare(String query) {
-        return stmts.computeIfAbsent(
+        return statements.computeIfAbsent(
                 query, q -> new PreparedStatement(getSession().prepare(q)));
     }
 
-    public MutableCodecRegistry prepareCodecRegistry() {
-        return new DefaultCodecRegistry(
-                "cassandraCustomCodecRegistry",
+    static MutableCodecRegistry codecRegistry() {
+        MutableCodecRegistry registry = new DefaultCodecRegistry(
+                "cassandraStressCodecRegistry",
                 Arrays.stream(CodecRegistryConstants.PRIMITIVE_CODECS)
-                        .map(c -> {
-                            if (Objects.equals(c, TypeCodecs.TIMESTAMP)) {
-                                return new TimestampCodec();
-                            }
-                            return c;
-                        })
-                        .toArray(TypeCodec<?>[]::new)) {};
+                        .map(codec -> Objects.equals(codec, TypeCodecs.TIMESTAMP) ? new TimestampCodec() : codec)
+                        .toArray(TypeCodec<?>[]::new));
+        registry.register(new EpochDayCodec(), new NanoOfDayCodec());
+        return registry;
     }
 
-    public void connect(ProtocolCompression compression) throws Exception {
-        try {
-            connectInternal(compression);
-        } catch (IllegalStateException e) {
-            if (e.getMessage() != null && e.getMessage().contains("local DC must be explicitly set")) {
-                String discoveredDc = discoverLocalDatacenter(compression);
-                if (discoveredDc == null || discoveredDc.isBlank()) throw e;
-
-                connectInternal(compression, discoveredDc);
-                return;
-            }
-            throw e;
-        }
-    }
-
-    private void connectInternal(ProtocolCompression compression) throws Exception {
-        connectInternal(compression, null);
-    }
-
-    private void connectInternal(ProtocolCompression compression, String overrideLocalDc) throws Exception {
-        ProgrammaticDriverConfigLoaderBuilder configBuilder = new DefaultProgrammaticDriverConfigLoaderBuilder();
-        CqlSessionBuilder sessionBuilder = CqlSession.builder();
-        configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
-
-        configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofMillis(requestTimeout));
-
+    ProgrammaticDriverConfigLoaderBuilder config(ProtocolCompression compression) {
+        ProgrammaticDriverConfigLoaderBuilder config = new DefaultProgrammaticDriverConfigLoaderBuilder()
+                .withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS, "DcInferringLoadBalancingPolicy")
+                .withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost)
+                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofMillis(requestTimeout));
         if (protocolVersion != null)
-            configBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
-
+            config = config.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
         if (maxPendingPerConnection != null)
-            configBuilder.withInt(DefaultDriverOption.CONNECTION_MAX_REQUESTS, maxPendingPerConnection);
+            config = config.withInt(DefaultDriverOption.CONNECTION_MAX_REQUESTS, maxPendingPerConnection);
+        config = LoadBalanceType.of(node).applyTo(config, node);
+        return compression.applyTo(config);
+    }
 
-        sessionBuilder.addContactPoints(hosts.stream()
-                .map((h) -> {
-                    String[] chunks = h.split(":", 2);
-                    if (chunks.length == 2) return new InetSocketAddress(chunks[0], Integer.parseInt(chunks[1]));
-                    return new InetSocketAddress(chunks[0], this.port);
-                })
-                .toList());
+    public void connect(ProtocolCompression compression) throws IOException {
+        CqlSessionBuilder builder = CqlSession.builder()
+                .addContactPoints(
+                        contactPoints.stream().map(HostAndPort::toSocketAddress).toList())
+                .withConfigLoader(config(compression).build())
+                .withCodecRegistry(codecRegistry());
 
-        if (loadBalancingPolicy != null) configBuilder = loadBalancingPolicy.applyConfig(configBuilder);
+        if (node.isWhiteList) builder = builder.withNodeDistanceEvaluator(new WhiteList(contactPoints));
+        if (encryptionOptions.enabled) builder = builder.withSslEngineFactory(sslEngineFactory());
+        if (mode.authProvider.isSet()) builder = mode.authProvider.applyTo(builder);
+        else if (mode.username != null) builder = builder.withCredentials(mode.username, mode.password);
 
-        if (overrideLocalDc != null)
-            configBuilder =
-                    configBuilder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER, overrideLocalDc);
-
-        compression.toJavaDriverV4().applyConfig(configBuilder);
-
-        if (encryptionOptions.enabled) {
-            SSLContext sslContext = SSLFactory.createSSLContext(encryptionOptions, true);
-            SslEngineFactory sslOptions = new SslEngineFactory() {
-                final ProgrammaticSslEngineFactory factory =
-                        new ProgrammaticSslEngineFactory(sslContext, encryptionOptions.cipherSuites);
-
-                @Override
-                public void close() {}
-
-                @Override
-                public SSLEngine newSslEngine(EndPoint remoteEndpoint) {
-                    SSLEngine engine = factory.newSslEngine(remoteEndpoint);
-                    if (encryptionOptions.hostnameVerification) {
-                        SSLParameters parameters = engine.getSSLParameters();
-                        parameters.setEndpointIdentificationAlgorithm("HTTPS");
-                        engine.setSSLParameters(parameters);
-                    }
-                    return engine;
-                }
-            };
-
-            sessionBuilder.withSslEngineFactory(sslOptions);
-        }
-
-        if (authProvider != null) authProvider.apply(sessionBuilder);
-        else if (username != null) sessionBuilder.withCredentials(username, password);
-
-        sessionBuilder.withConfigLoader(configBuilder.build());
-
-        session = sessionBuilder.withCodecRegistry(prepareCodecRegistry()).build();
+        session = builder.build();
 
         Metadata metadata = session.getMetadata();
-        System.out.printf(
+        output.printf(
                 "Connected to cluster: %s, max pending requests per connection %d, max connections per host %d%n",
-                metadata.getClusterName(), maxPendingPerConnection, connectionsPerHost);
-        Map<UUID, Node> nodes = metadata.getNodes();
-        for (Node host : nodes.values()) {
-            System.out.printf(
+                metadata.getClusterName().orElse(null), maxPendingPerConnection, connectionsPerHost);
+        for (Node host : metadata.getNodes().values()) {
+            output.printf(
                     "Datatacenter: %s; Host: %s; Rack: %s%n",
-                    host.getDatacenter(), host.getBroadcastRpcAddress(), host.getRack());
+                    host.getDatacenter(), host.getBroadcastRpcAddress().orElse(null), host.getRack());
         }
     }
 
-    private String discoverLocalDatacenter(ProtocolCompression compression) throws Exception {
-        ProgrammaticDriverConfigLoaderBuilder configBuilder = new DefaultProgrammaticDriverConfigLoaderBuilder();
-        CqlSessionBuilder sessionBuilder = CqlSession.builder();
-
-        configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost);
-
-        configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofMillis(requestTimeout));
-
-        if (protocolVersion != null)
-            configBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
-        if (maxPendingPerConnection != null)
-            configBuilder.withInt(DefaultDriverOption.CONNECTION_MAX_REQUESTS, maxPendingPerConnection);
-
-        sessionBuilder.addContactPoints(hosts.stream()
-                .map((h) -> {
-                    String[] chunks = h.split(":", 2);
-                    if (chunks.length == 2) return new InetSocketAddress(chunks[0], Integer.parseInt(chunks[1]));
-                    return new InetSocketAddress(chunks[0], this.port);
-                })
-                .toList());
-
-        if (loadBalancingPolicy != null) {
-            configBuilder = loadBalancingPolicy.applyConfig(configBuilder);
-        }
-
-        compression.toJavaDriverV4().applyConfig(configBuilder);
-
-        if (encryptionOptions.enabled) {
-            SSLContext sslContext = SSLFactory.createSSLContext(encryptionOptions, true);
-            SslEngineFactory sslOptions = new SslEngineFactory() {
-                final ProgrammaticSslEngineFactory factory =
-                        new ProgrammaticSslEngineFactory(sslContext, encryptionOptions.cipherSuites);
-
-                @Override
-                public void close() {}
-
-                @Override
-                public SSLEngine newSslEngine(EndPoint remoteEndpoint) {
-                    SSLEngine engine = factory.newSslEngine(remoteEndpoint);
-                    if (encryptionOptions.hostnameVerification) {
-                        SSLParameters parameters = engine.getSSLParameters();
-                        parameters.setEndpointIdentificationAlgorithm("HTTPS");
-                        engine.setSSLParameters(parameters);
-                    }
-                    return engine;
+    @SuppressWarnings("PMD.CloseResource")
+    private SslEngineFactory sslEngineFactory() throws IOException {
+        SSLContext sslContext = SSLFactory.createSSLContext(encryptionOptions, true);
+        ProgrammaticSslEngineFactory factory =
+                new ProgrammaticSslEngineFactory(sslContext, encryptionOptions.cipherSuites);
+        boolean verifyHostname = encryptionOptions.hostnameVerification;
+        return new SslEngineFactory() {
+            @Override
+            public SSLEngine newSslEngine(EndPoint remoteEndpoint) {
+                SSLEngine engine = factory.newSslEngine(remoteEndpoint);
+                if (verifyHostname) {
+                    SSLParameters parameters = engine.getSSLParameters();
+                    parameters.setEndpointIdentificationAlgorithm("HTTPS");
+                    engine.setSSLParameters(parameters);
                 }
-            };
+                return engine;
+            }
 
-            sessionBuilder.withSslEngineFactory(sslOptions);
+            @Override
+            public void close() {
+                factory.close();
+            }
+        };
+    }
+
+    record WhiteList(Set<InetAddress> addresses) implements NodeDistanceEvaluator {
+        WhiteList(List<HostAndPort> contactPoints) {
+            this(contactPoints.stream()
+                    .map(HostAndPort::toSocketAddress)
+                    .map(InetSocketAddress::getAddress)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toUnmodifiableSet()));
         }
 
-        if (authProvider != null) authProvider.apply(sessionBuilder);
-        else if (username != null) sessionBuilder.withCredentials(username, password);
+        @Override
+        public NodeDistance evaluateDistance(Node node, String localDc) {
+            return allows(node) ? null : NodeDistance.IGNORED;
+        }
 
-        sessionBuilder.withConfigLoader(configBuilder.build());
-        try (CqlSession tmp =
-                sessionBuilder.withCodecRegistry(prepareCodecRegistry()).build()) {
-            for (Node node : tmp.getMetadata().getNodes().values()) {
-                if (node.getDatacenter() != null) return node.getDatacenter();
-            }
-            return null;
+        boolean allows(Node node) {
+            SocketAddress endpoint = node.getEndPoint().resolve();
+            if (endpoint instanceof InetSocketAddress socket && addresses.contains(socket.getAddress())) return true;
+            return node.getBroadcastRpcAddress()
+                    .map(InetSocketAddress::getAddress)
+                    .filter(addresses::contains)
+                    .isPresent();
         }
     }
 
@@ -275,60 +193,62 @@ public class JavaDriverV4Client implements QueryExecutor, QueryPrepare, Metadata
         return session;
     }
 
-    @Override
-    public void execute(String query, org.apache.cassandra.stress.util.ConsistencyLevel consistency) {
-        SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
-        builder.setConsistencyLevel(consistency.toV4Value());
-        session.execute(builder.build());
+    public Optional<TokenMap> getTokenMap() {
+        return session.getMetadata().getTokenMap();
     }
 
-    public ResultSet execute(
-            String query,
-            org.apache.cassandra.stress.util.ConsistencyLevel consistency,
-            org.apache.cassandra.stress.util.ConsistencyLevel serialConsistency) {
+    @Override
+    public void execute(String query, ConsistencyLevel consistency) {
+        ResultSet result = session.execute(new SimpleStatementBuilder(query)
+                .setConsistencyLevel(consistency.toDriver())
+                .build());
+        if (!result.getExecutionInfo().isSchemaInAgreement())
+            LOGGER.warn(
+                    "No schema agreement from live replicas after {} s. The schema may not be up to date on some"
+                            + " nodes.",
+                    schemaAgreementWait().toSeconds());
+    }
+
+    private Duration schemaAgreementWait() {
+        return session.getContext()
+                .getConfig()
+                .getDefaultProfile()
+                .getDuration(DefaultDriverOption.CONTROL_CONNECTION_AGREEMENT_TIMEOUT);
+    }
+
+    public ResultSet execute(String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
         SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
-        builder.setConsistencyLevel(consistency.toV4Value());
-        builder.setSerialConsistencyLevel(serialConsistency.toV4Value());
-        return getSession().execute(builder.build());
+        if (consistency != null) builder.setConsistencyLevel(consistency.toDriver());
+        if (serialConsistency != null) builder.setSerialConsistencyLevel(serialConsistency.toDriver());
+        return session.execute(builder.build());
     }
 
     public ResultSet executePrepared(
-            PreparedStatement stmt,
-            List<Object> queryParams,
-            org.apache.cassandra.stress.util.ConsistencyLevel consistency) {
-        BoundStatementBuilder builder =
-                stmt.toV4Value().boundStatementBuilder((Object[]) queryParams.toArray(new Object[0]));
-        builder = builder.setConsistencyLevel(consistency.toV4Value());
-        return getSession().execute(builder.build());
+            PreparedStatement statement,
+            List<Object> values,
+            ConsistencyLevel consistency,
+            ConsistencyLevel serialConsistency) {
+        BoundStatement bound = statement.bind(values.toArray());
+        if (statement.getConsistencyLevel() == null && consistency != null)
+            bound = bound.setConsistencyLevel(consistency.toDriver());
+        if (statement.getSerialConsistencyLevel() == null && serialConsistency != null)
+            bound = bound.setSerialConsistencyLevel(serialConsistency.toDriver());
+        return session.execute(bound);
     }
 
     @Override
     public TableMetadata getTableMetadata(String keyspace, String tableName) {
-        return getSession()
-                .getMetadata()
+        return session.getMetadata()
                 .getKeyspace(keyspace)
                 .flatMap(ks -> ks.getTable(tableName))
-                .map(table -> new TableMetadata(table))
                 .orElse(null);
-    }
-
-    public ResultSet executePrepared(
-            PreparedStatement stmt,
-            List<Object> queryParams,
-            org.apache.cassandra.stress.util.ConsistencyLevel consistency,
-            org.apache.cassandra.stress.util.ConsistencyLevel serialConsistency) {
-        BoundStatementBuilder builder =
-                stmt.toV4Value().boundStatementBuilder((Object[]) queryParams.toArray(new Object[0]));
-        builder = builder.setConsistencyLevel(consistency.toV4Value());
-        builder.setSerialConsistencyLevel(serialConsistency.toV4Value());
-        return getSession().execute(builder.build());
     }
 
     public void disconnect() {
         try {
             session.close();
-        } catch (Exception e) {
-            System.out.printf("Failed to close connection due to the following error: %s", e);
+        } catch (RuntimeException e) {
+            output.printf("Failed to close connection due to the following error: %s%n", e);
         }
     }
 }

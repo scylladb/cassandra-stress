@@ -1,12 +1,20 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
-import org.apache.cassandra.stress.util.JavaDriverV4SessionBuilder;
+import com.datastax.oss.driver.api.core.auth.ProgrammaticPlainTextAuthProvider;
+import java.util.Set;
 
 public class AuthProvider {
-    String authClassName;
-    String username;
-    String password;
+    private static final Set<String> PLAIN_TEXT_NAMES = Set.of(
+            "PlainTextAuthProvider",
+            "com.datastax.driver.core.PlainTextAuthProvider",
+            "ProgrammaticPlainTextAuthProvider",
+            "com.datastax.oss.driver.api.core.auth.ProgrammaticPlainTextAuthProvider");
+
+    private final String authClassName;
+    private final String username;
+    private final String password;
 
     public AuthProvider(String authClassName, String username, String password) {
         this.authClassName = authClassName;
@@ -18,41 +26,14 @@ public class AuthProvider {
         return authClassName;
     }
 
-    public com.datastax.driver.core.AuthProvider toJavaDriverV3() {
-        if (authClassName == null || authClassName.isEmpty()) {
-            return null;
-        }
-
-        try {
-            if ("com.datastax.driver.core.PlainTextAuthProvider".equals(authClassName)
-                    || "PlainTextAuthProvider".equals(authClassName)) {
-                return new com.datastax.driver.core.PlainTextAuthProvider(username, password);
-            }
-            throw new IllegalArgumentException("Unknown auth provider class: " + authClassName);
-        } catch (IllegalArgumentException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to initialize authentication class: " + authClassName, e);
-        }
+    public boolean isSet() {
+        return authClassName != null && !authClassName.isEmpty();
     }
 
-    public JavaDriverV4SessionBuilder toJavaDriverV4() {
-        if (authClassName == null || authClassName.isEmpty()) {
-            return null;
-        }
-        if ("com.datastax.driver.core.PlainTextAuthProvider".equals(authClassName)
-                || "PlainTextAuthProvider".equals(authClassName)
-                || "com.datastax.oss.driver.api.core.auth.ProgrammaticPlainTextAuthProvider".equals(authClassName)
-                || "ProgrammaticPlainTextAuthProvider".equals(authClassName)) {
-            return new JavaDriverV4SessionBuilder() {
-                @Override
-                public CqlSessionBuilder apply(CqlSessionBuilder builder) {
-                    return builder.withAuthProvider(
-                            new com.datastax.oss.driver.api.core.auth.ProgrammaticPlainTextAuthProvider(
-                                    username, password));
-                }
-            };
-        }
-        throw new IllegalArgumentException("Unknown auth provider class: " + authClassName);
+    public CqlSessionBuilder applyTo(CqlSessionBuilder builder) {
+        if (!isSet()) return builder;
+        if (!PLAIN_TEXT_NAMES.contains(authClassName))
+            throw new IllegalArgumentException("Unknown auth provider class: " + authClassName);
+        return builder.withAuthProvider(new ProgrammaticPlainTextAuthProvider(username, password));
     }
 }

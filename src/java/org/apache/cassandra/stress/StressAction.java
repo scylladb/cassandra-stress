@@ -13,11 +13,9 @@ import java.util.concurrent.locks.LockSupport;
 import org.apache.cassandra.stress.operations.OpDistribution;
 import org.apache.cassandra.stress.operations.OpDistributionFactory;
 import org.apache.cassandra.stress.report.StressMetrics;
-import org.apache.cassandra.stress.settings.ConnectionAPI;
 import org.apache.cassandra.stress.settings.SettingsCommand;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.Sleep;
 import org.jctools.queues.atomic.SpscAtomicArrayQueue;
@@ -127,7 +125,7 @@ public class StressAction implements Runnable {
             results.add(result);
 
             if (prevThreadCount > 0)
-                System.out.println(String.format(
+                output.println(String.format(
                         "Improvement over %d threadCount: %.0f%%",
                         prevThreadCount, 100 * averageImprovement(results, 1)));
 
@@ -367,15 +365,9 @@ public class StressAction implements Runnable {
         @Override
         public void run() {
             try {
-                JavaDriverClient jclient = null;
-                JavaDriverV4Client jv4client = null;
-                final ConnectionAPI clientType = settings.mode.api;
-
+                JavaDriverClient client;
                 try {
-                    switch (clientType) {
-                        case JAVA_DRIVER_NATIVE -> jclient = settings.getJavaDriverClient();
-                        case JAVA_DRIVER4_NATIVE -> jv4client = settings.getJavaDriverV4Client();
-                    }
+                    client = settings.getJavaDriverClient();
                 } finally {
                     start.countDown();
                 }
@@ -391,10 +383,7 @@ public class StressAction implements Runnable {
                     if (op == null) break;
 
                     try {
-                        switch (clientType) {
-                            case JAVA_DRIVER4_NATIVE -> op.run(jv4client);
-                            case JAVA_DRIVER_NATIVE -> op.run(jclient);
-                        }
+                        op.run(client);
                     } catch (NoSuchElementException ignored) {
                     } catch (Exception e) {
                         if (output == null) System.err.println(e.getMessage());

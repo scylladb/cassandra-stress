@@ -14,18 +14,7 @@ public final class ProtocolVersion {
         return new ProtocolVersion(i);
     }
 
-    public com.datastax.driver.core.ProtocolVersion toJavaDriverV3() {
-        if (protocolVersion == SpecialVersions.DEFAULT.index) {
-            return com.datastax.driver.core.ProtocolVersion.DEFAULT;
-        } else if (protocolVersion == SpecialVersions.NEWEST_SUPPORTED.index) {
-            return com.datastax.driver.core.ProtocolVersion.V5;
-        } else if (protocolVersion <= 0) {
-            throw new IllegalArgumentException("Invalid protocol version: " + protocolVersion);
-        }
-        return com.datastax.driver.core.ProtocolVersion.fromInt(protocolVersion);
-    }
-
-    public com.datastax.oss.driver.api.core.ProtocolVersion toJavaDriverV4() {
+    public com.datastax.oss.driver.api.core.ProtocolVersion toDriver() {
         if (protocolVersion == SpecialVersions.DEFAULT.index) {
             return null;
         } else if (protocolVersion == SpecialVersions.NEWEST_SUPPORTED.index) {

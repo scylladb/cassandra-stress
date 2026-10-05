@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
 import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
-import java.util.Locale;
-import org.apache.cassandra.stress.util.JavaDriverV4ConfigBuilder;
 
 public enum ProtocolCompression {
     NONE(""),
@@ -16,22 +15,8 @@ public enum ProtocolCompression {
         this.name = name;
     }
 
-    public com.datastax.driver.core.ProtocolOptions.Compression toJavaDriverV3() {
-        if (name.isEmpty()) {
-            return com.datastax.driver.core.ProtocolOptions.Compression.NONE;
-        }
-        return com.datastax.driver.core.ProtocolOptions.Compression.valueOf(name.toUpperCase(Locale.ROOT));
-    }
-
-    public JavaDriverV4ConfigBuilder toJavaDriverV4() {
-        return new JavaDriverV4ConfigBuilder() {
-            @Override
-            public ProgrammaticDriverConfigLoaderBuilder applyConfig(ProgrammaticDriverConfigLoaderBuilder builder) {
-                if (name.isEmpty()) {
-                    return builder;
-                }
-                return builder.withString(DefaultDriverOption.PROTOCOL_COMPRESSION, name);
-            }
-        };
+    public ProgrammaticDriverConfigLoaderBuilder applyTo(ProgrammaticDriverConfigLoaderBuilder builder) {
+        if (name.isEmpty()) return builder;
+        return builder.withString(DefaultDriverOption.PROTOCOL_COMPRESSION, name);
     }
 }

@@ -13,7 +13,9 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.net.Socket;
 import java.net.SocketException;
+import org.apache.cassandra.stress.settings.InvalidSettingsException;
 import org.apache.cassandra.stress.settings.StressSettings;
+import org.apache.cassandra.stress.util.HostAndPort;
 import org.apache.cassandra.stress.util.MultiResultLogger;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -31,13 +33,17 @@ public final class Stress {
         System.exit(exitCode);
     }
 
-    @SuppressWarnings({"PMD.CloseResource", "PMD.AvoidFileStream"})
+    @SuppressWarnings("PMD.AvoidFileStream")
     static int run(String[] arguments) {
         try {
             final StressSettings settings;
             try {
                 settings = StressSettings.parse(arguments);
                 if (settings == null) return 0;
+            } catch (InvalidSettingsException e) {
+                e.printHelp();
+                System.out.println(e.getMessage());
+                return 1;
             } catch (IllegalArgumentException e) {
                 System.out.printf("%s%n", e.getMessage());
                 printHelpMessage();
@@ -45,6 +51,7 @@ public final class Stress {
             }
 
             MultiResultLogger logout = settings.log.getOutput();
+            settings.setOutput(logout);
 
             if (!settings.log.noSettings) {
                 settings.printSettings(logout);
@@ -58,34 +65,7 @@ public final class Stress {
             }
 
             if (settings.sendToDaemon != null) {
-                Socket socket = new Socket(settings.sendToDaemon, 2159);
-
-                DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-                BufferedReader inp = new BufferedReader(new InputStreamReader(socket.getInputStream(), UTF_8));
-
-                Runtime.getRuntime().addShutdownHook(new ShutDown(socket, out));
-
-                StressServer.writeCommand(out, arguments);
-
-                String line;
-
-                try {
-                    while (!socket.isClosed() && (line = inp.readLine()) != null) {
-                        if ("END".equals(line) || "FAILURE".equals(line)) {
-                            out.writeInt(1);
-                            break;
-                        }
-
-                        logout.println(line);
-                    }
-                } catch (SocketException e) {
-                    if (!stopped) e.printStackTrace();
-                }
-
-                out.close();
-                inp.close();
-
-                socket.close();
+                sendToDaemon(HostAndPort.parse(settings.sendToDaemon, StressServer.DEFAULT_PORT), arguments, logout);
             } else {
                 StressAction stressAction = new StressAction(settings, logout);
                 stressAction.run();
@@ -99,6 +79,28 @@ public final class Stress {
         }
 
         return 0;
+    }
+
+    private static void sendToDaemon(HostAndPort daemon, String[] arguments, MultiResultLogger logout)
+            throws IOException {
+        try (Socket socket = new Socket(daemon.host(), daemon.port());
+                DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+                BufferedReader inp = new BufferedReader(new InputStreamReader(socket.getInputStream(), UTF_8))) {
+            Runtime.getRuntime().addShutdownHook(new ShutDown(socket, out));
+            StressServer.writeCommand(out, arguments);
+            try {
+                String line;
+                while (!socket.isClosed() && (line = inp.readLine()) != null) {
+                    if ("END".equals(line) || "FAILURE".equals(line)) {
+                        out.writeInt(1);
+                        break;
+                    }
+                    logout.println(line);
+                }
+            } catch (SocketException e) {
+                if (!stopped) throw e;
+            }
+        }
     }
 
     public static void printHelpMessage() {

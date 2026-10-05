@@ -83,9 +83,8 @@ public class SettingsTransport {
 
         GroupedOptions options = GroupedOptions.select(params, new TOptions());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -transport options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -transport options provided, see output for valid options", SettingsTransport::printHelp);
         }
         return new SettingsTransport((TOptions) options);
     }

@@ -106,9 +106,8 @@ public class SettingsCommandPreDefined extends SettingsCommand {
         GroupedOptions options = GroupedOptions.select(
                 params, new Options(new Uncertainty()), new Options(new Count()), new Options(new Duration()));
         if (options == null) {
-            printHelp(type);
-            System.out.println("Invalid " + type + " options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid " + type + " options provided, see output for valid options", () -> printHelp(type));
         }
         return new SettingsCommandPreDefined(type, (Options) options);
     }

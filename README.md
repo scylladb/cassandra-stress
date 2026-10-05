@@ -146,9 +146,9 @@ If you prefer a Dockerized build, follow these steps:
     docker build -t cassandra-stress --compress .
     ```
 
-    To build with custom driver jar, put jar into root repo directory and run build command:
+    To build with another version of the Scylla Java driver, set the version in `BUILD_OPTS`:
     ```shell
-    docker build -t cassandra-stress --build-args BUILD_OPTS=-Dlib.override.com.scylladb.scylla-driver-core=/app/<jar-file-name>.jar --compress .
+    docker build -t cassandra-stress --build-arg BUILD_OPTS=-Dbase.javaDriverVersion=<version> --compress .
     ```
 
 Once built, you can run the image locally using:
@@ -217,7 +217,7 @@ There are several operation types:
 * `-log`: Where to log progress to, and the interval at which to do it
 * `-transport`: Custom transport factories
 * `-port`: The port to connect to cassandra nodes on
-* `-sendto`: Specify a stress server to send this command to
+* `-sendto`: Send this command to a stress server at `host` or `host:port` (the default port is 2159)
 * `-graph`: Graph recorded metrics
 * `-tokenrange`: Token range settings
 

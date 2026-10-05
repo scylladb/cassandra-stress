@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
+import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
 import com.datastax.oss.driver.api.core.cql.BatchableStatement;
+import com.datastax.oss.driver.api.core.cql.DefaultBatchType;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.cassandra.stress.core.BatchStatementType;
 import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
@@ -15,11 +17,11 @@ import org.apache.cassandra.stress.generate.SeedManager;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
 
 public class SchemaInsert extends SchemaStatement {
+    static final int MAX_BATCH_SIZE = 65535;
 
-    private final BatchStatementType batchType;
+    private final DefaultBatchType batchType;
 
     public SchemaInsert(
             Timer timer,
@@ -30,7 +32,7 @@ public class SchemaInsert extends SchemaStatement {
             RatioDistribution useRatio,
             RatioDistribution rowPopulation,
             PreparedStatement statement,
-            BatchStatementType batchType) {
+            DefaultBatchType batchType) {
         super(
                 timer,
                 settings,
@@ -49,88 +51,34 @@ public class SchemaInsert extends SchemaStatement {
 
         @Override
         public boolean run() throws Exception {
-            List<com.datastax.driver.core.BoundStatement> stmts = new ArrayList<>();
+            List<BatchableStatement<?>> stmts = new ArrayList<>();
             partitionCount = partitions.size();
 
             for (PartitionIterator iterator : partitions)
-                while (iterator.hasNext()) stmts.add(bindRow(iterator.next()).toV3Value());
+                while (iterator.hasNext()) stmts.add(bindRow(iterator.next()));
 
             rowCount += stmts.size();
 
-            for (int j = 0; j < stmts.size(); j += 65535) {
-                List<com.datastax.driver.core.BoundStatement> substmts =
-                        stmts.subList(j, Math.min(j + stmts.size(), j + 65535));
-                com.datastax.driver.core.Statement stmt;
-                if (substmts.size() == 1) {
-                    stmt = substmts.getFirst();
-                } else {
-                    com.datastax.driver.core.BatchStatement batch =
-                            new com.datastax.driver.core.BatchStatement(batchType.toV3Value());
-                    if (statement.getConsistencyLevel() != null) {
-                        batch.setConsistencyLevel(
-                                statement.getConsistencyLevel().toV3Value());
-                    }
-                    if (statement.getSerialConsistencyLevel() != null) {
-                        batch.setSerialConsistencyLevel(
-                                statement.getSerialConsistencyLevel().toV3Value());
-                    }
-                    batch.addAll(substmts);
-                    stmt = batch;
-                }
-
-                client.getSession().execute(stmt);
-            }
+            for (int j = 0; j < stmts.size(); j += MAX_BATCH_SIZE)
+                client.getSession().execute(statement(stmts.subList(j, Math.min(stmts.size(), j + MAX_BATCH_SIZE))));
             return true;
         }
     }
 
-    private final class JavaDriverV4Run extends Runner {
-        final JavaDriverV4Client client;
-
-        private JavaDriverV4Run(JavaDriverV4Client client) {
-            this.client = client;
-        }
-
-        @Override
-        public boolean run() throws Exception {
-            List<com.datastax.oss.driver.api.core.cql.BatchableStatement<?>> stmts = new ArrayList<>();
-            partitionCount = partitions.size();
-
-            for (PartitionIterator iterator : partitions)
-                while (iterator.hasNext()) stmts.add(bindRow(iterator.next()).toV4Value());
-
-            rowCount += stmts.size();
-
-            for (int j = 0; j < stmts.size(); j += 65535) {
-                List<? extends com.datastax.oss.driver.api.core.cql.BatchableStatement<?>> substmts =
-                        stmts.subList(j, Math.min(j + stmts.size(), j + 65535));
-                com.datastax.oss.driver.api.core.cql.Statement stmt;
-                if (substmts.size() == 1) {
-                    stmt = substmts.getFirst();
-                } else {
-                    com.datastax.oss.driver.api.core.cql.BatchStatementBuilder batch =
-                            new com.datastax.oss.driver.api.core.cql.BatchStatementBuilder(batchType.toV4Value());
-                    batch.setConsistencyLevel(statement.getConsistencyLevel().toV4Value());
-                    batch.setSerialConsistencyLevel(
-                            statement.getSerialConsistencyLevel().toV4Value());
-                    batch.addStatements((Iterable<BatchableStatement<?>>) substmts);
-                    stmt = batch.build();
-                }
-
-                client.getSession().execute(stmt);
-            }
-            return true;
-        }
+    Statement<?> statement(List<BatchableStatement<?>> stmts) {
+        if (stmts.size() == 1) return stmts.getFirst();
+        BatchStatementBuilder batch = new BatchStatementBuilder(batchType);
+        if (statement.getConsistencyLevel() != null)
+            batch.setConsistencyLevel(statement.getConsistencyLevel().toDriver());
+        if (statement.getSerialConsistencyLevel() != null)
+            batch.setSerialConsistencyLevel(
+                    statement.getSerialConsistencyLevel().toDriver());
+        return batch.addStatements(stmts).build();
     }
 
     @Override
     public void run(JavaDriverClient client) throws IOException {
         timeWithRetry(new JavaDriverRun(client));
-    }
-
-    @Override
-    public void run(JavaDriverV4Client client) throws IOException {
-        timeWithRetry(new JavaDriverV4Run(client));
     }
 
     @Override

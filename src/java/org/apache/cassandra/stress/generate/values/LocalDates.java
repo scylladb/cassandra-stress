@@ -13,4 +13,9 @@ public class LocalDates extends Generator<Integer> {
     public Integer generate() {
         return (int) identityDistribution.next();
     }
+
+    @Override
+    Object fromStoredValue(Object value) {
+        return value == null ? null : (Integer) value ^ Integer.MIN_VALUE;
+    }
 }

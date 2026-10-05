@@ -9,7 +9,6 @@ import org.apache.cassandra.stress.util.ResultLogger;
 
 public class SettingsMode {
 
-    public final ConnectionAPI api;
     public final ConnectionStyle style;
     public final CqlVersion cqlVersion;
     public final ProtocolVersion protocolVersion;
@@ -25,7 +24,7 @@ public class SettingsMode {
     private final ProtocolCompression compression;
 
     public SettingsMode(GroupedOptions options) {
-        if (options instanceof Cql3Options opts) {
+        if (options instanceof Options opts) {
             cqlVersion = CqlVersion.CQL3;
             if ("NEWEST_SUPPORTED".equals(opts.protocolVersion.value())) {
                 protocolVersion = ProtocolVersion.NEWEST_SUPPORTED;
@@ -34,9 +33,6 @@ public class SettingsMode {
             } else {
                 protocolVersion = ProtocolVersion.fromInt(Integer.parseInt(opts.protocolVersion.value()));
             }
-            api = "4x".equals(opts.mode().displayPrefix)
-                    ? ConnectionAPI.JAVA_DRIVER4_NATIVE
-                    : ConnectionAPI.JAVA_DRIVER_NATIVE;
             style = opts.useUnPrepared.setByUser() ? ConnectionStyle.CQL : ConnectionStyle.CQL_PREPARED;
             compression =
                     ProtocolCompression.valueOf(opts.useCompression.value().toUpperCase(Locale.ROOT));
@@ -64,40 +60,19 @@ public class SettingsMode {
         return compression;
     }
 
-    private static final class Cql3NativeOptions extends Cql3Options {
-        final OptionSimple mode = new OptionSimple("native", "", null, "", true);
-
-        @Override
-        OptionSimple mode() {
-            return mode;
-        }
-    }
-
-    private static final class Cql3NativeV4Options extends Cql3Options {
-        final OptionSimple mode = new OptionSimple("4x", "", null, "", true);
-
-        @Override
-        OptionSimple mode() {
-            return mode;
-        }
-    }
-
-    private abstract static class Cql3Options extends GroupedOptions {
+    private static final class Options extends GroupedOptions {
         final OptionSimple api = new OptionSimple("cql3", "", null, "", true);
+        final OptionSimple driver = new OptionSimple("", "native|4x", null, "native or 4x: the Java driver 4.x", false);
         final OptionSimple protocolVersion =
-                new OptionSimple("protocolVersion=", "[2-4]+", "DEFAULT", "CQL Protocol Version", false);
+                new OptionSimple("protocolVersion=", "[3-5]", "DEFAULT", "CQL Protocol Version", false);
         final OptionSimple useUnPrepared =
                 new OptionSimple("unprepared", "", null, "force use of unprepared statements", false);
         final OptionSimple useCompression = new OptionSimple("compression=", "none|lz4|snappy", "none", "", false);
         final OptionSimple port = new OptionSimple("port=", "[0-9]+", "9046", "", false);
         final OptionSimple user = new OptionSimple("user=", ".+", null, "username", false);
         final OptionSimple password = new OptionSimple("password=", ".+", null, "password", false);
-        final OptionSimple authProvider = new OptionSimple(
-                "auth-provider=",
-                ".*",
-                null,
-                "Fully qualified implementation of com.datastax.driver.core.AuthProvider",
-                false);
+        final OptionSimple authProvider =
+                new OptionSimple("auth-provider=", ".*", null, "Authentication provider: PlainTextAuthProvider", false);
         final OptionSimple maxPendingPerConnection =
                 new OptionSimple("maxPending=", "[0-9]+", "", "Maximum pending requests per connection", false);
         final OptionSimple connectionsPerHost =
@@ -105,12 +80,9 @@ public class SettingsMode {
         final OptionSimple requestTimeout =
                 new OptionSimple("requestTimeout=", "[0-9]+", "12000", "Request timeout in milliseconds", false);
 
-        abstract OptionSimple mode();
-
         @Override
         public List<? extends Option> options() {
             return Arrays.asList(
-                    mode(),
                     useUnPrepared,
                     api,
                     useCompression,
@@ -121,12 +93,12 @@ public class SettingsMode {
                     maxPendingPerConnection,
                     connectionsPerHost,
                     requestTimeout,
-                    protocolVersion);
+                    protocolVersion,
+                    driver);
         }
     }
 
     public void printSettings(ResultLogger out) {
-        out.printf("  API: %s%n", api);
         out.printf("  Connection Style: %s%n", style);
         out.printf("  CQL Version: %s%n", cqlVersion);
         out.printf("  Protocol Version: %s%n", protocolVersion);
@@ -142,20 +114,16 @@ public class SettingsMode {
     public static SettingsMode get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-mode");
         if (params == null) {
-            Cql3NativeOptions opts = new Cql3NativeOptions();
+            Options opts = new Options();
             opts.accept("cql3");
-            opts.accept("native");
-            opts.accept("4x");
-            opts.accept("prepared");
             return new SettingsMode(opts);
         }
 
         rejectRemovedModes(params);
-        GroupedOptions options = GroupedOptions.select(params, new Cql3NativeOptions(), new Cql3NativeV4Options());
+        GroupedOptions options = GroupedOptions.select(params, new Options());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -mode options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -mode options provided, see output for valid options", SettingsMode::printHelp);
         }
         return new SettingsMode(options);
     }
@@ -171,7 +139,7 @@ public class SettingsMode {
     }
 
     public static void printHelp() {
-        GroupedOptions.printOptions(System.out, "-mode", new Cql3NativeOptions(), new Cql3NativeV4Options());
+        GroupedOptions.printOptions(System.out, "-mode", new Options());
     }
 
     public static Runnable helpPrinter() {

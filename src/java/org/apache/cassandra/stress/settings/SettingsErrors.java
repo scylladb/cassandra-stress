@@ -136,9 +136,8 @@ public class SettingsErrors {
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -errors options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -errors options provided, see output for valid options", SettingsErrors::printHelp);
         }
         return new SettingsErrors((Options) options);
     }

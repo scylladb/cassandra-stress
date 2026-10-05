@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.generate.values;
 
+import java.nio.ByteBuffer;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.marshal.AbstractType;
@@ -32,6 +33,14 @@ public abstract class Generator<T> {
     }
 
     public abstract T generate();
+
+    public Object read(ByteBuffer bytes) {
+        return fromStoredValue(type.compose(bytes));
+    }
+
+    Object fromStoredValue(Object value) {
+        return value;
+    }
 
     DistributionFactory defaultIdentityDistribution() {
         return OptionDistribution.get("uniform(1..100B)");

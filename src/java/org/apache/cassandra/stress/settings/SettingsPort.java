@@ -36,9 +36,8 @@ public class SettingsPort {
         rejectRemovedPorts(params);
         PortOptions options = GroupedOptions.select(params, new PortOptions());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -port options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -port options provided, see output for valid options", SettingsPort::printHelp);
         }
         return new SettingsPort(options);
     }

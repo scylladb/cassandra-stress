@@ -3,17 +3,12 @@ package org.apache.cassandra.stress.settings;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.cassandra.stress.util.ResultLogger;
 
 public class SettingsNode {
@@ -63,41 +58,11 @@ public class SettingsNode {
         }
     }
 
-    public Set<InetAddress> resolveAllSpecified() {
-        Set<InetAddress> r = new HashSet<>();
-        for (String node : nodes) {
-            try {
-                r.add(InetAddress.getByName(node));
-            } catch (UnknownHostException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return r;
-    }
-
-    public Set<InetSocketAddress> resolveAll(int port) {
-        Set<InetSocketAddress> r = new HashSet<>();
-        for (String node : nodes) {
-            try {
-                r.add(new InetSocketAddress(InetAddress.getByName(node), port));
-            } catch (UnknownHostException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return r;
-    }
-
-    public String randomNode() {
-        int index = (int) (Math.random() * nodes.size());
-        if (index >= nodes.size()) index = nodes.size() - 1;
-        return nodes.get(index);
-    }
-
     public static final class Options extends GroupedOptions {
-        final OptionSimple datacenter =
-                new OptionSimple("datacenter=", ".*", null, "Datacenter used for DCAwareRoundRobinLoadPolicy", false);
+        final OptionSimple datacenter = new OptionSimple(
+                "datacenter=", ".*", null, "Local datacenter for dc-aware and rack-aware load balancing", false);
         final OptionSimple rack =
-                new OptionSimple("rack=", ".*", null, "Rack used for RackAwareRoundRobinLoadPolicy", false);
+                new OptionSimple("rack=", ".*", null, "Local rack for rack-aware load balancing", false);
         final OptionSimple whitelist =
                 new OptionSimple("whitelist", "", null, "Limit communications to the provided nodes", false);
         final OptionSimple file = new OptionSimple("file=", ".*", null, "Node file (one per line)", false);
@@ -133,9 +98,8 @@ public class SettingsNode {
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -node options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -node options provided, see output for valid options", SettingsNode::printHelp);
         }
         return new SettingsNode((Options) options);
     }

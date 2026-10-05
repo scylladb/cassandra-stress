@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.generate;
 
-import com.datastax.driver.core.TokenRange;
+import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;

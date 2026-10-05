@@ -5,12 +5,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.cassandra.stress.settings.StressSettings;
+import org.apache.cassandra.stress.util.HostAndPort;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -30,20 +41,35 @@ class StressServerTest {
     }
 
     @Test
-    void listensOnLocalhostByDefault() {
-        assertEquals("127.0.0.1", StressServer.listenHost(new String[] {"start"}));
+    void listensOnLocalhostAndTheDefaultPort() {
+        assertEquals(
+                new HostAndPort("127.0.0.1", StressServer.DEFAULT_PORT),
+                StressServer.listenAddress(new String[] {"start"}));
     }
 
     @ParameterizedTest
-    @CsvSource({"10.0.0.1, start -h 10.0.0.1", "10.0.0.2, --host 10.0.0.2", "10.0.0.3, --host=10.0.0.3"})
-    void readsTheHostInEachForm(String host, String args) {
-        assertEquals(host, StressServer.listenHost(args.split(" ")));
+    @CsvSource({
+        "10.0.0.1, 2159, start -h 10.0.0.1",
+        "10.0.0.2, 2159, --host 10.0.0.2",
+        "10.0.0.3, 2159, --host=10.0.0.3",
+        "127.0.0.1, 3000, start -p 3000",
+        "10.0.0.4, 3001, --host 10.0.0.4 --port 3001",
+        "127.0.0.1, 3002, --port=3002",
+    })
+    void readsTheHostAndPortInEachForm(String host, int port, String args) {
+        assertEquals(new HostAndPort(host, port), StressServer.listenAddress(args.split(" ")));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"-h", "-x 1"})
-    void rejectsAMissingHostOrAnUnknownOption(String args) {
-        assertNull(StressServer.listenHost(args.split(" ")));
+    @ValueSource(strings = {"-h", "-x 1", "-p"})
+    void rejectsAMissingValueOrAnUnknownOption(String args) {
+        assertNull(StressServer.listenAddress(args.split(" ")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-p x", "--port=0", "--port=70000"})
+    void rejectsAnInvalidPort(String args) {
+        assertThrows(IllegalArgumentException.class, () -> StressServer.listenAddress(args.split(" ")));
     }
 
     @ParameterizedTest
@@ -76,5 +102,35 @@ class StressServerTest {
     @Test
     void rejectsATruncatedCommand() {
         assertThrows(IOException.class, () -> StressServer.readCommand(countOnly(2)));
+    }
+
+    private static List<String> sendToServer(String... arguments) throws Exception {
+        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+            CompletableFuture<Void> served = CompletableFuture.runAsync(() -> {
+                try {
+                    StressServer.serve(server.accept());
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            try (Socket client = new Socket(InetAddress.getLoopbackAddress(), server.getLocalPort());
+                    BufferedReader reply = new BufferedReader(
+                            new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8))) {
+                StressServer.writeCommand(new DataOutputStream(client.getOutputStream()), arguments);
+                List<String> lines = reply.lines().toList();
+                served.get(10, TimeUnit.SECONDS);
+                return lines;
+            }
+        }
+    }
+
+    @Test
+    void answersAnInvalidCommandAndKeepsRunning() throws Exception {
+        assertEquals(
+                List.of("Invalid -rate options provided, see output for valid options", "FAILURE"),
+                sendToServer("write", "n=10", "-rate", "threads=4", "auto"));
+        assertEquals(List.of("Invalid parameter bogus", "FAILURE"), sendToServer("write", "n=10", "-rate", "bogus"));
     }
 }

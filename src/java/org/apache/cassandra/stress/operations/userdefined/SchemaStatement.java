@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
-import com.datastax.driver.core.DataType;
-import com.datastax.driver.core.LocalDate;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import java.util.List;
-import org.apache.cassandra.stress.core.BoundStatement;
-import org.apache.cassandra.stress.core.ColumnDefinitions;
 import org.apache.cassandra.stress.core.PreparedStatement;
 import org.apache.cassandra.stress.generate.Row;
 import org.apache.cassandra.stress.operations.PartitionOperation;
@@ -16,9 +13,7 @@ public abstract class SchemaStatement extends PartitionOperation {
     final PreparedStatement statement;
     final int[] argumentIndex;
     final Object[] bindBuffer;
-    final ColumnDefinitions definitions;
     final boolean printStatementsOnError;
-    static final DataType.Name V3_DATE_TYPE_NAME = DataType.date().getName();
 
     public SchemaStatement(
             Timer timer, StressSettings settings, DataSpec spec, PreparedStatement statement, List<String> bindNames) {
@@ -26,7 +21,6 @@ public abstract class SchemaStatement extends PartitionOperation {
         this.statement = statement;
         argumentIndex = new int[bindNames.size()];
         bindBuffer = new Object[argumentIndex.length];
-        definitions = statement != null ? statement.getVariables() : null;
         int i = 0;
         for (String name : bindNames) argumentIndex[i++] = spec.partitionGenerator.indexOf(name);
         this.printStatementsOnError = settings.log.printStatementsOnError;
@@ -36,11 +30,7 @@ public abstract class SchemaStatement extends PartitionOperation {
         assert statement != null;
 
         for (int i = 0; i < argumentIndex.length; i++) {
-            Object value = row.get(argumentIndex[i]);
-            if (definitions.isDateType(i)) {
-                value = LocalDate.fromDaysSinceEpoch((Integer) value);
-            }
-            bindBuffer[i] = value;
+            bindBuffer[i] = row.get(argumentIndex[i]);
             if (bindBuffer[i] == null && !spec.partitionGenerator.permitNulls(argumentIndex[i]))
                 throw new IllegalStateException();
         }

@@ -160,19 +160,15 @@ public class OptionDistribution extends Option {
         DistributionFactory getFactory(List<String> params);
     }
 
-    @SuppressWarnings({"fallthrough", "PMD.NonExhaustiveSwitch"})
     public static long parseLong(String value) {
-        long multiplier = 1;
         value = value.trim().toLowerCase(Locale.ROOT);
-        switch (value.charAt(value.length() - 1)) {
-            case 'b':
-                multiplier *= 1000;
-            case 'm':
-                multiplier *= 1000;
-            case 'k':
-                multiplier *= 1000;
-                value = value.substring(0, value.length() - 1);
-        }
+        long multiplier = switch (value.charAt(value.length() - 1)) {
+            case 'b' -> 1_000_000_000L;
+            case 'm' -> 1_000_000L;
+            case 'k' -> 1_000L;
+            default -> 1L;
+        };
+        if (multiplier != 1L) value = value.substring(0, value.length() - 1);
         return Long.parseLong(value) * multiplier;
     }
 

@@ -12,8 +12,7 @@ class ConsistencyLevelTest {
     @ParameterizedTest
     @EnumSource(ConsistencyLevel.class)
     void mapsEachLevelToTheSameNameInBothDrivers(ConsistencyLevel level) {
-        assertEquals(level.name(), level.toV3Value().name());
-        assertEquals(level.name(), level.toV4Value().name());
+        assertEquals(level.name(), level.toDriver().name());
     }
 
     @Test

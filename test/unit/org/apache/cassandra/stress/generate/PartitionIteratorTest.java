@@ -169,4 +169,33 @@ class PartitionIteratorTest {
     }
 
     private static final String PINNED_DIGEST = "2a2dc32a40c782a9cb31857727f5b30b326645ad49564d135bc6a07a3e696df4";
+
+    @ParameterizedTest
+    @EnumSource(
+            value = PartitionGenerator.Order.class,
+            names = {"ARBITRARY", "SORTED"})
+    void validationReadsTheRowsThatTheInsertWrote(PartitionGenerator.Order order) {
+        PartitionGenerator generator = generator(order, true);
+        List<String> written = rows(generator, 11, true);
+
+        PartitionIterator iterator = iterator(generator);
+        iterator.resetToBounds(new Seed(11, 1), 0);
+        List<String> validated = new ArrayList<>();
+        while (iterator.hasNext()) validated.add(describe(generator, iterator.next()));
+
+        assertEquals(
+                written.stream().sorted().toList(), validated.stream().sorted().toList());
+    }
+
+    @Test
+    void validationBoundsCarryEveryValueColumn() {
+        PartitionGenerator generator = generator(PartitionGenerator.Order.ARBITRARY, true);
+        PartitionIterator iterator = iterator(generator);
+        iterator.resetToBounds(new Seed(11, 1), 2);
+        assertTrue(iterator.hasNext());
+        while (iterator.hasNext()) {
+            Row row = iterator.next();
+            for (Object value : row.row) assertTrue(value != null, describe(generator, row));
+        }
+    }
 }

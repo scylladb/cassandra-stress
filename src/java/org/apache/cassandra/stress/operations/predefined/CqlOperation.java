@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.predefined;
 
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -16,12 +16,10 @@ import org.apache.cassandra.stress.settings.ConnectionStyle;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
 
 public abstract class CqlOperation<V> extends PredefinedOperation {
 
     public static final ByteBuffer[][] EMPTY_BYTE_BUFFERS = new ByteBuffer[0][];
-    public static final byte[][] EMPTY_BYTE_ARRAYS = new byte[0][];
 
     protected abstract List<Object> getQueryParameters(byte[] key);
 
@@ -286,125 +284,47 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
 
     @Override
     public void run(JavaDriverClient client) throws IOException {
-        run(wrap(client));
+        run(new ClientWrapper(client, settings));
     }
 
-    @Override
-    public void run(JavaDriverV4Client client) throws IOException {
-        run(wrap(client));
-    }
+    protected static final class ClientWrapper {
+        private final JavaDriverClient client;
+        private final StressSettings settings;
 
-    public ClientWrapper wrap(JavaDriverClient client) {
-        return new JavaDriverWrapper(client);
-    }
-
-    public ClientWrapper wrap(JavaDriverV4Client client) {
-        return new JavaDriverV4Wrapper(client);
-    }
-
-    protected interface ClientWrapper {
-        Object createPreparedStatement(String cqlQuery);
-
-        <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler);
-
-        <V> V execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler);
-    }
-
-    private final class JavaDriverWrapper implements ClientWrapper {
-        final JavaDriverClient client;
-
-        private JavaDriverWrapper(JavaDriverClient client) {
+        private ClientWrapper(JavaDriverClient client, StressSettings settings) {
             this.client = client;
+            this.settings = settings;
         }
 
-        @Override
-        public <R> R execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
-            String formattedQuery = formatCqlQuery(query, queryParams);
-            return handler.javaDriverHandler()
-                    .apply(client.execute(
-                            formattedQuery,
-                            settings.command.consistencyLevel,
-                            settings.command.serialConsistencyLevel));
+        <R> R execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
+            return handler.apply(client.execute(
+                    formatCqlQuery(query, queryParams),
+                    settings.command.consistencyLevel,
+                    settings.command.serialConsistencyLevel));
         }
 
-        @Override
-        public <R> R execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
-            return handler.javaDriverHandler()
-                    .apply(client.executePrepared(
-                            (PreparedStatement) stmt,
-                            queryParams,
-                            settings.command.consistencyLevel,
-                            settings.command.serialConsistencyLevel));
+        <R> R execute(Object statement, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
+            return handler.apply(client.executePrepared(
+                    (PreparedStatement) statement,
+                    queryParams,
+                    settings.command.consistencyLevel,
+                    settings.command.serialConsistencyLevel));
         }
 
-        @Override
-        public Object createPreparedStatement(String cqlQuery) {
+        Object createPreparedStatement(String cqlQuery) {
             return client.prepare(cqlQuery);
         }
     }
 
-    private final class JavaDriverV4Wrapper implements ClientWrapper {
-        final JavaDriverV4Client client;
+    @FunctionalInterface
+    protected interface ResultHandler<V> extends Function<ResultSet, V> {}
 
-        private JavaDriverV4Wrapper(JavaDriverV4Client client) {
-            this.client = client;
-        }
-
-        @Override
-        public <R> R execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
-            String formattedQuery = formatCqlQuery(query, queryParams);
-            return handler.javaDriverV4Handler()
-                    .apply(client.execute(
-                            formattedQuery,
-                            settings.command.consistencyLevel,
-                            settings.command.serialConsistencyLevel));
-        }
-
-        @Override
-        public <R> R execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
-            return handler.javaDriverV4Handler()
-                    .apply(client.executePrepared(
-                            (PreparedStatement) stmt,
-                            queryParams,
-                            settings.command.consistencyLevel,
-                            settings.command.serialConsistencyLevel));
-        }
-
-        @Override
-        public Object createPreparedStatement(String cqlQuery) {
-            return client.prepare(cqlQuery);
-        }
-    }
-
-    protected interface ResultHandler<V> {
-        Function<com.datastax.oss.driver.api.core.cql.ResultSet, V> javaDriverV4Handler();
-
-        Function<ResultSet, V> javaDriverHandler();
-    }
-
-    protected static class RowCountHandler implements ResultHandler<Integer> {
+    protected static final class RowCountHandler implements ResultHandler<Integer> {
         static final RowCountHandler INSTANCE = new RowCountHandler();
 
         @Override
-        public Function<com.datastax.oss.driver.api.core.cql.ResultSet, Integer> javaDriverV4Handler() {
-            return new Function<com.datastax.oss.driver.api.core.cql.ResultSet, Integer>() {
-                @Override
-                public Integer apply(com.datastax.oss.driver.api.core.cql.ResultSet rows) {
-                    if (rows == null) return 0;
-                    return rows.all().size();
-                }
-            };
-        }
-
-        @Override
-        public Function<ResultSet, Integer> javaDriverHandler() {
-            return new Function<ResultSet, Integer>() {
-                @Override
-                public Integer apply(ResultSet rows) {
-                    if (rows == null) return 0;
-                    return rows.all().size();
-                }
-            };
+        public Integer apply(ResultSet rows) {
+            return rows == null ? 0 : rows.all().size();
         }
     }
 
@@ -412,83 +332,16 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
         static final RowsHandler INSTANCE = new RowsHandler();
 
         @Override
-        public Function<com.datastax.oss.driver.api.core.cql.ResultSet, ByteBuffer[][]> javaDriverV4Handler() {
-            {
-                return new Function<com.datastax.oss.driver.api.core.cql.ResultSet, ByteBuffer[][]>() {
-
-                    @Override
-                    public ByteBuffer[][] apply(com.datastax.oss.driver.api.core.cql.ResultSet result) {
-                        if (result == null) return EMPTY_BYTE_BUFFERS;
-                        List<com.datastax.oss.driver.api.core.cql.Row> rows = result.all();
-
-                        ByteBuffer[][] r = new ByteBuffer[rows.size()][];
-                        for (int i = 0; i < r.length; i++) {
-                            com.datastax.oss.driver.api.core.cql.Row row = rows.get(i);
-                            r[i] = new ByteBuffer[row.getColumnDefinitions().size()];
-                            for (int j = 0; j < row.getColumnDefinitions().size(); j++) r[i][j] = row.getByteBuffer(j);
-                        }
-                        return r;
-                    }
-                };
+        public ByteBuffer[][] apply(ResultSet result) {
+            if (result == null) return EMPTY_BYTE_BUFFERS;
+            List<Row> rows = result.all();
+            ByteBuffer[][] r = new ByteBuffer[rows.size()][];
+            for (int i = 0; i < r.length; i++) {
+                Row row = rows.get(i);
+                r[i] = new ByteBuffer[row.getColumnDefinitions().size()];
+                for (int j = 0; j < r[i].length; j++) r[i][j] = row.getByteBuffer(j);
             }
-        }
-
-        @Override
-        public Function<ResultSet, ByteBuffer[][]> javaDriverHandler() {
-            return new Function<ResultSet, ByteBuffer[][]>() {
-
-                @Override
-                public ByteBuffer[][] apply(ResultSet result) {
-                    if (result == null) return EMPTY_BYTE_BUFFERS;
-                    List<Row> rows = result.all();
-
-                    ByteBuffer[][] r = new ByteBuffer[rows.size()][];
-                    for (int i = 0; i < r.length; i++) {
-                        Row row = rows.get(i);
-                        r[i] = new ByteBuffer[row.getColumnDefinitions().size()];
-                        for (int j = 0; j < row.getColumnDefinitions().size(); j++) r[i][j] = row.getBytes(j);
-                    }
-                    return r;
-                }
-            };
-        }
-    }
-
-    protected static final class KeysHandler implements ResultHandler<byte[][]> {
-        static final KeysHandler INSTANCE = new KeysHandler();
-
-        @Override
-        public Function<com.datastax.oss.driver.api.core.cql.ResultSet, byte[][]> javaDriverV4Handler() {
-            return new Function<com.datastax.oss.driver.api.core.cql.ResultSet, byte[][]>() {
-
-                @Override
-                public byte[][] apply(com.datastax.oss.driver.api.core.cql.ResultSet result) {
-
-                    if (result == null) return EMPTY_BYTE_ARRAYS;
-                    List<com.datastax.oss.driver.api.core.cql.Row> rows = result.all();
-                    byte[][] r = new byte[rows.size()][];
-                    for (int i = 0; i < r.length; i++)
-                        r[i] = rows.get(i).getByteBuffer(0).array();
-                    return r;
-                }
-            };
-        }
-
-        @Override
-        public Function<ResultSet, byte[][]> javaDriverHandler() {
-            return new Function<ResultSet, byte[][]>() {
-
-                @Override
-                public byte[][] apply(ResultSet result) {
-
-                    if (result == null) return EMPTY_BYTE_ARRAYS;
-                    List<Row> rows = result.all();
-                    byte[][] r = new byte[rows.size()][];
-                    for (int i = 0; i < r.length; i++)
-                        r[i] = rows.get(i).getBytes(0).array();
-                    return r;
-                }
-            };
+            return r;
         }
     }
 

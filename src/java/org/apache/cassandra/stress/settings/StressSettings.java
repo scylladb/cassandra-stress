@@ -6,9 +6,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.apache.cassandra.stress.util.EncryptionOptions;
 import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
+import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.apache.cassandra.stress.util.ResultLogger;
 
 public class StressSettings {
@@ -61,10 +63,19 @@ public class StressSettings {
         this.tokenRange = tokenRange;
     }
 
+    private volatile ResultLogger output = new MultiResultLogger(System.out);
     private volatile JavaDriverClient client;
     private final Object clientLock = new Object();
     private int numFailures;
     private static int MAX_NUM_FAILURES = 10;
+
+    public ResultLogger output() {
+        return output;
+    }
+
+    public void setOutput(ResultLogger output) {
+        this.output = Objects.requireNonNull(output);
+    }
 
     public JavaDriverClient getJavaDriverClient() {
         return getJavaDriverClient(true);
@@ -83,41 +94,9 @@ public class StressSettings {
                 JavaDriverClient c = new JavaDriverClient(this, node.nodes, port.nativePort, encOptions);
                 c.connect(mode.compression());
                 if (setKeyspace && schema.keyspace != null)
-                    c.execute(
-                            "USE \"" + schema.keyspace + "\";", org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
+                    c.execute("USE \"" + schema.keyspace + "\";", ConsistencyLevel.ONE);
 
                 client = c;
-                return c;
-            } catch (Exception e) {
-                numFailures += 1;
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
-    private volatile JavaDriverV4Client v4Client;
-
-    public JavaDriverV4Client getJavaDriverV4Client() {
-        return getJavaDriverV4Client(true);
-    }
-
-    public JavaDriverV4Client getJavaDriverV4Client(boolean setKeyspace) {
-        if (v4Client != null) return v4Client;
-
-        synchronized (clientLock) {
-            if (numFailures >= MAX_NUM_FAILURES) throw new RuntimeException("Failed to create client too many times");
-
-            try {
-                if (v4Client != null) return v4Client;
-
-                EncryptionOptions encOptions = transport.getEncryptionOptions();
-                JavaDriverV4Client c = new JavaDriverV4Client(this, node.nodes, port.nativePort, encOptions);
-                c.connect(mode.compression());
-                if (setKeyspace && schema.keyspace != null)
-                    c.execute(
-                            "USE \"" + schema.keyspace + "\";", org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
-
-                v4Client = c;
                 return c;
             } catch (Exception e) {
                 numFailures += 1;
@@ -135,6 +114,7 @@ public class StressSettings {
     }
 
     public static StressSettings parse(String[] args) {
+        if (args.length == 0) throw new InvalidSettingsException("No command provided", StressSettings::printHelp);
         args = repairParams(args);
         final Map<String, String[]> clArgs = parseMap(args);
         if (clArgs.containsKey("legacy"))
@@ -179,17 +159,13 @@ public class StressSettings {
         SettingsTransport transport = SettingsTransport.get(clArgs);
         SettingsGraph graph = SettingsGraph.get(clArgs, command);
         if (!clArgs.isEmpty()) {
-            printHelp();
-            System.out.println("Error processing command line arguments. The following were ignored:");
+            StringBuilder message =
+                    new StringBuilder("Error processing command line arguments. The following were ignored:");
             for (Map.Entry<String, String[]> e : clArgs.entrySet()) {
-                System.out.print(e.getKey());
-                for (String v : e.getValue()) {
-                    System.out.print(" ");
-                    System.out.print(v);
-                }
-                System.out.println();
+                message.append(System.lineSeparator()).append(e.getKey());
+                for (String v : e.getValue()) message.append(' ').append(v);
             }
-            System.exit(1);
+            throw new InvalidSettingsException(message.toString(), StressSettings::printHelp);
         }
 
         return new StressSettings(
@@ -211,11 +187,6 @@ public class StressSettings {
     }
 
     private static Map<String, String[]> parseMap(String[] args) {
-        if (args.length == 0) {
-            System.out.println("No command provided");
-            printHelp();
-            System.exit(1);
-        }
         final LinkedHashMap<String, String[]> r = new LinkedHashMap<>();
         String key = null;
         List<String> params = new ArrayList<>();
@@ -291,10 +262,6 @@ public class StressSettings {
             if (client != null) {
                 client.disconnect();
                 client = null;
-            }
-            if (v4Client != null) {
-                v4Client.disconnect();
-                v4Client = null;
             }
         }
     }

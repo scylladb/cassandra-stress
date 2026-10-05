@@ -140,9 +140,8 @@ public class SettingsPopulation {
         GroupedOptions options = GroupedOptions.select(
                 params, new SequentialOptions(defaultLimit), new DistributionOptions(defaultLimit));
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -pop options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -pop options provided, see output for valid options", SettingsPopulation::printHelp);
         }
         return options instanceof SequentialOptions sequentialOptions
                 ? new SettingsPopulation(sequentialOptions)

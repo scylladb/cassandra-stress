@@ -80,10 +80,9 @@ public class PartitionGenerator {
     }
 
     public Object convert(int c, ByteBuffer v) {
-        if (c < 0) return partitionKey.get(-1 - c).type.compose(v);
-        if (c < clusteringComponents.size())
-            return clusteringComponents.get(c).type.compose(v);
-        return valueComponents.get(c - clusteringComponents.size()).type.compose(v);
+        if (c < 0) return partitionKey.get(-1 - c).read(v);
+        if (c < clusteringComponents.size()) return clusteringComponents.get(c).read(v);
+        return valueComponents.get(c - clusteringComponents.size()).read(v);
     }
 
     public List<String> getColumnNames() {

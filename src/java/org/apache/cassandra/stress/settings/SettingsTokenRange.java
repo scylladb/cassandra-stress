@@ -34,9 +34,9 @@ public final class SettingsTokenRange {
         }
         TokenRangeOptions options = GroupedOptions.select(params, new TokenRangeOptions());
         if (options == null) {
-            printHelp();
-            System.out.println("Invalid -tokenrange options provided, see output for valid options");
-            System.exit(1);
+            throw new InvalidSettingsException(
+                    "Invalid -tokenrange options provided, see output for valid options",
+                    SettingsTokenRange::printHelp);
         }
         return new SettingsTokenRange(options);
     }

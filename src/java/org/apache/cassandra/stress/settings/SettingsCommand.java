@@ -156,20 +156,16 @@ public abstract class SettingsCommand {
     public abstract void truncateTables(StressSettings settings);
 
     protected void truncateTables(StressSettings settings, String ks, String... tables) {
-        QueryExecutor client;
-        if (settings.mode.api == ConnectionAPI.JAVA_DRIVER4_NATIVE) {
-            client = settings.getJavaDriverV4Client(false);
-        } else {
-            client = settings.getJavaDriverClient(false);
-        }
+        QueryExecutor client = settings.getJavaDriverClient(false);
         assert settings.command.truncate != SettingsCommand.TruncateWhen.NEVER;
         for (String table : tables) {
             String cql = String.format("TRUNCATE %s.%s", ks, table);
             client.execute(cql, org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
         }
-        System.out.println(String.format(
-                "Truncated %s.%s. Sleeping %ss for propagation.",
-                ks, Arrays.toString(tables), settings.node.nodes.size()));
+        settings.output()
+                .println(String.format(
+                        "Truncated %s.%s. Sleeping %ss for propagation.",
+                        ks, Arrays.toString(tables), settings.node.nodes.size()));
         Sleep.uninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);
     }
 
