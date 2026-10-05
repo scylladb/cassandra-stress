@@ -45,6 +45,9 @@ Integration tests that need ScyllaDB go in `test/integration/<package>/<Name>IT.
 They get a Testcontainers node from `ScyllaNode`, run stress in-process with
 `CassandraStress`, and run with `ant integration-test`. `ant coverage-all`
 reports the unit and integration tests together.
+A bug fix lands with a test that fails without it, retry paths get fault
+injection, pinned digests guard the generated data, and `PreviousReleaseIT`
+validates data that the previous release image wrote.
 
 ### Infra standards
 

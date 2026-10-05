@@ -33,15 +33,28 @@ package as the class under test.
 Put a test that needs ScyllaDB in `test/integration/<package>/<Name>IT.java`.
 Get the node from `ScyllaNode`. It starts one Testcontainers ScyllaDB
 container for the whole run, and `-Dscylla.image=` selects the image. Run
-stress in-process with `CassandraStress`, which adds `-node`, `-port`,
-`-mode` and `-log file=`. Check the outcome on the returned `StressResult`.
+stress in-process with `CassandraStress`, which adds `-node`, `-port` and
+`-log file=`. Check the outcome on the returned `StressResult`.
 Give each test its own keyspace, and drop it before the run.
 
 ```java
-StressResult write = new CassandraStress(dir, Driver.V4).run("write", "n=2000", "-schema", "keyspace=" + keyspace, REPLICATION);
+StressResult write = new CassandraStress(dir).run("write", "n=2000", "-schema", "keyspace=" + keyspace, REPLICATION);
 assertTrue(write.succeeded(), write::toString);
 assertEquals(2000, ScyllaNode.count(keyspace, "standard1"));
 ```
+
+### Regression tests
+
+A bug fix lands with a test that fails without the fix. Run the test once
+against the old code before the commit. A retry or error path gets a test
+that injects the failure, such as a driver session that fails every other
+statement (`RetryIT`).
+
+`GeneratedDataCompatibilityTest` and `PartitionIteratorTest` pin a digest of
+the rows that stress generates. Change a pinned digest only with a spec
+decision, because stored data from an older release stops validating.
+`PreviousReleaseIT` writes with the previous release image
+(`-Dstress.previous.image=`) and validates the rows with the new build.
 
 ### Running the tests
 
