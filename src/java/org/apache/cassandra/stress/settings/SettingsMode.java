@@ -9,6 +9,7 @@ import org.apache.cassandra.stress.util.ResultLogger;
 
 public class SettingsMode {
 
+    public final ConnectionAPI api;
     public final ConnectionStyle style;
     public final CqlVersion cqlVersion;
     public final ProtocolVersion protocolVersion;
@@ -25,6 +26,9 @@ public class SettingsMode {
 
     public SettingsMode(GroupedOptions options) {
         if (options instanceof Options opts) {
+            api = "4x".equals(opts.driver.value())
+                    ? ConnectionAPI.JAVA_DRIVER4_NATIVE
+                    : ConnectionAPI.JAVA_DRIVER_NATIVE;
             cqlVersion = CqlVersion.CQL3;
             if ("NEWEST_SUPPORTED".equals(opts.protocolVersion.value())) {
                 protocolVersion = ProtocolVersion.NEWEST_SUPPORTED;
@@ -52,7 +56,7 @@ public class SettingsMode {
                             "Invalid value for requestTimeout: " + opts.requestTimeout.value(), e);
                 }
             }
-            authProvider = new AuthProvider(opts.authProvider.value(), username, password);
+            authProvider = new AuthProvider(opts.authProvider.value());
         } else throw new IllegalStateException();
     }
 
@@ -62,7 +66,8 @@ public class SettingsMode {
 
     private static final class Options extends GroupedOptions {
         final OptionSimple api = new OptionSimple("cql3", "", null, "", true);
-        final OptionSimple driver = new OptionSimple("", "native|4x", null, "native or 4x: the Java driver 4.x", false);
+        final OptionSimple driver =
+                new OptionSimple("", "native|4x", null, "native: the Java driver 3.x, 4x: the Java driver 4.x", false);
         final OptionSimple protocolVersion =
                 new OptionSimple("protocolVersion=", "[3-5]", "DEFAULT", "CQL Protocol Version", false);
         final OptionSimple useUnPrepared =
@@ -99,6 +104,7 @@ public class SettingsMode {
     }
 
     public void printSettings(ResultLogger out) {
+        out.printf("  API: %s%n", api);
         out.printf("  Connection Style: %s%n", style);
         out.printf("  CQL Version: %s%n", cqlVersion);
         out.printf("  Protocol Version: %s%n", protocolVersion);

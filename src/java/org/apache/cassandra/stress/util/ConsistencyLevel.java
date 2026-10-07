@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
-import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
-
 public enum ConsistencyLevel {
     ANY(false),
     ONE(false),
@@ -28,9 +26,5 @@ public enum ConsistencyLevel {
 
     public boolean isSerialConsistency() {
         return this == SERIAL || this == LOCAL_SERIAL;
-    }
-
-    public com.datastax.oss.driver.api.core.ConsistencyLevel toDriver() {
-        return DefaultConsistencyLevel.valueOf(name());
     }
 }

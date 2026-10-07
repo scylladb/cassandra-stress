@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.apache.cassandra.stress.driver.SchemaAlreadyExistsException;
+import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
-import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
 
 public class SettingsSchema {
@@ -45,7 +45,7 @@ public class SettingsSchema {
     @SuppressWarnings("EmptyCatch")
     public void createKeySpacesNative(StressSettings settings) {
 
-        QueryExecutor client = settings.getJavaDriverClient(false);
+        StressClient client = settings.getClient(false);
 
         try {
             client.execute(createKeyspaceStatementCQL3(), ConsistencyLevel.LOCAL_QUORUM);
@@ -62,7 +62,7 @@ public class SettingsSchema {
                     .println(String.format(
                             "Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
             Thread.sleep(settings.node.nodes.size() * 1000L);
-        } catch (AlreadyExistsException ignored) {
+        } catch (SchemaAlreadyExistsException ignored) {
         } catch (Exception e) {
             throw new RuntimeException("Encountered exception creating schema", e);
         }

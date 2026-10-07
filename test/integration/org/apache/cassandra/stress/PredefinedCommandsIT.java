@@ -150,7 +150,7 @@ class PredefinedCommandsIT {
                 "threads=2",
                 "-mode",
                 "cql3",
-                "native",
+                CassandraStress.driver(),
                 "unprepared",
                 "compression=" + compression,
                 "-schema",
@@ -178,5 +178,19 @@ class PredefinedCommandsIT {
         assertTrue(write.succeeded(), write::toString);
         long ops = write.totalPartitions().orElseThrow();
         assertTrue(ops > 200 && ops < 1200, write::toString);
+    }
+
+    @Test
+    void runsOnTheDriverThatTheModeSelects() {
+        CassandraStress stress = new CassandraStress(dir);
+        String keyspace = keyspace("driver_" + CassandraStress.driver());
+        String api = "4x".equals(CassandraStress.driver()) ? "JAVA_DRIVER4_NATIVE" : "JAVA_DRIVER_NATIVE";
+
+        StressResult write = stress.run(
+                "write", "n=10", "no-warmup", "-rate", "threads=1", "-schema", "keyspace=" + keyspace, REPLICATION);
+
+        assertTrue(write.succeeded(), write::toString);
+        assertTrue(write.output().contains("  API: " + api), write::toString);
+        assertEquals(10, ScyllaNode.count(keyspace, "standard1"));
     }
 }

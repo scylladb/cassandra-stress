@@ -1,8 +1,9 @@
 package org.apache.cassandra.stress.settings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -11,30 +12,31 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ProtocolVersionTest {
     @ParameterizedTest
     @ValueSource(ints = {3, 4, 5})
-    void mapsNumberedVersionsToTheDriver(int version) {
+    void keepsTheNumberedVersion(int version) {
         ProtocolVersion protocol = ProtocolVersion.fromInt(version);
-        assertEquals(version, protocol.toDriver().getCode());
+        assertFalse(protocol.isDefault());
+        assertEquals(version, protocol.number());
         assertEquals(String.valueOf(version), protocol.toString());
     }
 
     @Test
     void defaultLetsTheDriverNegotiate() {
-        assertNull(ProtocolVersion.DEFAULT.toDriver());
+        assertTrue(ProtocolVersion.DEFAULT.isDefault());
         assertEquals("DEFAULT", ProtocolVersion.DEFAULT.toString());
     }
 
     @Test
     void newestSupportedIsV5() {
-        assertEquals(com.datastax.oss.driver.api.core.ProtocolVersion.V5, ProtocolVersion.NEWEST_SUPPORTED.toDriver());
+        assertEquals(5, ProtocolVersion.NEWEST_SUPPORTED.number());
         assertEquals("NEWEST_SUPPORTED", ProtocolVersion.NEWEST_SUPPORTED.toString());
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0, 1, 2, 9})
-    void rejectsVersionsTheDriverDoesNotSupport(int version) {
+    @ValueSource(ints = {0, -7})
+    void rejectsAnInvalidNumber(int version) {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> ProtocolVersion.fromInt(version).toDriver());
+                () -> ProtocolVersion.fromInt(version).number());
     }
 
     @Test

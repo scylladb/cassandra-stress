@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
-import com.datastax.oss.driver.api.core.cql.DefaultBatchType;
-import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.apache.cassandra.stress.core.CqlTypes;
+import org.apache.cassandra.stress.driver.BatchType;
+import org.apache.cassandra.stress.driver.ColumnSchema;
+import org.apache.cassandra.stress.driver.TableSchema;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
@@ -28,12 +27,12 @@ record ProfileInsert(
         RatioDistributionFactory rowPopulation,
         ConsistencyLevel consistencyLevel,
         ConsistencyLevel serialConsistencyLevel,
-        DefaultBatchType batchType) {
+        BatchType batchType) {
     private static final Pattern LOWERCASE_ALPHANUMERIC = Pattern.compile("[a-z0-9_]+");
     static final int MAX_LOGGED_BATCH_ROWS = 65535;
 
     static ProfileInsert of(
-            TableMetadata table,
+            TableSchema table,
             String tableName,
             Map<String, String> options,
             PartitionGenerator generator,
@@ -59,9 +58,9 @@ record ProfileInsert(
                 settings.command.serialConsistencyLevel,
                 insert);
         String batchType = insert.remove("batchtype");
-        DefaultBatchType type = settings.insert.batchType != null
+        BatchType type = settings.insert.batchType != null
                 ? settings.insert.batchType
-                : batchType == null ? DefaultBatchType.LOGGED : DefaultBatchType.valueOf(batchType);
+                : batchType == null ? BatchType.LOGGED : BatchType.valueOf(batchType);
         if (!insert.isEmpty()) throw new IllegalArgumentException("Unrecognised insert option(s): " + insert);
 
         ProfileInsert spec = new ProfileInsert(
@@ -84,7 +83,7 @@ record ProfileInsert(
             System.err.printf(
                     "WARNING: You have defined a schema that permits very large partitions (%.0f max rows (>100M))%n",
                     generator.maxRowCount);
-        if (batchType == DefaultBatchType.LOGGED && maxBatchSize > MAX_LOGGED_BATCH_ROWS)
+        if (batchType == BatchType.LOGGED && maxBatchSize > MAX_LOGGED_BATCH_ROWS)
             throw new IllegalArgumentException(String.format(
                     "You have defined a workload that generates batches with more than 65k rows (%.0f), but have"
                             + " required the use of LOGGED batches. There is a 65k row limit on a single batch.",
@@ -96,35 +95,28 @@ record ProfileInsert(
                     maxRows);
     }
 
-    static String cql(TableMetadata table, String tableName) {
-        Set<ColumnMetadata> keyColumns = new HashSet<>(table.getPrimaryKey());
-        Set<ColumnMetadata> allColumns = new HashSet<>(table.getColumns().values());
-        boolean isKeyOnlyTable = keyColumns.size() == allColumns.size();
-        if (!isKeyOnlyTable && keyColumns.size() == allColumns.size() - 1) {
-            for (ColumnMetadata column : allColumns) {
-                if (!keyColumns.contains(column)) {
-                    isKeyOnlyTable = column.getName().asInternal().isEmpty();
-                    break;
-                }
-            }
-        }
-        boolean hasSupportedValue = allColumns.stream()
-                .anyMatch(column -> !keyColumns.contains(column) && CqlTypes.isSupported(column.getType()));
+    static String cql(TableSchema table, String tableName) {
+        List<ColumnSchema> keyColumns = table.primaryKey();
+        List<ColumnSchema> allColumns = table.columns();
+        List<ColumnSchema> valueColumns = table.valueColumns();
+        boolean isKeyOnlyTable = valueColumns.isEmpty()
+                || (valueColumns.size() == 1 && valueColumns.getFirst().name().isEmpty());
+        boolean hasSupportedValue = valueColumns.stream().anyMatch(column -> CqlTypes.isSupported(column.type()));
         return isKeyOnlyTable || !hasSupportedValue
                 ? insertCql(table, tableName)
                 : updateCql(keyColumns, allColumns, tableName);
     }
 
-    private static String updateCql(Set<ColumnMetadata> keyColumns, Set<ColumnMetadata> allColumns, String tableName) {
+    private static String updateCql(List<ColumnSchema> keyColumns, List<ColumnSchema> allColumns, String tableName) {
         StringBuilder sb =
                 new StringBuilder("UPDATE ").append(quoteIdentifier(tableName)).append(" SET ");
         StringBuilder pred = new StringBuilder(" WHERE ");
         boolean firstCol = true;
         boolean firstPred = true;
-        for (ColumnMetadata c : allColumns) {
-            if (!CqlTypes.isSupported(c.getType())) continue;
+        for (ColumnSchema c : allColumns) {
+            if (!CqlTypes.isSupported(c.type())) continue;
 
-            String name = quoteIdentifier(c.getName().asInternal());
+            String name = quoteIdentifier(c.name());
             if (keyColumns.contains(c)) {
                 if (firstPred) firstPred = false;
                 else pred.append(" AND ");
@@ -133,9 +125,9 @@ record ProfileInsert(
                 if (firstCol) firstCol = false;
                 else sb.append(',');
                 sb.append(name).append(" = ");
-                switch (CqlTypes.name(c.getType())) {
+                switch (CqlTypes.name(c.type())) {
                     case "SET", "LIST" -> {
-                        if (CqlTypes.isFrozen(c.getType())) sb.append('?');
+                        if (CqlTypes.isFrozen(c.type())) sb.append('?');
                         else sb.append(name).append(" + ?");
                     }
                     case "COUNTER" -> sb.append(name).append(" + ?");
@@ -146,15 +138,15 @@ record ProfileInsert(
         return sb.append(pred).toString();
     }
 
-    private static String insertCql(TableMetadata table, String tableName) {
+    private static String insertCql(TableSchema table, String tableName) {
         StringBuilder columns = new StringBuilder();
         StringBuilder values = new StringBuilder();
-        for (ColumnMetadata column : table.getPrimaryKey()) {
+        for (ColumnSchema column : table.primaryKey()) {
             if (!columns.isEmpty()) {
                 columns.append(", ");
                 values.append(", ");
             }
-            columns.append(quoteIdentifier(column.getName().asInternal()));
+            columns.append(quoteIdentifier(column.name()));
             values.append('?');
         }
         return "INSERT INTO " + quoteIdentifier(tableName) + " (" + columns + ") values(" + values + ")";

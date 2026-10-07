@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
-import com.datastax.oss.driver.api.core.cql.BoundStatement;
-import com.datastax.oss.driver.api.core.cql.ResultSet;
 import java.io.IOException;
 import java.util.Random;
-import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.driver.StressBoundStatement;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressPreparedStatement;
 import org.apache.cassandra.stress.generate.DistributionFixed;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
 import org.apache.cassandra.stress.generate.PartitionIterator;
@@ -13,7 +13,6 @@ import org.apache.cassandra.stress.generate.Row;
 import org.apache.cassandra.stress.generate.SeedManager;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
 
 public class SchemaQuery extends SchemaStatement {
     public enum ArgSelect {
@@ -30,7 +29,7 @@ public class SchemaQuery extends SchemaStatement {
             StressSettings settings,
             PartitionGenerator generator,
             SeedManager seedManager,
-            PreparedStatement statement,
+            StressPreparedStatement statement,
             ArgSelect argSelect) {
         super(
                 timer,
@@ -40,9 +39,7 @@ public class SchemaQuery extends SchemaStatement {
                         seedManager,
                         new DistributionFixed(1),
                         settings.insert.rowPopulationRatio.get(),
-                        argSelect == ArgSelect.MULTIROW
-                                ? statement.getVariables().size()
-                                : 1),
+                        argSelect == ArgSelect.MULTIROW ? statement.variableCount() : 1),
                 statement,
                 statement.getColumnNames());
         this.argSelect = argSelect;
@@ -50,18 +47,17 @@ public class SchemaQuery extends SchemaStatement {
     }
 
     private final class JavaDriverRun extends Runner {
-        final JavaDriverClient client;
-        private BoundStatement bound;
+        final StressClient client;
+        private StressBoundStatement bound;
 
-        private JavaDriverRun(JavaDriverClient client) {
+        private JavaDriverRun(StressClient client) {
             this.client = client;
         }
 
         @Override
         public boolean run() throws Exception {
             if (bound == null) bound = bindArgs();
-            ResultSet rs = client.getSession().execute(bound);
-            rowCount = rs.all().size();
+            rowCount = client.execute(bound, null, null).rows().size();
             partitionCount = Math.min(1, rowCount);
             return true;
         }
@@ -80,7 +76,7 @@ public class SchemaQuery extends SchemaStatement {
         return c;
     }
 
-    BoundStatement bindArgs() {
+    StressBoundStatement bindArgs() {
         return switch (argSelect) {
             case MULTIROW -> {
                 int c = fillRandom();
@@ -95,7 +91,7 @@ public class SchemaQuery extends SchemaStatement {
     }
 
     @Override
-    public void run(JavaDriverClient client) throws IOException {
+    public void run(StressClient client) throws IOException {
         timeWithRetry(new JavaDriverRun(client));
     }
 }

@@ -1,4 +1,4 @@
-package org.apache.cassandra.stress.util.codecs;
+package org.apache.cassandra.stress.driver.v4.codecs;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;

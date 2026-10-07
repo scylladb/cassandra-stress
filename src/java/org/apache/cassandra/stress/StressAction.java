@@ -10,13 +10,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.LockSupport;
+import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.operations.OpDistribution;
 import org.apache.cassandra.stress.operations.OpDistributionFactory;
 import org.apache.cassandra.stress.report.HdrLog;
 import org.apache.cassandra.stress.report.StressMetrics;
 import org.apache.cassandra.stress.settings.SettingsCommand;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.Sleep;
 import org.jctools.queues.atomic.SpscAtomicArrayQueue;
@@ -377,9 +377,9 @@ public class StressAction implements Runnable {
         @Override
         public void run() {
             try {
-                JavaDriverClient client;
+                StressClient client;
                 try {
-                    client = settings.getJavaDriverClient();
+                    client = settings.getClient();
                 } finally {
                     start.countDown();
                 }

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import com.datastax.oss.driver.api.core.CqlSessionBuilder;
-import com.datastax.oss.driver.api.core.auth.ProgrammaticPlainTextAuthProvider;
 import java.util.Set;
 
 public class AuthProvider {
@@ -13,13 +11,9 @@ public class AuthProvider {
             "com.datastax.oss.driver.api.core.auth.ProgrammaticPlainTextAuthProvider");
 
     private final String authClassName;
-    private final String username;
-    private final String password;
 
-    public AuthProvider(String authClassName, String username, String password) {
+    public AuthProvider(String authClassName) {
         this.authClassName = authClassName;
-        this.username = username;
-        this.password = password;
     }
 
     public String getClassName() {
@@ -30,10 +24,8 @@ public class AuthProvider {
         return authClassName != null && !authClassName.isEmpty();
     }
 
-    public CqlSessionBuilder applyTo(CqlSessionBuilder builder) {
-        if (!isSet()) return builder;
+    public void requirePlainText() {
         if (!PLAIN_TEXT_NAMES.contains(authClassName))
             throw new IllegalArgumentException("Unknown auth provider class: " + authClassName);
-        return builder.withAuthProvider(new ProgrammaticPlainTextAuthProvider(username, password));
     }
 }

@@ -23,6 +23,7 @@ final class CassandraStress {
         int logIndex = full.indexOf("-log");
         if (logIndex >= 0) full.add(logIndex + 1, "file=" + log);
         else full.addAll(List.of("-log", "file=" + log, "interval=1s"));
+        if (!full.contains("-mode")) full.addAll(List.of("-mode", "cql3", driver()));
         if (!full.contains("-node"))
             full.addAll(List.of("-node", ScyllaNode.host(), "datacenter=" + ScyllaNode.DATACENTER));
         full.addAll(List.of("-port", "native=" + ScyllaNode.port()));
@@ -33,6 +34,10 @@ final class CassandraStress {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    static String driver() {
+        return System.getProperty("stress.it.driver", "native");
     }
 
     static String profile(String name) {

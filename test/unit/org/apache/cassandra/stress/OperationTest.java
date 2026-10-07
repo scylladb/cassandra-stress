@@ -4,14 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.datastax.oss.driver.api.core.servererrors.OverloadedException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.cassandra.stress.driver.OverloadedException;
+import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.junit.jupiter.api.Test;
 
 class OperationTest {
@@ -50,7 +50,7 @@ class OperationTest {
         }
 
         @Override
-        public void run(JavaDriverClient client) {}
+        public void run(StressClient client) {}
 
         @Override
         public String key() {
@@ -63,7 +63,7 @@ class OperationTest {
             @Override
             public boolean run() {
                 tries.incrementAndGet();
-                throw new OverloadedException(null, "Too many in flight hints");
+                throw new OverloadedException("Too many in flight hints", null);
             }
 
             @Override

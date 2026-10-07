@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import com.datastax.oss.driver.api.core.cql.DefaultBatchType;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.apache.cassandra.stress.driver.BatchType;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.RatioDistributionFactory;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
@@ -18,7 +18,7 @@ public final class SettingsInsert {
     public final DistributionFactory batchsize;
     public final RatioDistributionFactory selectRatio;
     public final RatioDistributionFactory rowPopulationRatio;
-    public final DefaultBatchType batchType;
+    public final BatchType batchType;
     public final ConsistencyLevel consistencyLevel;
     public final ConsistencyLevel serialConsistencyLevel;
 
@@ -36,7 +36,7 @@ public final class SettingsInsert {
             this.serialConsistencyLevel = ConsistencyLevel.valueOf(
                     options.serialConsistencyLevel.value().toUpperCase(Locale.ROOT));
         else this.serialConsistencyLevel = null;
-        this.batchType = !options.batchType.setByUser() ? null : DefaultBatchType.valueOf(options.batchType.value());
+        this.batchType = !options.batchType.setByUser() ? null : BatchType.valueOf(options.batchType.value());
     }
 
     private static final class InsertOptions extends GroupedOptions {

@@ -1,23 +1,39 @@
-package org.apache.cassandra.stress.util;
+package org.apache.cassandra.stress.driver.v4;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.ProtocolVersion;
+import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
+import com.datastax.oss.driver.api.core.cql.ExecutionInfo;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.session.Session;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodecs;
 import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
+import java.lang.reflect.Field;
+import java.lang.reflect.Proxy;
 import java.net.InetAddress;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.cassandra.stress.driver.StressPage;
+import org.apache.cassandra.stress.settings.StressSettings;
+import org.apache.cassandra.stress.util.EncryptionOptions;
+import org.apache.cassandra.stress.util.HostAndPort;
 import org.junit.jupiter.api.Test;
 
-class JavaDriverClientTest {
-    private final CodecRegistry registry = JavaDriverClient.codecRegistry();
+class JavaDriverV4ClientTest {
+    private final CodecRegistry registry = JavaDriverV4Client.codecRegistry();
 
     @Test
     void bindsGeneratedDatesTimesAndTimestamps() {
@@ -51,10 +67,73 @@ class JavaDriverClientTest {
     void whiteListResolvesEveryContactPoint() {
         assertEquals(
                 Set.of(InetAddress.getLoopbackAddress()),
-                new JavaDriverClient.WhiteList(List.of(new HostAndPort("127.0.0.1", 9042))).addresses());
+                new JavaDriverV4Client.WhiteList(List.of(new HostAndPort("127.0.0.1", 9042))).addresses());
         IllegalArgumentException e = assertThrows(
                 IllegalArgumentException.class,
-                () -> new JavaDriverClient.WhiteList(List.of(new HostAndPort("no-such-host.invalid", 9042))));
+                () -> new JavaDriverV4Client.WhiteList(List.of(new HostAndPort("no-such-host.invalid", 9042))));
         assertEquals("Cannot resolve the whitelisted node no-such-host.invalid", e.getMessage());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T fake(Class<T> type, Map<String, Object> answers) {
+        return (T) Proxy.newProxyInstance(
+                JavaDriverV4ClientTest.class.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
+                    if (answers.containsKey(method.getName())) return answers.get(method.getName());
+                    if ("toString".equals(method.getName())) return type.getSimpleName();
+                    if ("hashCode".equals(method.getName())) return System.identityHashCode(proxy);
+                    if ("equals".equals(method.getName())) return proxy == args[0];
+                    throw new UnsupportedOperationException(type.getSimpleName() + "." + method.getName());
+                });
+    }
+
+    @Test
+    void anEmptyPageWithAPagingStateReadsNoFurtherRows() throws Exception {
+        AtomicInteger rowsRead = new AtomicInteger();
+        Iterator<Row> rows = new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                return true;
+            }
+
+            @Override
+            public Row next() {
+                rowsRead.incrementAndGet();
+                throw new IllegalStateException("the next page was fetched");
+            }
+        };
+        ByteBuffer state = ByteBuffer.allocate(4);
+        ResultSet page = fake(
+                ResultSet.class,
+                Map.of(
+                        "getExecutionInfo",
+                        fake(ExecutionInfo.class, Map.of("getPagingState", state)),
+                        "getAvailableWithoutFetching",
+                        0,
+                        "iterator",
+                        rows,
+                        "getColumnDefinitions",
+                        fake(
+                                ColumnDefinitions.class,
+                                Map.of("size", 0, "iterator", List.of().iterator())),
+                        "isFullyFetched",
+                        false));
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "4x"});
+        JavaDriverV4Client client =
+                new JavaDriverV4Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+        Field field = JavaDriverV4Client.class.getDeclaredField("session");
+        field.setAccessible(true);
+        field.set(client, fake(CqlSession.class, Map.of("execute", page)));
+
+        StressPage result = client.executePage("SELECT * FROM t", 10, null);
+
+        assertEquals(0, rowsRead.get());
+        assertEquals(0, result.result().rows().size());
+        assertEquals(state, result.pagingState());
+        assertEquals(false, result.fullyFetched());
+    }
+
+    @Test
+    void readsTheDriverVersion() {
+        assertEquals(Session.OSS_DRIVER_COORDINATES.getVersion().toString(), JavaDriverV4Client.driverVersion());
     }
 }

@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
-import com.datastax.oss.driver.api.core.cql.BoundStatement;
-import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
-import com.datastax.oss.driver.api.core.cql.ResultSet;
-import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
-import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -15,7 +9,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.driver.ColumnSchema;
+import org.apache.cassandra.stress.driver.StressBoundStatement;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressPreparedStatement;
+import org.apache.cassandra.stress.driver.StressResult;
+import org.apache.cassandra.stress.driver.TableSchema;
 import org.apache.cassandra.stress.generate.DistributionFixed;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
 import org.apache.cassandra.stress.generate.PartitionIterator;
@@ -26,7 +25,7 @@ import org.apache.cassandra.stress.operations.PartitionOperation;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
-import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.CqlNames;
 import org.apache.cassandra.stress.util.Pair;
 
 public final class ValidatingSchemaQuery extends PartitionOperation {
@@ -53,7 +52,7 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
                         generator, seedManager, new DistributionFixed(1), settings.insert.rowPopulationRatio.get(), 1));
         this.statements = statements;
         this.cl = cl;
-        bindBuffer = new Object[statements[0].statement.getVariables().size()];
+        bindBuffer = new Object[statements[0].statement.variableCount()];
         for (ValidatingStatement statement : statements) {
             if (statement.statement.getConsistencyLevel() == null) statement.statement.setConsistencyLevel(cl);
             if (statement.statement.getSerialConsistencyLevel() == null)
@@ -118,26 +117,22 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
     }
 
     private final class JavaDriverRun extends Runner {
-        final JavaDriverClient client;
+        final StressClient client;
 
-        private JavaDriverRun(JavaDriverClient client, PartitionIterator iter) {
+        private JavaDriverRun(StressClient client, PartitionIterator iter) {
             super(iter);
             this.client = client;
         }
 
         @Override
         public boolean run() throws Exception {
-            ResultSet rs = client.getSession().execute(bind(statementIndex));
-            int[] valueIndex = new int[rs.getColumnDefinitions().size()];
-            {
-                int i = 0;
-                for (ColumnDefinition definition : rs.getColumnDefinitions())
-                    valueIndex[i++] =
-                            spec.partitionGenerator.indexOf(definition.getName().asInternal());
-            }
+            StressResult rs = client.execute(bind(statementIndex), null, null);
+            List<String> columnNames = rs.columnNames();
+            int[] valueIndex = new int[columnNames.size()];
+            for (int i = 0; i < valueIndex.length; i++) valueIndex[i] = indexOf(columnNames.get(i));
 
             rowCount = 0;
-            Iterator<com.datastax.oss.driver.api.core.cql.Row> results = rs.iterator();
+            Iterator<ByteBuffer[]> results = rs.rows().iterator();
             for (Row expectedRow : expectedRows()) {
                 if (!results.hasNext()) {
                     validationError = String.format(
@@ -148,22 +143,18 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
                 }
 
                 rowCount++;
-                com.datastax.oss.driver.api.core.cql.Row actualRow = results.next();
-                for (int i = 0; i < actualRow.getColumnDefinitions().size(); i++) {
+                ByteBuffer[] actualRow = results.next();
+                for (int i = 0; i < actualRow.length; i++) {
                     if (valueIndex[i] == UNKNOWN_COLUMN) continue;
                     Object expectedValue = expectedRow.get(valueIndex[i]);
-                    Object actualValue = spec.partitionGenerator.convert(valueIndex[i], actualRow.getBytesUnsafe(i));
+                    Object actualValue = spec.partitionGenerator.convert(valueIndex[i], actualRow[i]);
                     if (!Objects.equals(expectedValue, actualValue)) {
                         validationError = String.format(
                                 "Data returned was not validated: row %d, column %d (%s): value mismatch"
                                         + " (expected [%s] %s, got [%s] %s)",
                                 rowCount,
                                 i,
-                                actualRow
-                                        .getColumnDefinitions()
-                                        .get(i)
-                                        .getName()
-                                        .asInternal(),
+                                columnNames.get(i),
                                 expectedValue == null
                                         ? "null"
                                         : expectedValue.getClass().getSimpleName(),
@@ -188,7 +179,7 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
         }
     }
 
-    BoundStatement bind(int statementIndex) {
+    StressBoundStatement bind(int statementIndex) {
         int pkc = bounds.left().partitionKey.length;
         System.arraycopy(bounds.left().partitionKey, 0, bindBuffer, 0, pkc);
         int ccc = bounds.left().row.length;
@@ -198,7 +189,7 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
     }
 
     @Override
-    public void run(JavaDriverClient client) throws IOException {
+    public void run(StressClient client) throws IOException {
         timeWithRetry(new JavaDriverRun(client, partitions.getFirst()));
     }
 
@@ -225,7 +216,7 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
 
     record Slice(String cql, boolean inclusiveStart, boolean inclusiveEnd) {}
 
-    public static List<Factory> create(TableMetadata metadata, StressSettings settings) {
+    public static List<Factory> create(TableSchema metadata, StressSettings settings) {
         List<Factory> factories = new ArrayList<>();
         List<List<Slice>> queries = queries(metadata);
         for (int depth = 0; depth < queries.size(); depth++) {
@@ -242,14 +233,14 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
         return factories;
     }
 
-    static List<List<Slice>> queries(TableMetadata metadata) {
+    static List<List<Slice>> queries(TableSchema metadata) {
         StringBuilder sb = new StringBuilder("SELECT * FROM ")
-                .append(metadata.getName().asCql(true))
+                .append(CqlNames.quote(metadata.name()))
                 .append(" WHERE");
         boolean first = true;
-        for (ColumnMetadata column : metadata.getPartitionKey()) {
+        for (ColumnSchema column : metadata.partitionKey()) {
             sb.append(first ? " " : " AND ")
-                    .append(column.getName().asCql(true))
+                    .append(CqlNames.quote(column.name()))
                     .append(" = ?");
             first = false;
         }
@@ -259,15 +250,15 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
         queries.add(List.of(new Slice(base, true, true)));
 
         List<String> names = new ArrayList<>();
-        List<ClusteringOrder> orders = new ArrayList<>();
-        metadata.getClusteringColumns().forEach((column, order) -> {
-            names.add(column.getName().asCql(true));
-            orders.add(order);
-        });
+        List<Boolean> orders = new ArrayList<>();
+        for (ColumnSchema column : metadata.clusteringColumns()) {
+            names.add(CqlNames.quote(column.name()));
+            orders.add(column.descending());
+        }
 
         int maxDepth = names.size() - 1;
-        for (int depth = 0; depth <= maxDepth && orders.get(depth) == orders.getFirst(); depth++) {
-            boolean descending = orders.getFirst() == ClusteringOrder.DESC;
+        for (int depth = 0; depth <= maxDepth && orders.get(depth).equals(orders.getFirst()); depth++) {
+            boolean descending = orders.getFirst();
             String columns = "(" + String.join(",", names.subList(0, depth + 1)) + ")";
             String values = "(" + String.join(",", Collections.nCopies(depth + 1, "?")) + ")";
             List<Slice> slices = new ArrayList<>();
@@ -285,11 +276,11 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
     }
 
     private static final class ValidatingStatement {
-        final PreparedStatement statement;
+        final StressPreparedStatement statement;
         final boolean inclusiveStart;
         final boolean inclusiveEnd;
 
-        private ValidatingStatement(PreparedStatement statement, boolean inclusiveStart, boolean inclusiveEnd) {
+        private ValidatingStatement(StressPreparedStatement statement, boolean inclusiveStart, boolean inclusiveEnd) {
             this.statement = statement;
             this.inclusiveStart = inclusiveStart;
             this.inclusiveEnd = inclusiveEnd;
@@ -297,7 +288,7 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
     }
 
     private static ValidatingStatement prepare(StressSettings settings, String cql, boolean incLb, boolean incUb) {
-        return new ValidatingStatement(settings.getJavaDriverClient().prepare(cql), incLb, incUb);
+        return new ValidatingStatement(settings.getClient().prepare(cql), incLb, incUb);
     }
 
     private static String describeValue(Object value) {

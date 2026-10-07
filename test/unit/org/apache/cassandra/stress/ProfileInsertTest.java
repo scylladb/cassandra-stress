@@ -4,19 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.datastax.oss.driver.api.core.CqlIdentifier;
-import com.datastax.oss.driver.api.core.cql.DefaultBatchType;
-import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
-import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.type.DataType;
-import com.datastax.oss.driver.api.core.type.DataTypes;
-import com.datastax.oss.driver.internal.core.metadata.schema.DefaultColumnMetadata;
-import com.datastax.oss.driver.internal.core.metadata.schema.DefaultTableMetadata;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import org.apache.cassandra.stress.driver.BatchType;
+import org.apache.cassandra.stress.driver.ColumnSchema;
+import org.apache.cassandra.stress.driver.CqlType;
+import org.apache.cassandra.stress.driver.TableSchema;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
 import org.apache.cassandra.stress.generate.values.Generator;
 import org.apache.cassandra.stress.generate.values.GeneratorConfig;
@@ -28,31 +21,21 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class ProfileInsertTest {
-    private static final CqlIdentifier KEYSPACE = CqlIdentifier.fromInternal("ks");
-    private static final CqlIdentifier TABLE = CqlIdentifier.fromInternal("t");
-
-    private static ColumnMetadata column(String name, DataType type) {
-        return new DefaultColumnMetadata(KEYSPACE, TABLE, CqlIdentifier.fromInternal(name), type, false);
+    private static ColumnSchema column(String name, CqlType type) {
+        return new ColumnSchema(name, type);
     }
 
-    private static TableMetadata table(ColumnMetadata... values) {
-        ColumnMetadata pk = column("pk", DataTypes.INT);
-        ColumnMetadata ck = column("ck", DataTypes.INT);
-        Map<CqlIdentifier, ColumnMetadata> columns = new LinkedHashMap<>();
-        columns.put(pk.getName(), pk);
-        columns.put(ck.getName(), ck);
-        for (ColumnMetadata value : values) columns.put(value.getName(), value);
-        return new DefaultTableMetadata(
-                KEYSPACE,
-                TABLE,
-                UUID.randomUUID(),
-                false,
-                false,
-                List.of(pk),
-                Map.of(ck, ClusteringOrder.ASC),
-                columns,
-                Map.of(),
-                Map.of());
+    private static CqlType of(String name) {
+        return CqlType.of(name);
+    }
+
+    private static CqlType collection(String name, boolean frozen, CqlType... elements) {
+        return new CqlType(name, List.of(elements), frozen);
+    }
+
+    private static TableSchema table(ColumnSchema... values) {
+        return new TableSchema(
+                "ks", "t", List.of(column("pk", of("INT"))), List.of(column("ck", of("INT"))), List.of(values));
     }
 
     private static PartitionGenerator generator() {
@@ -61,7 +44,7 @@ class ProfileInsertTest {
         return new PartitionGenerator(pk, List.of(), List.of(), PartitionGenerator.Order.ARBITRARY);
     }
 
-    private static ProfileInsert insert(TableMetadata table, Map<String, String> options) {
+    private static ProfileInsert insert(TableSchema table, Map<String, String> options) {
         return ProfileInsert.of(table, "t", options, generator(), StressSettings.parse(new String[] {"write", "n=10"}));
     }
 
@@ -69,17 +52,17 @@ class ProfileInsertTest {
     @ValueSource(strings = {"consistencyLevel", "consistencylevel", "CONSISTENCYLEVEL"})
     void readsTheConsistencyLevelsOfTheInsertBlock(String key) {
         ProfileInsert spec = insert(
-                table(column("v", DataTypes.TEXT)),
+                table(column("v", of("TEXT"))),
                 Map.of(key, "LOCAL_QUORUM", "serialConsistencyLevel", "LOCAL_SERIAL", "batchtype", "UNLOGGED"));
         assertEquals(ConsistencyLevel.LOCAL_QUORUM, spec.consistencyLevel());
         assertEquals(ConsistencyLevel.LOCAL_SERIAL, spec.serialConsistencyLevel());
-        assertEquals(DefaultBatchType.UNLOGGED, spec.batchType());
+        assertEquals(BatchType.UNLOGGED, spec.batchType());
     }
 
     @Test
     void rejectsAnUnknownInsertOption() {
         IllegalArgumentException e = assertThrows(
-                IllegalArgumentException.class, () -> insert(table(column("v", DataTypes.TEXT)), Map.of("bogus", "1")));
+                IllegalArgumentException.class, () -> insert(table(column("v", of("TEXT"))), Map.of("bogus", "1")));
         assertEquals("Unrecognised insert option(s): {bogus=1}", e.getMessage());
     }
 
@@ -87,16 +70,16 @@ class ProfileInsertTest {
     void insertsTheKeyWhenEveryValueColumnIsUnsupported() {
         assertEquals(
                 "INSERT INTO t (pk, ck) values(?, ?)",
-                ProfileInsert.cql(table(column("m", DataTypes.mapOf(DataTypes.TEXT, DataTypes.INT))), "t"));
+                ProfileInsert.cql(table(column("m", collection("MAP", false, of("TEXT"), of("INT")))), "t"));
     }
 
     @Test
     void updatesEachSupportedValueColumn() {
         String cql = ProfileInsert.cql(
                 table(
-                        column("tags", DataTypes.setOf(DataTypes.TEXT)),
-                        column("nums", DataTypes.frozenListOf(DataTypes.INT)),
-                        column("m", DataTypes.mapOf(DataTypes.TEXT, DataTypes.INT))),
+                        column("tags", collection("SET", false, of("TEXT"))),
+                        column("nums", collection("LIST", true, of("INT"))),
+                        column("m", collection("MAP", false, of("TEXT"), of("INT")))),
                 "t");
         assertTrue(cql.startsWith("UPDATE t SET "), cql);
         assertTrue(cql.contains("tags = tags + ?"), cql);
@@ -107,7 +90,6 @@ class ProfileInsertTest {
 
     @Test
     void addsToACounter() {
-        assertTrue(
-                ProfileInsert.cql(table(column("hits", DataTypes.COUNTER)), "t").contains("hits = hits + ?"));
+        assertTrue(ProfileInsert.cql(table(column("hits", of("COUNTER"))), "t").contains("hits = hits + ?"));
     }
 }

@@ -16,7 +16,13 @@ public final class CqlNames {
                     + NAME,
             Pattern.CASE_INSENSITIVE);
 
+    private static final Pattern UNQUOTED = Pattern.compile("[a-z][a-z0-9_]*");
+
     private CqlNames() {}
+
+    public static String quote(String identifier) {
+        return UNQUOTED.matcher(identifier).matches() ? identifier : '"' + identifier.replace("\"", "\"\"") + '"';
+    }
 
     public static String keyspaceOf(String createKeyspaceCql) {
         Matcher matcher = CREATE_KEYSPACE.matcher(createKeyspaceCql);

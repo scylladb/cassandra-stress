@@ -1,13 +1,9 @@
 package org.apache.cassandra.stress.settings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
-import com.datastax.oss.driver.api.core.config.DriverExecutionProfile;
-import com.datastax.oss.driver.internal.core.config.typesafe.DefaultProgrammaticDriverConfigLoaderBuilder;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -52,40 +48,10 @@ class LoadBalanceTypeTest {
         return SettingsNode.get(args);
     }
 
-    private static DriverExecutionProfile config(SettingsNode node) {
-        return LoadBalanceType.of(node)
-                .applyTo(new DefaultProgrammaticDriverConfigLoaderBuilder(), node)
-                .build()
-                .getInitialConfig()
-                .getDefaultProfile();
-    }
-
     @Test
     void defaultsToDcAwareAndToRackAwareWhenARackIsSet() {
         assertEquals(LoadBalanceType.DC_AWARE, LoadBalanceType.of(node()));
         assertEquals(LoadBalanceType.RACK_AWARE, LoadBalanceType.of(node("rack=r1")));
         assertEquals(LoadBalanceType.ROUND_ROBIN, LoadBalanceType.of(node("rack=r1", "loadbalance=rr")));
-    }
-
-    @Test
-    void dcAwareSetsTheLocalDatacenterAndTheRemoteFailover() {
-        DriverExecutionProfile profile = config(node("datacenter=dc1", "rack=r1", "loadbalance=dc", "remote-dc=2"));
-        assertEquals("dc1", profile.getString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER));
-        assertEquals(2, profile.getInt(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_MAX_NODES_PER_REMOTE_DC));
-        assertFalse(profile.isDefined(DefaultDriverOption.LOAD_BALANCING_LOCAL_RACK));
-    }
-
-    @Test
-    void rackAwareSetsTheLocalRack() {
-        DriverExecutionProfile profile = config(node("datacenter=dc1", "rack=r1"));
-        assertEquals("dc1", profile.getString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER));
-        assertEquals("r1", profile.getString(DefaultDriverOption.LOAD_BALANCING_LOCAL_RACK));
-    }
-
-    @Test
-    void roundRobinUsesEveryNodeAsLocal() {
-        DriverExecutionProfile profile = config(node("datacenter=dc1", "loadbalance=rr"));
-        assertEquals("BasicLoadBalancingPolicy", profile.getString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS));
-        assertFalse(profile.isDefined(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER));
     }
 }

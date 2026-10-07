@@ -1,37 +1,38 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.generate;
 
-import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
-import java.util.Set;
+import java.util.Collection;
+import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import org.apache.cassandra.stress.driver.TokenSlice;
 import org.apache.cassandra.stress.settings.StressSettings;
 
 public class TokenRangeIterator {
-    private final Set<TokenRange> tokenRanges;
-    private final ConcurrentLinkedQueue<TokenRange> pendingRanges;
+    private final Collection<TokenSlice> tokenRanges;
+    private final ConcurrentLinkedQueue<TokenSlice> pendingRanges;
     private final boolean wrap;
 
-    public TokenRangeIterator(StressSettings settings, Set<TokenRange> tokenRanges) {
+    public TokenRangeIterator(StressSettings settings, Collection<TokenSlice> tokenRanges) {
         this.tokenRanges = maybeSplitRanges(tokenRanges, settings.tokenRange.splitFactor);
         this.pendingRanges = new ConcurrentLinkedQueue<>(this.tokenRanges);
         this.wrap = settings.tokenRange.wrap;
     }
 
-    private static Set<TokenRange> maybeSplitRanges(Set<TokenRange> tokenRanges, int splitFactor) {
+    private static Collection<TokenSlice> maybeSplitRanges(Collection<TokenSlice> tokenRanges, int splitFactor) {
         if (splitFactor <= 1) return tokenRanges;
 
-        Set<TokenRange> ret = new TreeSet<>();
-        for (TokenRange range : tokenRanges) ret.addAll(range.splitEvenly(splitFactor));
+        TreeSet<TokenSlice> ret = new TreeSet<>();
+        for (TokenSlice range : tokenRanges) ret.addAll(range.splitEvenly(splitFactor));
 
-        return ret;
+        return List.copyOf(ret);
     }
 
     public void update() {
         if (wrap && pendingRanges.isEmpty()) pendingRanges.addAll(tokenRanges);
     }
 
-    public TokenRange next() {
+    public TokenSlice next() {
         return pendingRanges.poll();
     }
 

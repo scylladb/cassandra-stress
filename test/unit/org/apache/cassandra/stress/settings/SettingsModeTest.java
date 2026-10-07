@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class SettingsModeTest {
@@ -45,5 +46,32 @@ class SettingsModeTest {
     @ValueSource(strings = {"protocolVersion=2", "protocolVersion=6", "bogus"})
     void rejectsAnUnsupportedValue(String param) {
         assertThrows(IllegalArgumentException.class, () -> parse("cql3", param));
+    }
+
+    @Test
+    void nativeSelectsDriver3AndIsTheDefault() {
+        assertEquals(ConnectionAPI.JAVA_DRIVER_NATIVE, parse("cql3", "native").api);
+        assertEquals(ConnectionAPI.JAVA_DRIVER_NATIVE, parse("cql3").api);
+        assertEquals(ConnectionAPI.JAVA_DRIVER_NATIVE, SettingsMode.get(new HashMap<>()).api);
+    }
+
+    @Test
+    void fourXSelectsDriver4() {
+        assertEquals(ConnectionAPI.JAVA_DRIVER4_NATIVE, parse("cql3", "4x").api);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"native, JAVA_DRIVER_NATIVE", "4x, JAVA_DRIVER4_NATIVE"})
+    void printsTheApiFirst(String driver, String api) {
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        parse("cql3", driver)
+                .printSettings(new org.apache.cassandra.stress.util.MultiResultLogger(
+                        new java.io.PrintStream(bytes, true, java.nio.charset.StandardCharsets.UTF_8)));
+        assertEquals(
+                "  API: " + api,
+                bytes.toString(java.nio.charset.StandardCharsets.UTF_8)
+                        .lines()
+                        .findFirst()
+                        .orElseThrow());
     }
 }

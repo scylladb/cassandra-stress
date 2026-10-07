@@ -1,19 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
-import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
-import com.datastax.oss.driver.api.core.cql.ResultSet;
-import com.datastax.oss.driver.api.core.cql.Row;
-import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
-import com.datastax.oss.driver.api.core.metadata.TokenMap;
-import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.metadata.token.Token;
-import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -21,16 +11,21 @@ import java.util.stream.Collectors;
 import org.apache.cassandra.stress.Operation;
 import org.apache.cassandra.stress.StressYaml;
 import org.apache.cassandra.stress.WorkManager;
+import org.apache.cassandra.stress.driver.ColumnSchema;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressPage;
+import org.apache.cassandra.stress.driver.TableSchema;
+import org.apache.cassandra.stress.driver.TokenSlice;
 import org.apache.cassandra.stress.generate.TokenRangeIterator;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
+import org.apache.cassandra.stress.util.CqlNames;
 
 public class TokenRangeQuery extends Operation {
     @SuppressWarnings("ThreadLocalUsage")
     private final ThreadLocal<State> currentState = new ThreadLocal<>();
 
-    private final TableMetadata tableMetadata;
+    private final TableSchema tableMetadata;
     private final TokenRangeIterator tokenRangeIterator;
     private final String columns;
     private final int pageSize;
@@ -39,7 +34,7 @@ public class TokenRangeQuery extends Operation {
     public TokenRangeQuery(
             Timer timer,
             StressSettings settings,
-            TableMetadata tableMetadata,
+            TableSchema tableMetadata,
             TokenRangeIterator tokenRangeIterator,
             StressYaml.TokenRangeQueryDef def,
             boolean isWarmup) {
@@ -51,18 +46,18 @@ public class TokenRangeQuery extends Operation {
         this.isWarmup = isWarmup;
     }
 
-    private static String sanitizeColumns(String columns, TableMetadata tableMetadata) {
+    private static String sanitizeColumns(String columns, TableSchema tableMetadata) {
         if (!"*".equals(columns)) return columns;
 
-        return tableMetadata.getColumns().keySet().stream()
-                .map(name -> name.asCql(true))
+        return tableMetadata.columns().stream()
+                .map(column -> CqlNames.quote(column.name()))
                 .collect(Collectors.joining(", "));
     }
 
     private static final class State {
         public final String bounds;
         public final String query;
-        public ByteBuffer pagingState;
+        public Object pagingState;
         public Set<Object> partitions = new HashSet<>();
 
         State(String bounds, String query) {
@@ -94,18 +89,15 @@ public class TokenRangeQuery extends Operation {
     private final class JavaDriverRun extends Runner {
         private static final Pattern TOKEN_COLUMN_NAME = Pattern.compile("(?i)(?:system\\.)?token\\(.*\\)");
 
-        final JavaDriverClient client;
+        final StressClient client;
 
-        private JavaDriverRun(JavaDriverClient client) {
+        private JavaDriverRun(StressClient client) {
             this.client = client;
         }
 
-        private static Token getPartitionKeyToken(Row row) {
-            ColumnDefinitions metadata = row.getColumnDefinitions();
-            for (int i = 0; i < metadata.size(); i++) {
-                String colName = metadata.get(i).getName().asInternal();
-                if (TOKEN_COLUMN_NAME.matcher(colName).matches()) return row.getToken(i);
-            }
+        private static int tokenColumn(List<String> columnNames) {
+            for (int i = 0; i < columnNames.size(); i++)
+                if (TOKEN_COLUMN_NAME.matcher(columnNames.get(i)).matches()) return i;
             throw new IllegalStateException("Unable to locate token(...) column in result set. "
                     + "This query must project token(partition_key) without aliasing.");
         }
@@ -114,32 +106,25 @@ public class TokenRangeQuery extends Operation {
         public boolean run() throws Exception {
             State state = currentState.get();
             if (state == null) {
-                TokenRange range = tokenRangeIterator.next();
+                TokenSlice range = tokenRangeIterator.next();
                 if (range == null) return true;
 
-                TokenMap tokenMap = client.getTokenMap()
-                        .orElseThrow(() -> new IllegalStateException("The driver has no token map"));
-                String bounds = "[" + tokenMap.format(range.getStart()) + ", " + tokenMap.format(range.getEnd()) + "]";
-                state = new State(bounds, buildQuery(range, tokenMap));
+                state = new State(range.format(), buildQuery(range));
                 currentState.set(state);
             }
 
-            SimpleStatementBuilder statement = new SimpleStatementBuilder(state.query).setPageSize(pageSize);
-            if (state.pagingState != null) statement.setPagingState(state.pagingState);
+            StressPage page = client.executePage(state.query, pageSize, state.pagingState);
+            state.pagingState = page.pagingState();
 
-            ResultSet results = client.getSession().execute(statement.build());
-            state.pagingState = results.getExecutionInfo().getPagingState();
+            List<ByteBuffer[]> rows = page.result().rows();
+            rowCount += rows.size();
 
-            int page = results.getAvailableWithoutFetching();
-            rowCount += page;
-
-            Iterator<Row> rows = results.iterator();
-            for (int i = 0; i < page; i++) {
-                Object partition = getPartitionKeyToken(rows.next());
-                if (state.partitions.add(partition)) partitionCount += 1;
+            if (!rows.isEmpty()) {
+                int token = tokenColumn(page.result().columnNames());
+                for (ByteBuffer[] row : rows) if (state.partitions.add(row[token])) partitionCount += 1;
             }
 
-            if (results.isFullyFetched() || isWarmup) {
+            if (page.fullyFetched() || isWarmup) {
                 currentState.set(null);
             }
 
@@ -147,23 +132,21 @@ public class TokenRangeQuery extends Operation {
         }
     }
 
-    private String buildQuery(TokenRange tokenRange, TokenMap tokenMap) {
-        Token start = tokenRange.getStart();
-        Token end = tokenRange.getEnd();
-        List<String> pkColumns = tableMetadata.getPartitionKey().stream()
-                .map(ColumnMetadata::getName)
-                .map(name -> name.asCql(true))
+    private String buildQuery(TokenSlice tokenRange) {
+        List<String> pkColumns = tableMetadata.partitionKey().stream()
+                .map(ColumnSchema::name)
+                .map(CqlNames::quote)
                 .toList();
         String tokenStatement = String.format("token(%s)", String.join(", ", pkColumns));
 
         return "SELECT " + tokenStatement + ", " + columns + " FROM "
-                + tableMetadata.getName().asCql(true)
-                + " WHERE " + tokenStatement + " > " + tokenMap.format(start)
-                + " AND " + tokenStatement + " <= " + tokenMap.format(end);
+                + CqlNames.quote(tableMetadata.name())
+                + " WHERE " + tokenStatement + " > " + tokenRange.start()
+                + " AND " + tokenStatement + " <= " + tokenRange.end();
     }
 
     @Override
-    public void run(JavaDriverClient client) throws IOException {
+    public void run(StressClient client) throws IOException {
         timeWithRetry(new JavaDriverRun(client));
     }
 

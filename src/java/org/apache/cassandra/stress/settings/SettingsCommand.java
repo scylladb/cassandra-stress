@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.operations.OpDistributionFactory;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
-import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.Sleep;
 
@@ -156,7 +156,7 @@ public abstract class SettingsCommand {
     public abstract void truncateTables(StressSettings settings);
 
     protected void truncateTables(StressSettings settings, String ks, String... tables) {
-        QueryExecutor client = settings.getJavaDriverClient(false);
+        StressClient client = settings.getClient(false);
         assert settings.command.truncate != SettingsCommand.TruncateWhen.NEVER;
         for (String table : tables) {
             String cql = String.format("TRUNCATE %s.%s", ks, table);

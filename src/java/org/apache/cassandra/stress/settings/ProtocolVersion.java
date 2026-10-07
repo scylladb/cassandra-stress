@@ -14,21 +14,14 @@ public final class ProtocolVersion {
         return new ProtocolVersion(i);
     }
 
-    public com.datastax.oss.driver.api.core.ProtocolVersion toDriver() {
-        if (protocolVersion == SpecialVersions.DEFAULT.index) {
-            return null;
-        } else if (protocolVersion == SpecialVersions.NEWEST_SUPPORTED.index) {
-            return com.datastax.oss.driver.api.core.ProtocolVersion.V5;
-        } else if (protocolVersion <= 0) {
-            throw new IllegalArgumentException("Invalid protocol version: " + protocolVersion);
-        }
+    public boolean isDefault() {
+        return protocolVersion == SpecialVersions.DEFAULT.index;
+    }
 
-        return switch (protocolVersion) {
-            case 3 -> com.datastax.oss.driver.api.core.ProtocolVersion.V3;
-            case 4 -> com.datastax.oss.driver.api.core.ProtocolVersion.V4;
-            case 5 -> com.datastax.oss.driver.api.core.ProtocolVersion.V5;
-            default -> throw new IllegalArgumentException("Invalid protocol version: " + protocolVersion);
-        };
+    public int number() {
+        if (protocolVersion == SpecialVersions.NEWEST_SUPPORTED.index) return 5;
+        if (protocolVersion <= 0) throw new IllegalArgumentException("Invalid protocol version: " + protocolVersion);
+        return protocolVersion;
     }
 
     @Override

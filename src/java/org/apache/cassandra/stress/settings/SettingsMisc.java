@@ -9,8 +9,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Properties;
 import org.apache.cassandra.stress.StressServer;
+import org.apache.cassandra.stress.driver.StressClients;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.util.HostAndPort;
 
@@ -82,34 +82,24 @@ final class SettingsMisc {
 
     private static boolean maybePrintVersion(Map<String, String[]> clArgs) {
         if (clArgs.containsKey("version")) {
-            System.out.println(versionLines(stressVersion(), driverVersion()).trim());
+            System.out.println(
+                    versionLines(stressVersion(), StressClients.driver3Version(), StressClients.driver4Version())
+                            .trim());
             return true;
         }
         return false;
     }
 
-    static String versionLines(String stressVersion, String driverVersion) {
+    static String versionLines(String stressVersion, String driver3Version, String driver4Version) {
         return "Version: " + stressVersion + "\n"
-                + "scylla-java-driver: " + driverVersion + "\n"
-                + "scylla-java-driver-4x: " + driverVersion + "\n";
+                + "scylla-java-driver: " + driver3Version + "\n"
+                + "scylla-java-driver-4x: " + driver4Version + "\n";
     }
 
     static String stressVersion() {
         try (InputStream in = SettingsMisc.class.getResourceAsStream("/org/apache/cassandra/stress/stress.version")) {
             if (in == null) return "unknown";
             return new String(in.readAllBytes(), StandardCharsets.UTF_8).trim();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    static String driverVersion() {
-        try (InputStream in =
-                SettingsMisc.class.getClassLoader().getResourceAsStream("com/datastax/oss/driver/Driver.properties")) {
-            if (in == null) return "unknown";
-            Properties properties = new Properties();
-            properties.load(in);
-            return properties.getProperty("driver.version", "unknown");
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

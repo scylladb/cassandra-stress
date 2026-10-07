@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.predefined;
 
-import com.datastax.oss.driver.api.core.cql.ResultSet;
-import com.datastax.oss.driver.api.core.cql.Row;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.function.Function;
-import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressPreparedStatement;
+import org.apache.cassandra.stress.driver.StressResult;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
 import org.apache.cassandra.stress.generate.SeedManager;
 import org.apache.cassandra.stress.report.Timer;
@@ -15,7 +15,6 @@ import org.apache.cassandra.stress.settings.Command;
 import org.apache.cassandra.stress.settings.ConnectionStyle;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
-import org.apache.cassandra.stress.util.JavaDriverClient;
 
 public abstract class CqlOperation<V> extends PredefinedOperation {
 
@@ -283,15 +282,15 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
     }
 
     @Override
-    public void run(JavaDriverClient client) throws IOException {
+    public void run(StressClient client) throws IOException {
         run(new ClientWrapper(client, settings));
     }
 
     protected static final class ClientWrapper {
-        private final JavaDriverClient client;
+        private final StressClient client;
         private final StressSettings settings;
 
-        private ClientWrapper(JavaDriverClient client, StressSettings settings) {
+        private ClientWrapper(StressClient client, StressSettings settings) {
             this.client = client;
             this.settings = settings;
         }
@@ -304,9 +303,8 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
         }
 
         <R> R execute(Object statement, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
-            return handler.apply(client.executePrepared(
-                    (PreparedStatement) statement,
-                    queryParams,
+            return handler.apply(client.execute(
+                    ((StressPreparedStatement) statement).bind(queryParams.toArray()),
                     settings.command.consistencyLevel,
                     settings.command.serialConsistencyLevel));
         }
@@ -317,14 +315,14 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
     }
 
     @FunctionalInterface
-    protected interface ResultHandler<V> extends Function<ResultSet, V> {}
+    protected interface ResultHandler<V> extends Function<StressResult, V> {}
 
     protected static final class RowCountHandler implements ResultHandler<Integer> {
         static final RowCountHandler INSTANCE = new RowCountHandler();
 
         @Override
-        public Integer apply(ResultSet rows) {
-            return rows == null ? 0 : rows.all().size();
+        public Integer apply(StressResult rows) {
+            return rows == null ? 0 : rows.rows().size();
         }
     }
 
@@ -332,16 +330,9 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
         static final RowsHandler INSTANCE = new RowsHandler();
 
         @Override
-        public ByteBuffer[][] apply(ResultSet result) {
+        public ByteBuffer[][] apply(StressResult result) {
             if (result == null) return EMPTY_BYTE_BUFFERS;
-            List<Row> rows = result.all();
-            ByteBuffer[][] r = new ByteBuffer[rows.size()][];
-            for (int i = 0; i < r.length; i++) {
-                Row row = rows.get(i);
-                r[i] = new ByteBuffer[row.getColumnDefinitions().size()];
-                for (int j = 0; j < r[i].length; j++) r[i][j] = row.getByteBuffer(j);
-            }
-            return r;
+            return result.rows().toArray(ByteBuffer[][]::new);
         }
     }
 

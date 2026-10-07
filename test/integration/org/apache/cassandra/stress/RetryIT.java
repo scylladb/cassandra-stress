@@ -3,9 +3,6 @@ package org.apache.cassandra.stress;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.cql.BatchStatement;
-import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -18,8 +15,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressClients;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -54,14 +53,20 @@ class RetryIT {
             """);
     }
 
-    private static CqlSession failingEveryOtherWrite(CqlSession session) {
+    private static boolean isWrite(Object statement) {
+        return statement instanceof com.datastax.oss.driver.api.core.cql.BoundStatement
+                || statement instanceof com.datastax.oss.driver.api.core.cql.BatchStatement
+                || statement instanceof com.datastax.driver.core.BoundStatement
+                || statement instanceof com.datastax.driver.core.BatchStatement;
+    }
+
+    private static Object failingEveryOtherWrite(Class<?> sessionType, Object session) {
         AtomicLong calls = new AtomicLong();
-        return (CqlSession) Proxy.newProxyInstance(
-                RetryIT.class.getClassLoader(), new Class<?>[] {CqlSession.class}, (proxy, method, args) -> {
-                    if ("execute".equals(method.getName())
-                            && args != null
-                            && (args[0] instanceof BoundStatement || args[0] instanceof BatchStatement)
-                            && calls.incrementAndGet() % 2 == 1) throw new IllegalStateException("injected failure");
+        Predicate<Object[]> failing = args -> args != null && args.length > 0 && isWrite(args[0]);
+        return Proxy.newProxyInstance(
+                RetryIT.class.getClassLoader(), new Class<?>[] {sessionType}, (proxy, method, args) -> {
+                    if ("execute".equals(method.getName()) && failing.test(args) && calls.incrementAndGet() % 2 == 1)
+                        throw new IllegalStateException("injected failure");
                     try {
                         return method.invoke(session, args);
                     } catch (InvocationTargetException e) {
@@ -75,6 +80,9 @@ class RetryIT {
         args.addAll(List.of(
                 "-rate",
                 "threads=1",
+                "-mode",
+                "cql3",
+                CassandraStress.driver(),
                 "-errors",
                 "retries=3",
                 "fail-fast",
@@ -88,12 +96,12 @@ class RetryIT {
         MultiResultLogger output = new MultiResultLogger(new PrintStream(bytes, true, StandardCharsets.UTF_8));
         settings.setOutput(output);
 
-        JavaDriverClient client = new JavaDriverClient(
+        StressClient client = StressClients.create(
                 settings, settings.node.nodes, settings.port.nativePort, settings.transport.getEncryptionOptions());
         client.connect(settings.mode.compression());
-        Field session = JavaDriverClient.class.getDeclaredField("session");
+        Field session = client.getClass().getDeclaredField("session");
         session.setAccessible(true);
-        session.set(client, failingEveryOtherWrite((CqlSession) session.get(client)));
+        session.set(client, failingEveryOtherWrite(session.getType(), session.get(client)));
         Field cached = StressSettings.class.getDeclaredField("client");
         cached.setAccessible(true);
         cached.set(settings, client);

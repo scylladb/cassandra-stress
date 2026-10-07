@@ -7,9 +7,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressClients;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.apache.cassandra.stress.util.EncryptionOptions;
-import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.apache.cassandra.stress.util.ResultLogger;
 
@@ -64,7 +65,7 @@ public class StressSettings {
     }
 
     private volatile ResultLogger output = new MultiResultLogger(System.out);
-    private volatile JavaDriverClient client;
+    private volatile StressClient client;
     private final Object clientLock = new Object();
     private int numFailures;
     private static int MAX_NUM_FAILURES = 10;
@@ -77,11 +78,11 @@ public class StressSettings {
         this.output = Objects.requireNonNull(output);
     }
 
-    public JavaDriverClient getJavaDriverClient() {
-        return getJavaDriverClient(true);
+    public StressClient getClient() {
+        return getClient(true);
     }
 
-    public JavaDriverClient getJavaDriverClient(boolean setKeyspace) {
+    public StressClient getClient(boolean setKeyspace) {
         if (client != null) return client;
 
         synchronized (clientLock) {
@@ -91,7 +92,7 @@ public class StressSettings {
                 if (client != null) return client;
 
                 EncryptionOptions encOptions = transport.getEncryptionOptions();
-                JavaDriverClient c = new JavaDriverClient(this, node.nodes, port.nativePort, encOptions);
+                StressClient c = StressClients.create(this, node.nodes, port.nativePort, encOptions);
                 c.connect(mode.compression());
                 if (setKeyspace && schema.keyspace != null)
                     c.execute("USE \"" + schema.keyspace + "\";", ConsistencyLevel.ONE);

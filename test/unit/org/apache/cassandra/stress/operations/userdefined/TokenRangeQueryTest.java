@@ -2,121 +2,93 @@ package org.apache.cassandra.stress.operations.userdefined;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.datastax.oss.driver.api.core.CqlIdentifier;
-import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.cql.ExecutionInfo;
-import com.datastax.oss.driver.api.core.cql.ResultSet;
-import com.datastax.oss.driver.api.core.cql.Row;
-import com.datastax.oss.driver.api.core.metadata.Metadata;
-import com.datastax.oss.driver.api.core.metadata.TokenMap;
-import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
-import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
-import com.datastax.oss.driver.api.core.metadata.token.Token;
-import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
-import com.datastax.oss.driver.api.core.type.DataTypes;
-import com.datastax.oss.driver.internal.core.metadata.schema.DefaultColumnMetadata;
-import com.datastax.oss.driver.internal.core.metadata.schema.DefaultTableMetadata;
-import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
 import java.nio.ByteBuffer;
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.cassandra.stress.StressYaml;
 import org.apache.cassandra.stress.WorkManager;
+import org.apache.cassandra.stress.driver.ColumnSchema;
+import org.apache.cassandra.stress.driver.CqlType;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressPage;
+import org.apache.cassandra.stress.driver.StressResult;
+import org.apache.cassandra.stress.driver.TableSchema;
+import org.apache.cassandra.stress.driver.TokenSlice;
 import org.apache.cassandra.stress.generate.TokenRangeIterator;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
 import org.junit.jupiter.api.Test;
 
 class TokenRangeQueryTest {
-    @SuppressWarnings("unchecked")
-    private static <T> T fake(Class<T> type, Map<String, Object> answers) {
-        return (T) Proxy.newProxyInstance(
-                TokenRangeQueryTest.class.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
-                    if (answers.containsKey(method.getName())) return answers.get(method.getName());
-                    if ("toString".equals(method.getName())) return type.getSimpleName();
-                    if ("hashCode".equals(method.getName())) return System.identityHashCode(proxy);
-                    if ("equals".equals(method.getName())) return proxy == args[0];
-                    throw new UnsupportedOperationException(type.getSimpleName() + "." + method.getName());
+    private static final TableSchema TABLE =
+            new TableSchema("ks", "t", List.of(new ColumnSchema("pk", CqlType.of("BIGINT"))), List.of(), List.of());
+
+    private static StressClient client(List<String> queries, StressPage... pages) {
+        Map<String, Integer> next = new HashMap<>(Map.of("page", 0));
+        return (StressClient) Proxy.newProxyInstance(
+                TokenRangeQueryTest.class.getClassLoader(),
+                new Class<?>[] {StressClient.class},
+                (proxy, method, args) -> {
+                    if ("executePage".equals(method.getName())) {
+                        queries.add((String) args[0]);
+                        return pages[next.merge("page", 1, Integer::sum) - 1];
+                    }
+                    throw new UnsupportedOperationException(method.getName());
                 });
     }
 
-    @Test
-    void anEmptyPageWithAPagingStateReadsNoFurtherRows() throws Exception {
-        AtomicInteger rowsRead = new AtomicInteger();
-        Iterator<Row> rows = new Iterator<>() {
-            @Override
-            public boolean hasNext() {
-                return true;
-            }
-
-            @Override
-            public Row next() {
-                rowsRead.incrementAndGet();
-                throw new IllegalStateException("the next page was fetched");
-            }
-        };
-        ResultSet page = fake(
-                ResultSet.class,
-                Map.of(
-                        "getExecutionInfo",
-                        fake(ExecutionInfo.class, Map.of("getPagingState", ByteBuffer.allocate(4))),
-                        "getAvailableWithoutFetching",
-                        0,
-                        "iterator",
-                        rows,
-                        "isFullyFetched",
-                        false));
-        Token token = fake(Token.class, Map.of());
-        TokenMap tokenMap = fake(TokenMap.class, Map.of("format", "0"));
-        CqlSession session = fake(
-                CqlSession.class,
-                Map.of(
-                        "execute",
-                        page,
-                        "getMetadata",
-                        fake(Metadata.class, Map.of("getTokenMap", Optional.of(tokenMap)))));
-
-        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-errors", "retries=0"});
-        JavaDriverClient client = new JavaDriverClient(settings, List.of("127.0.0.1"), 9042);
-        Field field = JavaDriverClient.class.getDeclaredField("session");
-        field.setAccessible(true);
-        field.set(client, session);
-
-        CqlIdentifier keyspace = CqlIdentifier.fromInternal("ks");
-        CqlIdentifier table = CqlIdentifier.fromInternal("t");
-        ColumnMetadata pk =
-                new DefaultColumnMetadata(keyspace, table, CqlIdentifier.fromInternal("pk"), DataTypes.BIGINT, false);
+    private static TokenRangeQuery query(StressSettings settings, TokenSlice range) {
         StressYaml.TokenRangeQueryDef def = new StressYaml.TokenRangeQueryDef();
         def.columns = "pk";
-        TokenRange range = fake(TokenRange.class, Map.of("getStart", token, "getEnd", token));
-        TokenRangeQuery query = new TokenRangeQuery(
+        return new TokenRangeQuery(
                 new Timer("scan", (opType, intended, started, ended, rowCount, partitions, error) -> {}),
                 settings,
-                new DefaultTableMetadata(
-                        keyspace,
-                        table,
-                        UUID.randomUUID(),
-                        false,
-                        false,
-                        List.of(pk),
-                        Map.<ColumnMetadata, ClusteringOrder>of(),
-                        Map.of(pk.getName(), pk),
-                        Map.of(),
-                        Map.of()),
-                new TokenRangeIterator(settings, Set.of(range)),
+                TABLE,
+                new TokenRangeIterator(settings, List.of(range)),
                 def,
                 false);
+    }
+
+    private static ByteBuffer token(long value) {
+        return ByteBuffer.allocate(8).putLong(0, value);
+    }
+
+    @Test
+    void readsTheRangeAndKeepsThePagingStateUntilTheLastPage() throws Exception {
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-errors", "retries=0"});
+        List<String> queries = new ArrayList<>();
+        StressResult first = new StressResult(
+                List.of("system.token(pk)", "pk"), List.<ByteBuffer[]>of(new ByteBuffer[] {token(1), token(1)}));
+        StressClient client = client(
+                queries,
+                new StressPage(first, "state", false),
+                new StressPage(new StressResult(List.of("system.token(pk)", "pk"), List.of()), null, true));
+        TokenRangeQuery query = query(settings, new TokenSlice(-5, 7));
+
+        assertEquals(1, query.ready(new WorkManager.FixedWorkManager(2)));
+        query.run(client);
+        assertEquals("[-5, 7]", query.key());
+        query.run(client);
+        assertEquals("-", query.key());
+        assertEquals(
+                List.of(
+                        "SELECT token(pk), pk FROM t WHERE token(pk) > -5 AND token(pk) <= 7",
+                        "SELECT token(pk), pk FROM t WHERE token(pk) > -5 AND token(pk) <= 7"),
+                queries);
+    }
+
+    @Test
+    void anEmptyPageWithAPagingStateKeepsTheRangeOpen() throws Exception {
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-errors", "retries=0"});
+        StressClient client =
+                client(new ArrayList<>(), new StressPage(new StressResult(List.of(), List.of()), "state", false));
+        TokenRangeQuery query = query(settings, new TokenSlice(0, 0));
 
         assertEquals(1, query.ready(new WorkManager.FixedWorkManager(1)));
         query.run(client);
-        assertEquals(0, rowsRead.get());
         assertEquals("[0, 0]", query.key());
     }
 }

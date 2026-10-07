@@ -32,7 +32,8 @@
     <property name="debuglevel" value="source,lines,vars" />
 
     <property name="base.version" value="3.12.0" />
-    <property name="base.javaDriverVersion" value="4.19.2.2" />
+    <property name="base.javaDriverVersion" value="3.11.5.19" />
+    <property name="base.java4DriverVersion" value="4.19.2.2" />
 
     <property name="basedir" value="." />
     <property name="build.src" value="${basedir}/src" />
@@ -136,8 +137,19 @@
         </resolver:remoterepos>
 
         <resolver:dependencies id="runtime-deps">
+            <dependency groupId="com.scylladb" artifactId="scylla-driver-core"
+                version="${base.javaDriverVersion}" classifier="shaded">
+                <exclusion groupId="io.netty" artifactId="*" />
+                <exclusion groupId="org.slf4j" artifactId="slf4j-api" />
+                <exclusion groupId="com.github.jnr" artifactId="*" />
+                <exclusion groupId="com.google.guava" artifactId="listenablefuture" />
+                <exclusion groupId="com.google.j2objc" artifactId="j2objc-annotations" />
+                <exclusion groupId="com.google.code.findbugs" artifactId="jsr305" />
+                <exclusion groupId="com.google.errorprone" artifactId="error_prone_annotations" />
+                <exclusion groupId="org.checkerframework" artifactId="checker-qual" />
+            </dependency>
             <dependency groupId="com.scylladb" artifactId="java-driver-core-shaded"
-                version="${base.javaDriverVersion}">
+                version="${base.java4DriverVersion}">
                 <exclusion groupId="com.typesafe" artifactId="config" />
                 <exclusion groupId="org.slf4j" artifactId="slf4j-api" />
                 <exclusion groupId="io.dropwizard.metrics" artifactId="metrics-core" />
@@ -457,9 +469,10 @@
 
     <macrodef name="run-integration-tests">
         <attribute name="jvmargs" default="" />
+        <attribute name="driver" />
         <sequential>
-            <run-unit-tests jvmargs="@{jvmargs}" classes="${test.integration.classes}"
-                includes="**/${test.integration.name}.class" output="${build.test.dir}/integration-output"
+            <run-unit-tests jvmargs="@{jvmargs} -Dstress.it.driver=@{driver}" classes="${test.integration.classes}"
+                includes="**/${test.integration.name}.class" output="${build.test.dir}/integration-output-@{driver}"
                 timeout="${test.integration.timeout}">
                 <extra-classpath>
                     <pathelement location="${test.integration.classes}" />
@@ -471,7 +484,8 @@
 
     <target name="integration-test" depends="build-integration-test"
         description="Run the integration tests against ScyllaDB in Docker, or one class with -Dtest.integration.name=ClassNameIT">
-        <run-integration-tests />
+        <run-integration-tests driver="native" />
+        <run-integration-tests driver="4x" />
         <fail message="Some integration test(s) failed." if="testfailed" />
     </target>
 
@@ -524,7 +538,8 @@
         <jacoco:agent property="test.coverage.agent" destfile="${coverage.dir}/jacoco.exec"
             includes="org.apache.cassandra.stress.*" append="true" />
         <run-unit-tests jvmargs="${test.coverage.agent}" />
-        <run-integration-tests jvmargs="${test.coverage.agent}" />
+        <run-integration-tests jvmargs="${test.coverage.agent}" driver="native" />
+        <run-integration-tests jvmargs="${test.coverage.agent}" driver="4x" />
         <coverage-report />
         <fail message="Some test(s) failed." if="testfailed" />
     </target>

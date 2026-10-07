@@ -1,26 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
-import com.datastax.oss.driver.api.core.CqlIdentifier;
-import com.datastax.oss.driver.api.core.metadata.TokenMap;
-import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
-import com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.driver.ColumnSchema;
+import org.apache.cassandra.stress.driver.SchemaAlreadyExistsException;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressPreparedStatement;
+import org.apache.cassandra.stress.driver.TableSchema;
+import org.apache.cassandra.stress.driver.TokenSlice;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
@@ -38,8 +35,6 @@ import org.apache.cassandra.stress.settings.SettingsCommand;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.apache.cassandra.stress.util.CqlNames;
-import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.QueryExecutor;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.Sleep;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -62,16 +57,16 @@ public class StressProfile {
     private Map<String, String> insert;
     private boolean schemaCreated;
 
-    volatile TableMetadata tableMetaData;
-    volatile Set<TokenRange> tokenRanges;
+    volatile TableSchema tableMetaData;
+    volatile List<TokenSlice> tokenRanges;
 
     volatile ProfileGenerators generators;
     volatile ProfileInsert insertSpec;
-    volatile PreparedStatement insertStatement;
+    volatile StressPreparedStatement insertStatement;
     volatile List<ValidatingSchemaQuery.Factory> validationFactories;
 
     volatile Map<String, SchemaQuery.ArgSelect> argSelects;
-    volatile Map<String, PreparedStatement> queryStatements;
+    volatile Map<String, StressPreparedStatement> queryStatements;
 
     public void printSettings(ResultLogger out, StressSettings stressSettings) {
         out.printf("  Keyspace Name: %s%n", keyspaceName);
@@ -195,16 +190,16 @@ public class StressProfile {
     }
 
     @SuppressWarnings("EmptyCatch")
-    private static void executeIgnoringExisting(QueryExecutor client, String cql, ConsistencyLevel consistencyLevel) {
+    private static void executeIgnoringExisting(StressClient client, String cql, ConsistencyLevel consistencyLevel) {
         try {
             client.execute(cql, consistencyLevel);
-        } catch (AlreadyExistsException ignored) {
+        } catch (SchemaAlreadyExistsException ignored) {
         }
     }
 
     public void maybeCreateSchema(StressSettings settings) {
         if (!schemaCreated) {
-            QueryExecutor client = settings.getJavaDriverClient(false);
+            StressClient client = settings.getClient(false);
             ConsistencyLevel schemaConsistencyLevel = schemaConsistency(settings);
 
             if (keyspaceCql != null) {
@@ -254,7 +249,7 @@ public class StressProfile {
     }
 
     public void truncateTable(StressSettings settings) {
-        QueryExecutor client = settings.getJavaDriverClient(false);
+        StressClient client = settings.getClient(false);
         assert settings.command.truncate != SettingsCommand.TruncateWhen.NEVER;
         String cql = String.format("TRUNCATE %s.%s", keyspaceName, tableName);
         client.execute(cql, ConsistencyLevel.ONE);
@@ -267,17 +262,17 @@ public class StressProfile {
 
     private void maybeLoadSchemaInfo(StressSettings settings) {
         if (tableMetaData == null) {
-            JavaDriverClient client = settings.getJavaDriverClient();
+            StressClient client = settings.getClient();
             synchronized (client) {
                 if (tableMetaData != null) return;
 
-                TableMetadata metadata = client.getTableMetadata(keyspaceName, tableName);
+                TableSchema metadata = client.tableSchema(keyspaceName, tableName);
 
                 if (metadata == null)
                     throw new RuntimeException("Unable to find table " + keyspaceName + "." + tableName);
 
-                for (CqlIdentifier column : metadata.getColumns().keySet()) {
-                    String colName = column.asInternal();
+                for (ColumnSchema column : metadata.columns()) {
+                    String colName = column.name();
                     if (columnConfigs.containsKey(colName)) continue;
 
                     columnConfigs.put(colName, new GeneratorConfig(SEED_PREFIX + colName, null, null, null));
@@ -288,24 +283,12 @@ public class StressProfile {
         }
     }
 
-    public Set<TokenRange> maybeLoadTokenRanges(StressSettings settings) {
+    public List<TokenSlice> maybeLoadTokenRanges(StressSettings settings) {
         maybeLoadSchemaInfo(settings);
 
-        JavaDriverClient client = settings.getJavaDriverClient(false);
+        StressClient client = settings.getClient(false);
         synchronized (client) {
-            if (tokenRanges != null) return tokenRanges;
-
-            TokenMap tokenMap =
-                    client.getTokenMap().orElseThrow(() -> new IllegalStateException("The driver has no token map"));
-            List<TokenRange> sortedRanges =
-                    new ArrayList<>(tokenMap.getTokenRanges().size() + 1);
-            for (TokenRange range : tokenMap.getTokenRanges()) {
-                if (range.isWrappedAround()) sortedRanges.addAll(range.unwrap());
-                else sortedRanges.add(range);
-            }
-
-            Collections.sort(sortedRanges);
-            tokenRanges = new LinkedHashSet<>(sortedRanges);
+            if (tokenRanges == null) tokenRanges = client.tokenRanges();
             return tokenRanges;
         }
     }
@@ -318,13 +301,13 @@ public class StressProfile {
         if (queryStatements == null) {
             synchronized (this) {
                 if (queryStatements == null) {
-                    JavaDriverClient client = settings.getJavaDriverClient();
+                    StressClient client = settings.getClient();
 
-                    Map<String, PreparedStatement> stmts = new HashMap<>();
+                    Map<String, StressPreparedStatement> stmts = new HashMap<>();
                     Map<String, SchemaQuery.ArgSelect> args = new HashMap<>();
                     for (Map.Entry<String, StressYaml.QueryDef> e : queries.entrySet()) {
                         StressYaml.QueryDef query = e.getValue();
-                        PreparedStatement stmt = client.prepare(query.cql);
+                        StressPreparedStatement stmt = client.prepare(query.cql);
                         String queryName = e.getKey().toLowerCase(Locale.ROOT);
 
                         if (query.consistencyLevel != null) {
@@ -387,7 +370,7 @@ public class StressProfile {
             synchronized (this) {
                 if (insertStatement == null) {
                     ProfileInsert spec = insertSpec(generator, settings);
-                    PreparedStatement statement = settings.getJavaDriverClient().prepare(spec.cql());
+                    StressPreparedStatement statement = settings.getClient().prepare(spec.cql());
                     statement.setConsistencyLevel(spec.consistencyLevel());
                     statement.setSerialConsistencyLevel(spec.serialConsistencyLevel());
                     insertStatement = statement;

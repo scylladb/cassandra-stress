@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
-import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
-import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import org.apache.cassandra.stress.core.CqlTypes;
+import org.apache.cassandra.stress.driver.ColumnSchema;
+import org.apache.cassandra.stress.driver.TableSchema;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
 import org.apache.cassandra.stress.generate.values.BigDecimals;
 import org.apache.cassandra.stress.generate.values.BigIntegers;
@@ -42,26 +39,18 @@ final class ProfileGenerators {
     private final List<ColumnInfo> valueColumns = new ArrayList<>();
     private final boolean[] descendingClustering;
 
-    ProfileGenerators(TableMetadata table, Map<String, GeneratorConfig> columnConfigs, boolean skipUnsupportedColumns) {
+    ProfileGenerators(TableSchema table, Map<String, GeneratorConfig> columnConfigs, boolean skipUnsupportedColumns) {
         List<ColumnInfo> unsupportedKeys = new ArrayList<>();
         List<ColumnInfo> unsupportedValues = new ArrayList<>();
-        Set<ColumnMetadata> keyColumns = new HashSet<>(table.getPrimaryKey());
 
-        add(table.getPartitionKey(), partitionKeys, columnConfigs, unsupportedKeys);
-        add(table.getClusteringColumns().keySet(), clusteringColumns, columnConfigs, unsupportedKeys);
-        descendingClustering = new boolean[table.getClusteringColumns().size()];
+        add(table.partitionKey(), partitionKeys, columnConfigs, unsupportedKeys);
+        add(table.clusteringColumns(), clusteringColumns, columnConfigs, unsupportedKeys);
+        descendingClustering = new boolean[table.clusteringColumns().size()];
         int depth = 0;
-        for (ClusteringOrder order : table.getClusteringColumns().values())
-            descendingClustering[depth++] = order == ClusteringOrder.DESC;
-        add(
-                table.getColumns().values().stream()
-                        .filter(column -> !keyColumns.contains(column))
-                        .toList(),
-                valueColumns,
-                columnConfigs,
-                unsupportedValues);
+        for (ColumnSchema column : table.clusteringColumns()) descendingClustering[depth++] = column.descending();
+        add(table.valueColumns(), valueColumns, columnConfigs, unsupportedValues);
 
-        String tableName = table.getName().asInternal();
+        String tableName = table.name();
         String level = skipUnsupportedColumns ? "WARNING" : "ERROR";
         for (ColumnInfo column : unsupportedValues)
             System.err.printf("%s: Table '%s' has column '%s' of unsupported type%n", level, tableName, column.name);
@@ -72,18 +61,18 @@ final class ProfileGenerators {
     }
 
     private static void add(
-            Collection<ColumnMetadata> columns,
+            Collection<ColumnSchema> columns,
             List<ColumnInfo> target,
             Map<String, GeneratorConfig> columnConfigs,
             List<ColumnInfo> unsupported) {
-        for (ColumnMetadata metadata : columns) {
-            String name = metadata.getName().asInternal();
+        for (ColumnSchema metadata : columns) {
+            String name = metadata.name();
             ColumnInfo column = new ColumnInfo(
                     name,
-                    CqlTypes.name(metadata.getType()).toLowerCase(Locale.ROOT),
-                    CqlTypes.elementName(metadata.getType()).toLowerCase(Locale.ROOT),
+                    CqlTypes.name(metadata.type()).toLowerCase(Locale.ROOT),
+                    CqlTypes.elementName(metadata.type()).toLowerCase(Locale.ROOT),
                     columnConfigs.get(name));
-            if (CqlTypes.isSupported(metadata.getType())) target.add(column);
+            if (CqlTypes.isSupported(metadata.type())) target.add(column);
             else unsupported.add(column);
         }
     }

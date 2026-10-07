@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-package org.apache.cassandra.stress.util.codecs;
+package org.apache.cassandra.stress.driver.v4.codecs;
 
 import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.datastax.oss.driver.api.core.type.DataType;

@@ -1,22 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
-import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import java.util.List;
-import org.apache.cassandra.stress.core.PreparedStatement;
+import org.apache.cassandra.stress.driver.StressBoundStatement;
+import org.apache.cassandra.stress.driver.StressPreparedStatement;
 import org.apache.cassandra.stress.generate.Row;
 import org.apache.cassandra.stress.operations.PartitionOperation;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
 
 public abstract class SchemaStatement extends PartitionOperation {
-    final PreparedStatement statement;
+    final StressPreparedStatement statement;
     final int[] argumentIndex;
     final Object[] bindBuffer;
     final boolean printStatementsOnError;
 
     public SchemaStatement(
-            Timer timer, StressSettings settings, DataSpec spec, PreparedStatement statement, List<String> bindNames) {
+            Timer timer,
+            StressSettings settings,
+            DataSpec spec,
+            StressPreparedStatement statement,
+            List<String> bindNames) {
         super(timer, settings, spec);
         this.statement = statement;
         argumentIndex = new int[bindNames.size()];
@@ -26,7 +30,7 @@ public abstract class SchemaStatement extends PartitionOperation {
         this.printStatementsOnError = settings.log.printStatementsOnError;
     }
 
-    BoundStatement bindRow(Row row) {
+    StressBoundStatement bindRow(Row row) {
         assert statement != null;
 
         for (int i = 0; i < argumentIndex.length; i++) {
