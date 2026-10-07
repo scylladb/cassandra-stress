@@ -29,12 +29,12 @@ The change deletes the Cassandra server tree and the stress features that run on
 | `CompactionStress`, offline `SchemaInsert` | Write SSTables with server code | Removed |
 | `cassandra-stress legacy` | Translates the pre-2.1 command line | Stops at argument parsing: `Command legacy was removed. Run cassandra-stress help to see the commands.` |
 | `-graph` without `title=` | Title is null, because the default checks `revision=` | Title is `cassandra-stress - <yyyy-MM-dd HH:mm:ss>`, as the help text states |
-| `-send-to` and stressd | The client fails with `NotSerializableException` before it sends the settings | The client sends its command-line arguments as text, and stressd parses them. An older client cannot talk to a new stressd |
+| `-send-to` and stressd | The client fails with `NotSerializableException` before it sends the settings | The client sends its command-line arguments as text, and stressd parses them. An older client cannot talk to a new stressd. stressd refuses `user`, `-node file=` and `-log hdrfile=` |
 | User profiles, other commands, workloads | | Unchanged |
 
 A profile that names a strategy in its own `CREATE KEYSPACE` text passes it to the cluster unchanged.
 
-The user profile flow stays as it is. `StressProfile` creates the keyspace and the table, then reads the table through the `MetadataProvider` that `JavaDriverClient` implements. The generators bind to the driver columns. Only the parse of the keyspace and the table name from the profile CQL moves, from `CQLFragmentParser` to `stress.util.CqlNames`.
+The user profile flow stays as it is. `StressProfile` creates the keyspace and the table, then reads the table through `StressClient.tableSchema`, which returns a driver-neutral `TableSchema`. The generators bind to its columns. Only the parse of the keyspace and the table name from the profile CQL moves, from `CQLFragmentParser` to `stress.util.CqlNames`.
 
 ### What changes in the code
 
@@ -62,8 +62,9 @@ A file that comes from a Cassandra original starts with `// SPDX-License-Identif
 | Scope | Coordinates |
 |---|---|
 | runtime | `scylla-driver-core` 3.x (`shaded`), guava, `java-driver-core-shaded` 4.x, commons-math3 3.6.1, snakeyaml, jackson-core, jackson-databind, jctools-core 4.0.7, HdrHistogram 2.2.2, config, slf4j-api 2.x, logback-classic 1.6, `at.yawk.lz4:lz4-java`, snappy-java |
-| test | junit-jupiter 6.1.3, junit-platform-launcher 6.1.3, testcontainers-scylladb 2.0.5 (integration tests) |
+| test | junit-jupiter 6.1.3, junit-platform-launcher 6.1.3, reactive-streams 1.0.4 (the driver 4.x session proxies of the unit tests), testcontainers-scylladb 2.0.5 (integration tests) |
 | build | `maven-resolver-ant-tasks`, `org.jacoco.ant` 0.8.15 (only for `coverage`) |
+| lint | error_prone_core 2.50.0, checkstyle 14.3.0, pmd-ant and pmd-java 7.28.0, spotbugs-ant and spotbugs 4.10.4, palantir-java-format 2.101.0 (only for `lint` and `format`) |
 
 Every other coordinate goes, `compile-command-annotations` and joda-time included. `<javac>` sets `--release 21` and `-proc:none`. With no annotation processor, the `build` target stops copying `META-INF/hotspot_compiler`, and the `artifacts` target stops excluding it. `conf/jvm-clients.options` keeps only the flags that the drivers need. The integration tests on JDK 21 and 25 decide that list.
 
@@ -97,7 +98,7 @@ The interval and summary header loses the five GC fields. The summary loses its 
 type, total ops, op/s, pk/s, row/s, mean, med, .95, .99, .999, max, time, stderr, errors
 ```
 
-`cassandra-stress version` prints these lines, as today. SCT parses them for Argus. The stress version comes from the `stress.version` resource that the build writes, so a source checkout and the jar print the same version. The driver 3.x version comes from `Cluster.getDriverVersion()`, and the driver 4.x version from the `driver.version` key of `com/datastax/oss/driver/Driver.properties`, the file that `Session.OSS_DRIVER_COORDINATES` reads:
+`cassandra-stress version` prints these lines, as today. SCT parses them for Argus. The stress version comes from the `stress.version` resource that the build writes, so a source checkout and the jar print the same version. The driver versions come from the `driver.version` key of `com/datastax/driver/core/Driver.properties` for driver 3.x, the file that `Cluster.getDriverVersion()` reads, and of `com/datastax/oss/driver/Driver.properties` for driver 4.x, the file that `Session.OSS_DRIVER_COORDINATES` reads:
 
 ```
 Version: <version>
@@ -178,7 +179,7 @@ public enum CompactionStrategy {
 - A unit test fixes the bytes of each ported serializer against master. Data that the 3.21.1 image writes in the shape of the SCT restore snapshots validates with the new build, because the snapshots themselves are terabytes in S3. (build)
 - `build.xml` declares HdrHistogram 2.2.2, because stress imports it directly and the 3.x driver declares the range `[2.2,3)`. 2.1.12 and 2.2.2 write byte-identical logs, and each reads the log of the other. (review)
 - The `legacy` command goes, because it translated the pre-2.1 Thrift-era command line and it was the only user of commons-cli besides stressd. (review)
-- stressd stays. The client sends the argument count and each argument as a UTF-8 string, and stressd parses them with `StressSettings.parse`, because Java deserialization of bytes from any client on port 2159 is a remote code execution risk. The settings classes are no longer `Serializable`. (review)
+- stressd stays. The client sends the argument count and each argument as a UTF-8 string, and stressd parses them with `StressSettings.parseForDaemon`, because Java deserialization of bytes from any client on port 2159 is a remote code execution risk. The settings classes are no longer `Serializable`. (review)
 - The driver 4.x jars come through the resolver without jarjar. The relocation to `shaded.com.datastax` kept the 4.x classes apart from the jars of the server tree, and no jar left on the classpath shares a class path with them. (review)
 - `TimestampSerializer` and `TimestampCodec` keep `SimpleDateFormat`, because `java.time` uses the proleptic Gregorian calendar and would print other strings for dates before 1582. Stress writes those strings as CQL literals in unprepared mode. (review)
 - `sun.misc.Signal` stays in `Stress`, because a shutdown hook cannot see the signal name and cannot keep the exit codes 130, 134 and 143. (review)
@@ -203,7 +204,7 @@ public enum CompactionStrategy {
 - A settings parser throws `InvalidSettingsException`, and only `Stress.main` exits. A bad option sent to stressd stopped the daemon for every client. (review)
 - stressd takes `-p <port>`, and `-send-to` takes `host:port`. Contact points and the daemon address go through `HostAndPort`, which reads IPv6 addresses. (review)
 - The runtime moves to logback 1.6 and slf4j 2, commons-math3 3.6.1, snakeyaml 2.7, jackson 2.22 and the maintained `at.yawk.lz4` fork of lz4-java. commons-math3 3.6.1 samples the same sequences as 3.2, and its inverse CDFs differ from 3.2 only in the last bit. (review)
-- Renovate reads `base.javaDriverVersion` as `java-driver-core-shaded`, and reads every literal `<dependency>` version in `build.xml`. It groups the jackson and the logging updates, because each group must move together. (review)
+- Renovate reads `base.javaDriverVersion` as `scylla-driver-core` and `base.java4DriverVersion` as `java-driver-core-shaded`, and reads every literal `<dependency>` version in `build.xml`. The test and lint versions are `build.xml` properties, and they are updated by hand, as `docs/standards/infra/ci-and-build.md` states. It groups the jackson and the logging updates, because each group must move together. (review)
 - `ops(validate=1)` checks clustered tables, collections and `date` columns. The validation path seeds each row from the clustering value that the insert order puts first, sets the full row population on its bounds, and skips the unused lookup of the bind names, which ScyllaDB returns as `(ck)[0]`. `Sets` and `Lists` seed their size per row, and `LocalDates` reads a stored date back as days since the epoch. The insert path keeps its seeds, so scalar columns stay byte-identical. `list` and `set` lengths now follow the row seed. They were random on every run before, so no stored data depends on them. (review)
 - A schema statement without schema agreement logs the driver 3.x warning `No schema agreement from live replicas after <n> s. The schema may not be up to date on some nodes.`, because the SCT `SchemaDisagreement` event matches that text and starts its debug collection. Driver 4.x logs a different text. (review)
 - A retried operation reuses the statements, the bound query and the expected rows of its first try, because the first try consumes the partition iterators. A retried insert wrote nothing and counted as a success. (review)
@@ -215,3 +216,16 @@ public enum CompactionStrategy {
 - `MultiResultLogger` closes only the streams it owns: the `-log file=` file and the `-graph` log. The initial stream and every stream that `addStream` adds belong to the caller. Its stream lists are copy-on-write, so a consumer thread can write while the run closes the logger. A failed run writes its stack trace to the `-log file=` file before the file closes, and the run resets `StressSettings.output()` to standard output. (review)
 - One `-log hdrfile=` writer serves the whole run. Every thread-count step of `-rate threads>=` appends to it, the warmup writes nothing, and the run closes it in a `finally`. Before, each step opened the file again and left only the last step. (review)
 - The `-graph` temporary log is deleted after each run, also when the run fails. A `-send-to` run writes no graph log, because the client generates no graph. stressd joins the action thread of a cancelled request before it closes the socket. (review)
+- `JavaDriverV3Client` looks up the keyspace and the table by the names as the profile writes them, so driver 3.x reads an unquoted name in lower case and a quoted name as given, as driver 4.x and CQL do. It reads the clustering order with the stored names. (review)
+- `CqlNames.quote` quotes a name that is not lower case, or that is a reserved CQL word such as `order` or `token`, and doubles an embedded `"`. Every statement that stress builds quotes its keyspace, table and column names through it, and `ProfileInsert` takes the table name from `TableSchema`. (review)
+- A stressd request always ends with `END` or `FAILURE`, also for `n=0` and for an action that throws, and the action always closes its driver client. stressd waits for the action thread, not for the client, and reads a cancel request on its own thread. It answers `FAILURE` to a client above 16 at a time, and it stops reading a command after 30 s. An interrupt stops the consumers of a running action. (review)
+- stressd refuses `user`, `-node file=` and `-log hdrfile=`, because they read or write a file on the daemon host for any client that reaches the port. (review)
+- `StressSettings.getClient` closes the client when the `USE` after its connect fails, so each retry does not leave a session open. (review)
+- `ops(validate=1)` skips a partition that a write still visits. The written rows of such a partition are a prefix in insert order, and validation reads rows in stored order. (review)
+- `GeneratedDataCompatibilityTest` pins digests that the `scylladb/cassandra-stress:3.21.1` jar produces for the same generator, without a collection column, because 3.21.1 sized collections from an unseeded distribution. The new build produces the same digests. (review)
+- `prepare` caches the driver statement and returns a new `StressPreparedStatement` on each call, so two profile queries with the same CQL keep their own consistency levels. (review)
+- Number output and every message that stress formats use `Locale.ROOT`, so a default locale such as `de_DE` does not print `12,3` in the comma-separated interval rows. (review)
+- A token range that starts and ends on the same token covers the whole ring, and `TokenSlice.unwrap` splits it at the ring end. A slice that ends at the ring end queries `token(pk) > start` with no upper bound, because no key has the token `Long.MIN_VALUE`. (review)
+- `SSLFactory` loads a trust store or a key store with no password, so `-transport truststore=` works without `truststore-password=`. (review)
+- The `date` string of a generated value is the date of its epoch day, because stress generates `date` values as days since the epoch. (review)
+- `truncate=` truncates only the tables that the predefined command uses: `standard1`, or `counter1` for the counter commands, and the tables of every command in a `mixed` ratio. Truncating `counter1` and `counter3` for every command failed on a keyspace that `write` created. (review)
