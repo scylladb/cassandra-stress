@@ -322,3 +322,18 @@ stays in every plan built from a spec.
 - [x] Share one `HdrLog` across the steps of a run, and close it.
 - [x] Delete the graph log, skip it for `-send-to`, and join the stressd action thread on cancel.
 - [x] Run `ant lint`, `ant test` and `ant integration-test`.
+
+## Task 22 — Support driver 3.x and driver 4.x
+
+**Files:**
+- Create: `S/driver/{StressClient,StressPrepared,StressBound,StressRow,StressPage,TableSchema,ColumnSchema,CqlType,TokenSlice}.java`, `S/util/JavaDriverV4Client.java`, `S/util/codecs/v3/EpochDayCodec.java`
+- Modify: `S/util/JavaDriverClient.java` (driver 3.x), `S/settings/{SettingsMode,StressSettings,LoadBalanceType,AuthProvider,ProtocolVersion,ProtocolCompression,SettingsMisc,SettingsNode,SettingsSchema,SettingsInsert}.java`, `S/util/ConsistencyLevel.java`, `S/StressProfile.java`, `S/ProfileGenerators.java`, `S/ProfileInsert.java`, `S/core/{CqlTypes,PreparedStatement}.java`, `S/generate/TokenRangeIterator.java`, `S/Operation.java`, `S/operations/predefined/CqlOperation.java`, `S/operations/userdefined/*.java`, `build.xml`, `conf/logback.xml`, the integration tests
+
+**Internals:** `StressSettings.getClient()` returns the `StressClient` of the selected mode. Each client maps its driver metadata to `TableSchema` and `TokenSlice`, binds generated values through its codecs, and returns rows as raw column bytes. `ScyllaNode` and every integration test take the mode as a parameter.
+
+- [ ] Write the failing tests: `-mode cql3 native` runs driver 3.x, `version` prints the driver 3.x version, and each integration test runs on both drivers.
+- [ ] Add driver 3.x and guava to `build.xml`, and restore `ConnectionAPI` selection in `SettingsMode`.
+- [ ] Add the neutral `StressClient` types, and move profile, generator, operation and validation code to them.
+- [ ] Move the driver 4.x client to `JavaDriverV4Client`, and write the driver 3.x `JavaDriverClient` with load balancing, whitelist, SSL, auth, compression, protocol version, pooling and the schema agreement warning.
+- [ ] Run `ant lint`, `ant test` and `ant integration-test` on both drivers, and the old-data check with each driver.
+
