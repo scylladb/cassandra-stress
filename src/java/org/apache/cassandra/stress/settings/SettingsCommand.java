@@ -111,7 +111,7 @@ public abstract class SettingsCommand {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(count, noWarmup, truncate, consistencyLevel, serialConsistencyLevel);
+            return List.of(count, noWarmup, truncate, consistencyLevel, serialConsistencyLevel);
         }
     }
 
@@ -121,7 +121,7 @@ public abstract class SettingsCommand {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(duration, noWarmup, truncate, consistencyLevel, serialConsistencyLevel);
+            return List.of(duration, noWarmup, truncate, consistencyLevel, serialConsistencyLevel);
         }
     }
 
@@ -143,7 +143,7 @@ public abstract class SettingsCommand {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(
+            return List.of(
                     uncertainty,
                     minMeasurements,
                     maxMeasurements,

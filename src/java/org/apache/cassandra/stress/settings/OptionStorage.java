@@ -1,6 +1,5 @@
 package org.apache.cassandra.stress.settings;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -32,7 +31,7 @@ class OptionStorage extends OptionMulti {
 
     @Override
     protected List<? extends Option> options() {
-        return Arrays.asList(type, endpoint, bucket);
+        return List.of(type, endpoint, bucket);
     }
 
     @Override

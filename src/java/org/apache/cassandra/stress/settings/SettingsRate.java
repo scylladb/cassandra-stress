@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.apache.cassandra.stress.util.ResultLogger;
@@ -51,7 +50,7 @@ public class SettingsRate {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(minThreads, maxThreads, auto);
+            return List.of(minThreads, maxThreads, auto);
         }
     }
 
@@ -74,7 +73,7 @@ public class SettingsRate {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(threads, throttle, fixed);
+            return List.of(threads, throttle, fixed);
         }
     }
 

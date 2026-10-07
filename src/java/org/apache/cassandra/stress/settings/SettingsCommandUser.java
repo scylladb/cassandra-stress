@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.File;
 import java.net.URI;
-import java.util.Arrays;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,8 +44,9 @@ public class SettingsCommandUser extends SettingsCommand {
 
         String[] yamlPaths = yamlPath.split(",");
         for (String curYamlPath : yamlPaths) {
-            File yamlFile = new File(curYamlPath);
-            StressProfile profile = StressProfile.load(yamlFile.exists() ? yamlFile.toURI() : URI.create(curYamlPath));
+            Path yamlFile = Path.of(curYamlPath);
+            StressProfile profile =
+                    StressProfile.load(Files.exists(yamlFile) ? yamlFile.toUri() : URI.create(curYamlPath));
             String specName = profile.specName;
             if (defaultProfileName == null) {
                 defaultProfileName = specName;
@@ -144,7 +145,7 @@ public class SettingsCommandUser extends SettingsCommand {
 
         @Override
         public List<? extends Option> options() {
-            return merge(Arrays.asList(ops, profile, clustering), parent.options());
+            return merge(List.of(ops, profile, clustering), parent.options());
         }
     }
 

@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.apache.cassandra.stress.util.ResultLogger;
@@ -30,14 +29,14 @@ public class SettingsNode {
                             tmpNodes.add(node);
                         }
                     }
-                    nodes = Arrays.asList(tmpNodes.toArray(new String[0]));
+                    nodes = List.copyOf(tmpNodes);
                 }
             } catch (IOException ioe) {
                 throw new RuntimeException(ioe);
             }
 
         } else {
-            nodes = Arrays.asList(options.list.value().split(","));
+            nodes = List.of(options.list.value().split(","));
         }
 
         isWhiteList = options.whitelist.setByUser();
@@ -82,7 +81,7 @@ public class SettingsNode {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(datacenter, rack, whitelist, file, loadBalance, usedHostsPerRemoteDc, list);
+            return List.of(datacenter, rack, whitelist, file, loadBalance, usedHostsPerRemoteDc, list);
         }
     }
 

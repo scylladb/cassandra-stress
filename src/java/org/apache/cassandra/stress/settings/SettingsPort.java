@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.apache.cassandra.stress.util.ResultLogger;
@@ -20,7 +19,7 @@ public class SettingsPort {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(nativePort);
+            return List.of(nativePort);
         }
     }
 

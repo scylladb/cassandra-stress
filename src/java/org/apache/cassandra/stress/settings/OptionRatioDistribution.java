@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Function;
@@ -80,7 +79,7 @@ public class OptionRatioDistribution extends Option {
 
     @Override
     public List<String> multiLineDisplay() {
-        return Arrays.asList(
+        return List.of(
                 GroupedOptions.formatMultiLine(
                         "EXP(min..max)/divisor", "An exponential ratio distribution over the range [min..max]/divisor"),
                 GroupedOptions.formatMultiLine(

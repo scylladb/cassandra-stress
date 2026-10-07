@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -182,7 +181,7 @@ class OptionSimple extends Option {
 
     @Override
     public List<String> multiLineDisplay() {
-        return Collections.emptyList();
+        return List.of();
     }
 
     @Override

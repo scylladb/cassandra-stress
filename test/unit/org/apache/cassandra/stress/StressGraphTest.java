@@ -54,7 +54,7 @@ class StressGraphTest {
             "127.0.0.1"
         };
         StressSettings settings = StressSettings.parse(args.clone());
-        Files.writeString(settings.graph.temporaryLogFile.toPath(), LOG);
+        Files.writeString(settings.graph.temporaryLogFile, LOG);
         new StressGraph(settings, args).generateGraph();
 
         Matcher matcher = STATS.matcher(Files.readString(html));

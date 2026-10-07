@@ -2,7 +2,6 @@
 package org.apache.cassandra.stress.settings;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -61,7 +60,7 @@ public class SettingsPopulation {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(contents);
+            return List.of(contents);
         }
     }
 

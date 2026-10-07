@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -90,7 +89,7 @@ public class SettingsMode {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(
+            return List.of(
                     useUnPrepared,
                     api,
                     useCompression,

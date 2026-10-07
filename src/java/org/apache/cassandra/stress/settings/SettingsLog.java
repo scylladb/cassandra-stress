@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.Arrays;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -23,8 +22,8 @@ public class SettingsLog {
     public final boolean noSummary;
     public final boolean noSettings;
     public final boolean printStatementsOnError;
-    public final File file;
-    public final File hdrFile;
+    public final Path file;
+    public final Path hdrFile;
     public final int intervalMillis;
     public final Level level;
 
@@ -35,12 +34,12 @@ public class SettingsLog {
         printStatementsOnError = options.printStatementsOnError.setByUser();
 
         if (options.outputFile.setByUser()) {
-            file = new File(options.outputFile.value());
+            file = Path.of(options.outputFile.value());
         } else {
             file = null;
         }
         if (options.hdrOutputFile.setByUser()) {
-            hdrFile = new File(options.hdrOutputFile.value());
+            hdrFile = Path.of(options.hdrOutputFile.value());
         } else {
             hdrFile = null;
         }
@@ -62,7 +61,7 @@ public class SettingsLog {
         MultiResultLogger stream = new MultiResultLogger(new PrintStream(System.out, false, StandardCharsets.UTF_8));
 
         if (file != null) {
-            stream.addOwnedStream(new PrintStream(Files.newOutputStream(file.toPath()), false, StandardCharsets.UTF_8));
+            stream.addOwnedStream(new PrintStream(Files.newOutputStream(file), false, StandardCharsets.UTF_8));
         }
 
         return stream;
@@ -84,8 +83,7 @@ public class SettingsLog {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(
-                    level, noSummmary, outputFile, hdrOutputFile, interval, noSettings, printStatementsOnError);
+            return List.of(level, noSummmary, outputFile, hdrOutputFile, interval, noSettings, printStatementsOnError);
         }
     }
 

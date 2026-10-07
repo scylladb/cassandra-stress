@@ -3,7 +3,6 @@ package org.apache.cassandra.stress.settings;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -211,7 +210,7 @@ public class SettingsSchema {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(replication, storage, keyspace, compaction, compression);
+            return List.of(replication, storage, keyspace, compaction, compression);
         }
     }
 

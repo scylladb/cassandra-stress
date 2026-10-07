@@ -13,6 +13,7 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.file.Files;
 import java.util.Locale;
 import org.apache.cassandra.stress.settings.InvalidSettingsException;
 import org.apache.cassandra.stress.settings.StressSettings;
@@ -75,17 +76,14 @@ public final class Stress {
         }
     }
 
-    @SuppressWarnings("PMD.AvoidFileStream")
     private static int run(StressSettings settings, String[] arguments, MultiResultLogger logout) throws Exception {
         if (!settings.log.noSettings) {
             settings.printSettings(logout);
         }
 
         if (settings.graph.inGraphMode() && settings.sendToDaemon == null) {
-            logout.addOwnedStream(new PrintStream(
-                    new java.io.FileOutputStream(settings.graph.temporaryLogFile),
-                    false,
-                    java.nio.charset.StandardCharsets.UTF_8));
+            logout.addOwnedStream(
+                    new PrintStream(Files.newOutputStream(settings.graph.temporaryLogFile), false, UTF_8));
         }
 
         if (settings.sendToDaemon != null) {

@@ -2,7 +2,6 @@
 package org.apache.cassandra.stress.settings;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -74,7 +73,7 @@ public class SettingsCommandPreDefinedMixed extends SettingsCommandPreDefined {
 
         @Override
         public List<? extends Option> options() {
-            return merge(Arrays.asList(clustering, probabilities), super.options());
+            return merge(List.of(clustering, probabilities), super.options());
         }
     }
 

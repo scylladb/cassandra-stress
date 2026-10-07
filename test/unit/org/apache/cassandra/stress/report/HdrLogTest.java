@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,7 +32,7 @@ class HdrLogTest {
 
     @Test
     void keepsTheHistogramsOfEveryStepUnderOneHeader() throws IOException {
-        File file = dir.resolve("stress.hdr").toFile();
+        Path file = dir.resolve("stress.hdr");
         long now = System.currentTimeMillis();
 
         try (HdrLog log = HdrLog.open(file)) {
@@ -42,7 +41,7 @@ class HdrLogTest {
             log.write(histogram("WRITE-st", now + 2000));
         }
 
-        List<String> lines = Files.readAllLines(file.toPath());
+        List<String> lines = Files.readAllLines(file);
         assertEquals(1, lines.stream().filter(l -> l.startsWith("#[BaseTime:")).count());
         assertEquals(1, lines.stream().filter(l -> l.startsWith("#[StartTime:")).count());
         assertEquals(
@@ -51,12 +50,12 @@ class HdrLogTest {
 
     @Test
     void closeReleasesTheFile() throws IOException {
-        File file = dir.resolve("closed.hdr").toFile();
+        Path file = dir.resolve("closed.hdr");
         HdrLog log = HdrLog.open(file);
         log.write(histogram("READ-rt", System.currentTimeMillis()));
 
         log.close();
 
-        assertTrue(Files.deleteIfExists(file.toPath()));
+        assertTrue(Files.deleteIfExists(file));
     }
 }

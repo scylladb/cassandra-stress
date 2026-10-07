@@ -56,20 +56,19 @@ public abstract class PredefinedOperation extends PartitionOperation {
 
     @SuppressWarnings("ArrayRecordComponent")
     record ColumnSelection(int[] indices, int lb, int ub) {
-        public <V> List<V> select(List<V> in) {
-            List<V> out = new ArrayList<>();
-            if (indices != null) {
-                for (int i : indices) {
-                    out.add(in.get(i));
-                }
-            } else {
-                out.addAll(in.subList(lb, ub));
+        <V> List<V> select(List<V> in) {
+            if (indices() == null) {
+                return new ArrayList<>(in.subList(lb(), ub()));
+            }
+            List<V> out = new ArrayList<>(indices().length);
+            for (int i : indices()) {
+                out.add(in.get(i));
             }
             return out;
         }
 
         int count() {
-            return indices != null ? indices.length : ub - lb;
+            return indices() != null ? indices().length : ub() - lb();
         }
     }
 
@@ -119,18 +118,18 @@ public abstract class PredefinedOperation extends PartitionOperation {
 
     protected List<ByteBuffer> getColumnValues(ColumnSelection columns) {
         Row row = partitions.getFirst().next();
-        ByteBuffer[] r = new ByteBuffer[columns.count()];
+        ByteBuffer[] values = new ByteBuffer[columns.count()];
         int c = 0;
-        if (columns.indices != null) {
-            for (int i : columns.indices) {
-                r[c++] = (ByteBuffer) row.get(i);
+        if (columns.indices() != null) {
+            for (int i : columns.indices()) {
+                values[c++] = (ByteBuffer) row.get(i);
             }
         } else {
-            for (int i = columns.lb; i < columns.ub; i++) {
-                r[c++] = (ByteBuffer) row.get(i);
+            for (int i = columns.lb(); i < columns.ub(); i++) {
+                values[c++] = (ByteBuffer) row.get(i);
             }
         }
-        return Arrays.asList(r);
+        return Arrays.asList(values);
     }
 
     public static Operation operation(

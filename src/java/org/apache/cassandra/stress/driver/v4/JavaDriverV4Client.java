@@ -14,6 +14,7 @@ import com.datastax.oss.driver.api.core.cql.DefaultBatchType;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import com.datastax.oss.driver.api.core.loadbalancing.NodeDistance;
 import com.datastax.oss.driver.api.core.loadbalancing.NodeDistanceEvaluator;
 import com.datastax.oss.driver.api.core.metadata.EndPoint;
@@ -55,68 +56,44 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.function.Supplier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
+import org.apache.cassandra.stress.driver.AbstractStressClient;
 import org.apache.cassandra.stress.driver.BatchType;
 import org.apache.cassandra.stress.driver.ColumnSchema;
 import org.apache.cassandra.stress.driver.CqlType;
 import org.apache.cassandra.stress.driver.OverloadedException;
 import org.apache.cassandra.stress.driver.SchemaAlreadyExistsException;
 import org.apache.cassandra.stress.driver.StressBoundStatement;
-import org.apache.cassandra.stress.driver.StressClient;
-import org.apache.cassandra.stress.driver.StressPage;
 import org.apache.cassandra.stress.driver.StressPreparedStatement;
-import org.apache.cassandra.stress.driver.StressResult;
 import org.apache.cassandra.stress.driver.TableSchema;
 import org.apache.cassandra.stress.driver.TokenSlice;
 import org.apache.cassandra.stress.driver.v4.codecs.EpochDayCodec;
 import org.apache.cassandra.stress.driver.v4.codecs.NanoOfDayCodec;
 import org.apache.cassandra.stress.driver.v4.codecs.TimestampCodec;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
-import org.apache.cassandra.stress.settings.SettingsMode;
-import org.apache.cassandra.stress.settings.SettingsNode;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.apache.cassandra.stress.util.EncryptionOptions;
 import org.apache.cassandra.stress.util.HostAndPort;
-import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.SSLFactory;
 import org.apache.cassandra.stress.util.WhiteListAddresses;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class JavaDriverV4Client implements StressClient {
+public final class JavaDriverV4Client
+        extends AbstractStressClient<
+                com.datastax.oss.driver.api.core.cql.PreparedStatement, Statement<?>, ResultSet, Row> {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaDriverV4Client.class);
 
-    private final List<HostAndPort> contactPoints;
-    private final Integer maxPendingPerConnection;
-    private final int connectionsPerHost;
-    private final int requestTimeout;
-    private final ResultLogger output;
-    private final SettingsMode mode;
-    private final SettingsNode node;
     private final ProtocolVersion protocolVersion;
-    private final EncryptionOptions encryptionOptions;
-    private final ConcurrentMap<String, com.datastax.oss.driver.api.core.cql.PreparedStatement> statements =
-            new ConcurrentHashMap<>();
     private volatile CqlSession session;
 
     public JavaDriverV4Client(
             StressSettings settings, List<String> hosts, int port, EncryptionOptions encryptionOptions) {
-        this.contactPoints =
-                hosts.stream().map(host -> HostAndPort.parse(host, port)).toList();
-        this.output = settings.output();
-        this.mode = settings.mode;
-        this.node = settings.node;
+        super(settings, hosts, port, encryptionOptions);
         this.protocolVersion = V4DriverConfig.protocolVersion(settings.mode.protocolVersion);
-        this.encryptionOptions = encryptionOptions;
-        this.connectionsPerHost = Objects.requireNonNullElse(settings.mode.connectionsPerHost, 8);
-        this.requestTimeout = Objects.requireNonNullElse(settings.mode.requestTimeout, 12000);
-        this.maxPendingPerConnection = settings.mode.maxPendingPerConnection;
     }
 
     static MutableCodecRegistry codecRegistry() {
@@ -163,13 +140,9 @@ public final class JavaDriverV4Client implements StressClient {
         session = builder.build();
 
         Metadata metadata = session.getMetadata();
-        output.printf(
-                "Connected to cluster: %s, max pending requests per connection %d, max connections per host %d%n",
-                metadata.getClusterName().orElse(null), maxPendingPerConnection, connectionsPerHost);
+        printConnected(metadata.getClusterName().orElse(null));
         for (Node host : metadata.getNodes().values()) {
-            output.printf(
-                    "Datatacenter: %s; Host: %s; Rack: %s%n",
-                    host.getDatacenter(), host.getBroadcastRpcAddress().orElse(null), host.getRack());
+            printHost(host.getDatacenter(), host.getBroadcastRpcAddress().orElse(null), host.getRack());
         }
     }
 
@@ -225,21 +198,82 @@ public final class JavaDriverV4Client implements StressClient {
     }
 
     @Override
-    public StressPreparedStatement prepare(String query) {
-        return new V4PreparedStatement(statements.computeIfAbsent(query, session::prepare));
+    protected com.datastax.oss.driver.api.core.cql.PreparedStatement prepareInDriver(String query) {
+        return session.prepare(query);
     }
 
     @Override
-    public void execute(String query, ConsistencyLevel consistency) {
-        ResultSet result;
-        try {
-            result = session.execute(new SimpleStatementBuilder(query)
-                    .setConsistencyLevel(V4DriverConfig.consistency(consistency))
-                    .build());
-        } catch (AlreadyExistsException e) {
-            throw new SchemaAlreadyExistsException(e.getMessage(), e);
+    protected StressPreparedStatement wrap(com.datastax.oss.driver.api.core.cql.PreparedStatement statement) {
+        return new V4PreparedStatement(statement);
+    }
+
+    @Override
+    protected Statement<?> simple(String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
+        SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
+        if (consistency != null) {
+            builder.setConsistencyLevel(V4DriverConfig.consistency(consistency));
         }
-        if (!result.getExecutionInfo().isSchemaInAgreement()) {
+        if (serialConsistency != null) {
+            builder.setSerialConsistencyLevel(V4DriverConfig.consistency(serialConsistency));
+        }
+        return builder.build();
+    }
+
+    @Override
+    protected Statement<?> page(String query, int pageSize, Object pagingState) {
+        SimpleStatementBuilder builder = new SimpleStatementBuilder(query).setPageSize(pageSize);
+        if (pagingState != null) {
+            builder.setPagingState((ByteBuffer) pagingState);
+        }
+        return builder.build();
+    }
+
+    @Override
+    protected Statement<?> bound(
+            StressBoundStatement statement, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
+        if (statement instanceof V4BoundStatement bound) {
+            return bound.toDriver(consistency, serialConsistency);
+        }
+        throw new IllegalArgumentException("Driver 4.x cannot run a statement bound by another driver: " + statement);
+    }
+
+    @Override
+    protected Statement<?> batch(
+            BatchType type,
+            ConsistencyLevel consistency,
+            ConsistencyLevel serialConsistency,
+            List<Statement<?>> statements) {
+        BatchStatementBuilder batch = new BatchStatementBuilder(DefaultBatchType.valueOf(type.name()));
+        if (consistency != null) {
+            batch.setConsistencyLevel(V4DriverConfig.consistency(consistency));
+        }
+        if (serialConsistency != null) {
+            batch.setSerialConsistencyLevel(V4DriverConfig.consistency(serialConsistency));
+        }
+        for (Statement<?> statement : statements) {
+            batch.addStatement((BatchableStatement<?>) statement);
+        }
+        return batch.build();
+    }
+
+    @Override
+    protected ResultSet run(Statement<?> statement) {
+        return session.execute(statement);
+    }
+
+    @Override
+    protected RuntimeException translate(RuntimeException error) {
+        return switch (error) {
+            case com.datastax.oss.driver.api.core.servererrors.OverloadedException e ->
+                new OverloadedException(e.getMessage(), e);
+            case AlreadyExistsException e -> new SchemaAlreadyExistsException(e.getMessage(), e);
+            default -> error;
+        };
+    }
+
+    @Override
+    protected void afterSchemaStatement(ResultSet results) {
+        if (!results.getExecutionInfo().isSchemaInAgreement()) {
             LOGGER.warn(
                     "No schema agreement from live replicas after {} s. The schema may not be up to date on some"
                             + " nodes.",
@@ -255,79 +289,18 @@ public final class JavaDriverV4Client implements StressClient {
     }
 
     @Override
-    public StressResult execute(String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
-        SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
-        if (consistency != null) {
-            builder.setConsistencyLevel(V4DriverConfig.consistency(consistency));
-        }
-        if (serialConsistency != null) {
-            builder.setSerialConsistencyLevel(V4DriverConfig.consistency(serialConsistency));
-        }
-        return result(overloadAware(() -> session.execute(builder.build())));
+    protected Iterator<Row> rows(ResultSet results) {
+        return results.iterator();
     }
 
     @Override
-    public StressResult execute(
-            StressBoundStatement statement, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
-        return result(overloadAware(() -> session.execute(bound(statement).toDriver(consistency, serialConsistency))));
+    protected int availableWithoutFetching(ResultSet results) {
+        return results.getAvailableWithoutFetching();
     }
 
     @Override
-    public void executeBatch(List<StressBoundStatement> statements, BatchType type) {
-        if (statements.size() == 1) {
-            overloadAware(() -> session.execute(bound(statements.getFirst()).toDriver(null, null)));
-            return;
-        }
-        StressPreparedStatement first = statements.getFirst().statement();
-        BatchStatementBuilder batch = new BatchStatementBuilder(DefaultBatchType.valueOf(type.name()));
-        if (first.getConsistencyLevel() != null) {
-            batch.setConsistencyLevel(V4DriverConfig.consistency(first.getConsistencyLevel()));
-        }
-        if (first.getSerialConsistencyLevel() != null) {
-            batch.setSerialConsistencyLevel(V4DriverConfig.consistency(first.getSerialConsistencyLevel()));
-        }
-        List<BatchableStatement<?>> bound = new ArrayList<>(statements.size());
-        for (StressBoundStatement statement : statements) {
-            bound.add(bound(statement).toDriver(null, null));
-        }
-        overloadAware(() -> session.execute(batch.addStatements(bound).build()));
-    }
-
-    private static V4BoundStatement bound(StressBoundStatement statement) {
-        if (statement instanceof V4BoundStatement bound) {
-            return bound;
-        }
-        throw new IllegalArgumentException("Driver 4.x cannot run a statement bound by another driver: " + statement);
-    }
-
-    @Override
-    public StressPage executePage(String query, int pageSize, Object pagingState) {
-        SimpleStatementBuilder statement = new SimpleStatementBuilder(query).setPageSize(pageSize);
-        if (pagingState != null) {
-            statement.setPagingState((ByteBuffer) pagingState);
-        }
-        ResultSet results = overloadAware(() -> session.execute(statement.build()));
-        int available = results.getAvailableWithoutFetching();
-        List<ByteBuffer[]> rows = new ArrayList<>(available);
-        Iterator<Row> iterator = results.iterator();
-        for (int i = 0; i < available; i++) {
-            rows.add(values(iterator.next()));
-        }
-        return new StressPage(
-                new StressResult(names(results.getColumnDefinitions()), rows),
-                results.getExecutionInfo().getPagingState(),
-                results.isFullyFetched());
-    }
-
-    static StressResult result(ResultSet results) {
-        List<ByteBuffer[]> rows = new ArrayList<>();
-        for (Row row : results) {
-            rows.add(values(row));
-        }
-        return new StressResult(names(results.getColumnDefinitions()), rows);
-    }
-
-    private static List<String> names(ColumnDefinitions definitions) {
+    protected List<String> columnNames(ResultSet results) {
+        ColumnDefinitions definitions = results.getColumnDefinitions();
         List<String> names = new ArrayList<>(definitions.size());
         for (ColumnDefinition definition : definitions) {
             names.add(definition.getName().asInternal());
@@ -335,12 +308,23 @@ public final class JavaDriverV4Client implements StressClient {
         return names;
     }
 
-    private static ByteBuffer[] values(Row row) {
+    @Override
+    protected ByteBuffer[] values(Row row) {
         ByteBuffer[] values = new ByteBuffer[row.getColumnDefinitions().size()];
         for (int i = 0; i < values.length; i++) {
             values[i] = row.getBytesUnsafe(i);
         }
         return values;
+    }
+
+    @Override
+    protected Object pagingState(ResultSet results) {
+        return results.getExecutionInfo().getPagingState();
+    }
+
+    @Override
+    protected boolean fullyFetched(ResultSet results) {
+        return results.isFullyFetched();
     }
 
     @Override
@@ -376,29 +360,28 @@ public final class JavaDriverV4Client implements StressClient {
     }
 
     static CqlType type(DataType type) {
-        if (type instanceof ListType list) {
-            return new CqlType("LIST", List.of(type(list.getElementType())), list.isFrozen());
-        }
-        if (type instanceof SetType set) {
-            return new CqlType("SET", List.of(type(set.getElementType())), set.isFrozen());
-        }
-        if (type instanceof MapType map) {
-            return new CqlType("MAP", List.of(type(map.getKeyType()), type(map.getValueType())), map.isFrozen());
-        }
-        if (type instanceof UserDefinedType udt) {
-            return new CqlType("UDT", List.of(), udt.isFrozen());
-        }
+        return switch (type) {
+            case ListType list -> new CqlType("LIST", List.of(type(list.getElementType())), list.isFrozen());
+            case SetType set -> new CqlType("SET", List.of(type(set.getElementType())), set.isFrozen());
+            case MapType map ->
+                new CqlType("MAP", List.of(type(map.getKeyType()), type(map.getValueType())), map.isFrozen());
+            case UserDefinedType udt -> new CqlType("UDT", List.of(), udt.isFrozen());
+            default -> CqlType.of(name(type));
+        };
+    }
+
+    private static String name(DataType type) {
         if (type instanceof TupleType) {
-            return CqlType.of("TUPLE");
+            return "TUPLE";
         }
         if (type instanceof CustomType) {
-            return CqlType.of("CUSTOM");
+            return "CUSTOM";
         }
-        return CqlType.of(type.asCql(false, true).toUpperCase(Locale.ROOT));
+        return type.asCql(false, true).toUpperCase(Locale.ROOT);
     }
 
     @Override
-    public List<TokenSlice> tokenRanges() {
+    protected List<TokenSlice> ringRanges() {
         TokenMap tokenMap = session.getMetadata()
                 .getTokenMap()
                 .orElseThrow(() -> new IllegalStateException("The driver has no token map"));
@@ -406,7 +389,7 @@ public final class JavaDriverV4Client implements StressClient {
         for (TokenRange range : tokenMap.getTokenRanges()) {
             ranges.add(new TokenSlice(token(range.getStart()), token(range.getEnd())));
         }
-        return TokenSlice.sortedAndUnwrapped(ranges);
+        return ranges;
     }
 
     static long token(Token token) {
@@ -416,20 +399,8 @@ public final class JavaDriverV4Client implements StressClient {
         throw new IllegalStateException("Only the Murmur3 partitioner is supported, got " + token);
     }
 
-    private static <T> T overloadAware(Supplier<T> call) {
-        try {
-            return call.get();
-        } catch (com.datastax.oss.driver.api.core.servererrors.OverloadedException e) {
-            throw new OverloadedException(e.getMessage(), e);
-        }
-    }
-
     @Override
-    public void disconnect() {
-        try {
-            session.close();
-        } catch (RuntimeException e) {
-            output.printf("Failed to close connection due to the following error: %s%n", e);
-        }
+    protected void close() {
+        session.close();
     }
 }

@@ -61,7 +61,7 @@ public class TokenRangeQuery extends Operation {
         public final String bounds;
         public final String query;
         public Object pagingState;
-        public Set<Object> partitions = new HashSet<>();
+        public Set<Long> partitions = new HashSet<>();
 
         State(String bounds, String query) {
             this.bounds = bounds;
@@ -130,7 +130,7 @@ public class TokenRangeQuery extends Operation {
             if (!rows.isEmpty()) {
                 int token = tokenColumn(page.result().columnNames());
                 for (ByteBuffer[] row : rows) {
-                    if (state.partitions.add(row[token])) {
+                    if (state.partitions.add(row[token].getLong(row[token].position()))) {
                         partitionCount += 1;
                     }
                 }

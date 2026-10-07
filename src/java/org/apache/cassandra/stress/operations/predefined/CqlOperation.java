@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Locale;
-import java.util.function.Function;
+import org.apache.cassandra.stress.driver.StressBoundStatement;
 import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.driver.StressPreparedStatement;
 import org.apache.cassandra.stress.driver.StressResult;
@@ -16,6 +16,7 @@ import org.apache.cassandra.stress.settings.Command;
 import org.apache.cassandra.stress.settings.ConnectionStyle;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
 
 public abstract class CqlOperation<V> extends PredefinedOperation {
 
@@ -328,17 +329,21 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
         }
 
         <R> R execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
-            return handler.apply(client.execute(
-                    formatCqlQuery(query, queryParams),
-                    settings.command.consistencyLevel,
-                    settings.command.serialConsistencyLevel));
+            String cql = formatCqlQuery(query, queryParams);
+            ConsistencyLevel consistency = settings.command.consistencyLevel;
+            ConsistencyLevel serial = settings.command.serialConsistencyLevel;
+            return handler.countsOnly()
+                    ? handler.fromCount(client.executeCount(cql, consistency, serial))
+                    : handler.fromRows(client.execute(cql, consistency, serial));
         }
 
         <R> R execute(Object statement, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
-            return handler.apply(client.execute(
-                    ((StressPreparedStatement) statement).bind(queryParams.toArray()),
-                    settings.command.consistencyLevel,
-                    settings.command.serialConsistencyLevel));
+            StressBoundStatement bound = ((StressPreparedStatement) statement).bind(queryParams.toArray());
+            ConsistencyLevel consistency = settings.command.consistencyLevel;
+            ConsistencyLevel serial = settings.command.serialConsistencyLevel;
+            return handler.countsOnly()
+                    ? handler.fromCount(client.executeCount(bound, consistency, serial))
+                    : handler.fromRows(client.execute(bound, consistency, serial));
         }
 
         Object createPreparedStatement(String cqlQuery) {
@@ -346,15 +351,35 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
         }
     }
 
-    @FunctionalInterface
-    protected interface ResultHandler<V> extends Function<StressResult, V> {}
+    @SuppressWarnings("PMD.ImplicitFunctionalInterface")
+    protected interface ResultHandler<V> {
+        V fromRows(StressResult result);
+
+        default boolean countsOnly() {
+            return false;
+        }
+
+        default V fromCount(int count) {
+            throw new UnsupportedOperationException("This handler reads the rows");
+        }
+    }
 
     protected static final class RowCountHandler implements ResultHandler<Integer> {
         static final RowCountHandler INSTANCE = new RowCountHandler();
 
         @Override
-        public Integer apply(StressResult rows) {
+        public Integer fromRows(StressResult rows) {
             return rows == null ? 0 : rows.rows().size();
+        }
+
+        @Override
+        public boolean countsOnly() {
+            return true;
+        }
+
+        @Override
+        public Integer fromCount(int count) {
+            return count;
         }
     }
 
@@ -362,7 +387,7 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
         static final RowsHandler INSTANCE = new RowsHandler();
 
         @Override
-        public ByteBuffer[][] apply(StressResult result) {
+        public ByteBuffer[][] fromRows(StressResult result) {
             if (result == null) {
                 return EMPTY_BYTE_BUFFERS;
             }
@@ -387,12 +412,10 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
         for (Object parm : parms) {
             result.append(query.substring(position, marker));
 
-            if (parm instanceof ByteBuffer buffer) {
-                result.append(getUnQuotedCqlBlob(buffer));
-            } else if (parm instanceof Long) {
-                result.append(parm);
-            } else {
-                throw new AssertionError();
+            switch (parm) {
+                case ByteBuffer buffer -> result.append(getUnQuotedCqlBlob(buffer));
+                case Long number -> result.append(number.longValue());
+                default -> throw new IllegalArgumentException("Cannot write a CQL literal for " + parm);
             }
 
             position = marker + 1;

@@ -2,7 +2,6 @@
 package org.apache.cassandra.stress.settings;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -98,7 +97,7 @@ public class OptionDistribution extends Option {
 
     @Override
     public List<String> multiLineDisplay() {
-        return Arrays.asList(
+        return List.of(
                 GroupedOptions.formatMultiLine(
                         "EXP(min..max)", "An exponential distribution over the range [min..max]"),
                 GroupedOptions.formatMultiLine(

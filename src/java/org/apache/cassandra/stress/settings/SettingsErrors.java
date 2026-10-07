@@ -2,7 +2,6 @@
 package org.apache.cassandra.stress.settings;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -88,7 +87,7 @@ public class SettingsErrors {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(
+            return List.of(
                     retries,
                     ignore,
                     failFast,

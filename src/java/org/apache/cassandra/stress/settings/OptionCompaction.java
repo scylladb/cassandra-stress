@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -25,7 +24,7 @@ class OptionCompaction extends OptionMulti {
 
     @Override
     protected List<? extends Option> options() {
-        return Arrays.asList(strategy);
+        return List.of(strategy);
     }
 
     @Override

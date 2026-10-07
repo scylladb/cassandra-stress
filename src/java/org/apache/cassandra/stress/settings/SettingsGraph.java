@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.apache.cassandra.stress.util.ResultLogger;
@@ -20,7 +19,7 @@ public class SettingsGraph {
     public final String revision;
     public final String title;
     public final String operation;
-    public final File temporaryLogFile;
+    public final Path temporaryLogFile;
 
     public SettingsGraph(GraphOptions options, SettingsCommand stressCommand) {
         file = options.file.value();
@@ -39,9 +38,9 @@ public class SettingsGraph {
         }
     }
 
-    private static File createTemporaryLogFile() {
+    private static Path createTemporaryLogFile() {
         try {
-            return File.createTempFile("cassandra-stress", ".log");
+            return Files.createTempFile("cassandra-stress", ".log");
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -52,7 +51,7 @@ public class SettingsGraph {
             return;
         }
         try {
-            Files.deleteIfExists(temporaryLogFile.toPath());
+            Files.deleteIfExists(temporaryLogFile);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -77,7 +76,7 @@ public class SettingsGraph {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(file, revision, title, operation);
+            return List.of(file, revision, title, operation);
         }
     }
 

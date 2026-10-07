@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +53,7 @@ public final class OptionAnyProbabilities extends OptionMulti {
 
         @Override
         List<String> multiLineDisplay() {
-            return Collections.emptyList();
+            return List.of();
         }
 
         @Override
@@ -71,7 +69,7 @@ public final class OptionAnyProbabilities extends OptionMulti {
 
     @Override
     public List<? extends Option> options() {
-        return Arrays.asList(ratios);
+        return List.of(ratios);
     }
 
     Map<String, Double> ratios() {

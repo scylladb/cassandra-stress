@@ -175,7 +175,7 @@ public class StressGraph {
     }
 
     private ObjectNode createJSONStats(ObjectNode json) {
-        try (InputStream logStream = Files.newInputStream(stressSettings.graph.temporaryLogFile.toPath())) {
+        try (InputStream logStream = Files.newInputStream(stressSettings.graph.temporaryLogFile)) {
             ArrayNode stats;
             if (json == null) {
                 json = JSON.createObjectNode();

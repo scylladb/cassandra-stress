@@ -59,7 +59,7 @@ public class SchemaQuery extends SchemaStatement {
             if (bound == null) {
                 bound = bindArgs();
             }
-            rowCount = client.execute(bound, null, null).rows().size();
+            rowCount = client.executeCount(bound, null, null);
             partitionCount = Math.min(1, rowCount);
             return true;
         }

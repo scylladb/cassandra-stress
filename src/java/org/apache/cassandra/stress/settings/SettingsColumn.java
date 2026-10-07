@@ -106,7 +106,7 @@ public class SettingsColumn {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(name, slice, timestamp, size);
+            return List.of(name, slice, timestamp, size);
         }
     }
 
@@ -116,7 +116,7 @@ public class SettingsColumn {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(count, slice, timestamp, size);
+            return List.of(count, slice, timestamp, size);
         }
     }
 

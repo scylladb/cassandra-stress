@@ -18,6 +18,10 @@ public interface StressClient {
     StressResult execute(
             StressBoundStatement statement, ConsistencyLevel consistency, ConsistencyLevel serialConsistency);
 
+    int executeCount(String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency);
+
+    int executeCount(StressBoundStatement statement, ConsistencyLevel consistency, ConsistencyLevel serialConsistency);
+
     void executeBatch(List<StressBoundStatement> statements, BatchType type);
 
     StressPage executePage(String query, int pageSize, Object pagingState);

@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetAddress;
@@ -66,11 +65,11 @@ class StressTest {
     void theGraphTemporaryFileIsDeletedAfterTheRun() throws Exception {
         String[] arguments = failingRun("-graph", "file=" + dir.resolve("graph.html"));
         StressSettings settings = StressSettings.parse(arguments);
-        File temporary = settings.graph.temporaryLogFile;
-        assertTrue(temporary.exists());
+        Path temporary = settings.graph.temporaryLogFile;
+        assertTrue(Files.exists(temporary));
 
         assertThrows(ConnectException.class, () -> Stress.run(settings, arguments));
 
-        assertFalse(temporary.exists());
+        assertFalse(Files.exists(temporary));
     }
 }

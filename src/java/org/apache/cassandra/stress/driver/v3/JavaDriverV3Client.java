@@ -24,6 +24,7 @@ import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.TokenRange;
 import com.datastax.driver.core.exceptions.AlreadyExistsException;
+import com.datastax.driver.core.exceptions.DriverException;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.shaded.netty.channel.socket.SocketChannel;
 import com.datastax.shaded.netty.util.internal.logging.InternalLoggerFactory;
@@ -33,71 +34,51 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.function.Supplier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLParameters;
+import org.apache.cassandra.stress.driver.AbstractStressClient;
 import org.apache.cassandra.stress.driver.BatchType;
 import org.apache.cassandra.stress.driver.ColumnSchema;
 import org.apache.cassandra.stress.driver.CqlType;
 import org.apache.cassandra.stress.driver.OverloadedException;
 import org.apache.cassandra.stress.driver.SchemaAlreadyExistsException;
 import org.apache.cassandra.stress.driver.StressBoundStatement;
-import org.apache.cassandra.stress.driver.StressClient;
-import org.apache.cassandra.stress.driver.StressPage;
 import org.apache.cassandra.stress.driver.StressPreparedStatement;
-import org.apache.cassandra.stress.driver.StressResult;
 import org.apache.cassandra.stress.driver.TableSchema;
 import org.apache.cassandra.stress.driver.TokenSlice;
 import org.apache.cassandra.stress.driver.v3.codecs.EpochDayCodec;
 import org.apache.cassandra.stress.settings.ProtocolCompression;
-import org.apache.cassandra.stress.settings.SettingsMode;
-import org.apache.cassandra.stress.settings.SettingsNode;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.apache.cassandra.stress.util.EncryptionOptions;
 import org.apache.cassandra.stress.util.HostAndPort;
-import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.SSLFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public final class JavaDriverV3Client implements StressClient {
+public final class JavaDriverV3Client
+        extends AbstractStressClient<
+                com.datastax.driver.core.PreparedStatement, com.datastax.driver.core.Statement, ResultSet, Row> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(JavaDriverV3Client.class);
+
     static {
         InternalLoggerFactory.setDefaultFactory(Slf4JLoggerFactory.INSTANCE);
     }
 
-    private final List<HostAndPort> contactPoints;
-    private final Integer maxPendingPerConnection;
-    private final int connectionsPerHost;
-    private final int requestTimeout;
-    private final ResultLogger output;
-    private final SettingsMode mode;
-    private final SettingsNode node;
     private final ProtocolVersion protocolVersion;
-    private final EncryptionOptions encryptionOptions;
-    private final ConcurrentMap<String, com.datastax.driver.core.PreparedStatement> statements =
-            new ConcurrentHashMap<>();
     private volatile Cluster cluster;
     private volatile Session session;
 
     public JavaDriverV3Client(
             StressSettings settings, List<String> hosts, int port, EncryptionOptions encryptionOptions) {
-        this.contactPoints =
-                hosts.stream().map(host -> HostAndPort.parse(host, port)).toList();
-        this.output = settings.output();
-        this.mode = settings.mode;
-        this.node = settings.node;
+        super(settings, hosts, port, encryptionOptions);
         this.protocolVersion = V3DriverConfig.protocolVersion(settings.mode.protocolVersion);
-        this.encryptionOptions = encryptionOptions;
-        this.connectionsPerHost = Objects.requireNonNullElse(settings.mode.connectionsPerHost, 8);
-        this.requestTimeout = Objects.requireNonNullElse(settings.mode.requestTimeout, 12000);
-        this.maxPendingPerConnection = settings.mode.maxPendingPerConnection;
     }
 
     static CodecRegistry codecRegistry() {
@@ -136,13 +117,9 @@ public final class JavaDriverV3Client implements StressClient {
         cluster = builder(compression).build();
         try {
             Metadata metadata = cluster.getMetadata();
-            output.printf(
-                    "Connected to cluster: %s, max pending requests per connection %d, max connections per host %d%n",
-                    metadata.getClusterName(), maxPendingPerConnection, connectionsPerHost);
+            printConnected(metadata.getClusterName());
             for (Host host : metadata.getAllHosts()) {
-                output.printf(
-                        "Datatacenter: %s; Host: %s; Rack: %s%n",
-                        host.getDatacenter(), host.getEndPoint().resolve(), host.getRack());
+                printHost(host.getDatacenter(), host.getEndPoint().resolve(), host.getRack());
             }
             session = cluster.connect();
         } catch (NoHostAvailableException e) {
@@ -189,23 +166,18 @@ public final class JavaDriverV3Client implements StressClient {
     }
 
     @Override
-    public StressPreparedStatement prepare(String query) {
-        return new V3PreparedStatement(statements.computeIfAbsent(query, session::prepare));
+    protected com.datastax.driver.core.PreparedStatement prepareInDriver(String query) {
+        return session.prepare(query);
     }
 
     @Override
-    public void execute(String query, ConsistencyLevel consistency) {
-        SimpleStatement statement = new SimpleStatement(query);
-        statement.setConsistencyLevel(V3DriverConfig.consistency(consistency));
-        try {
-            session.execute(statement);
-        } catch (AlreadyExistsException e) {
-            throw new SchemaAlreadyExistsException(e.getMessage(), e);
-        }
+    protected StressPreparedStatement wrap(com.datastax.driver.core.PreparedStatement statement) {
+        return new V3PreparedStatement(statement);
     }
 
     @Override
-    public StressResult execute(String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
+    protected com.datastax.driver.core.Statement simple(
+            String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
         SimpleStatement statement = new SimpleStatement(query);
         if (consistency != null) {
             statement.setConsistencyLevel(V3DriverConfig.consistency(consistency));
@@ -213,70 +185,73 @@ public final class JavaDriverV3Client implements StressClient {
         if (serialConsistency != null) {
             statement.setSerialConsistencyLevel(V3DriverConfig.consistency(serialConsistency));
         }
-        return result(overloadAware(() -> session.execute(statement)));
+        return statement;
     }
 
     @Override
-    public StressResult execute(
-            StressBoundStatement statement, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
-        return result(overloadAware(() -> session.execute(bound(statement).toDriver(consistency, serialConsistency))));
-    }
-
-    @Override
-    public void executeBatch(List<StressBoundStatement> statements, BatchType type) {
-        if (statements.size() == 1) {
-            overloadAware(() -> session.execute(bound(statements.getFirst()).toDriver(null, null)));
-            return;
-        }
-        BatchStatement batch = new BatchStatement(BatchStatement.Type.valueOf(type.name()));
-        StressPreparedStatement first = statements.getFirst().statement();
-        if (first.getConsistencyLevel() != null) {
-            batch.setConsistencyLevel(V3DriverConfig.consistency(first.getConsistencyLevel()));
-        }
-        if (first.getSerialConsistencyLevel() != null) {
-            batch.setSerialConsistencyLevel(V3DriverConfig.consistency(first.getSerialConsistencyLevel()));
-        }
-        for (StressBoundStatement statement : statements) {
-            batch.add(bound(statement).toDriver(null, null));
-        }
-        overloadAware(() -> session.execute(batch));
-    }
-
-    private static V3BoundStatement bound(StressBoundStatement statement) {
-        if (statement instanceof V3BoundStatement bound) {
-            return bound;
-        }
-        throw new IllegalArgumentException("Driver 3.x cannot run a statement bound by another driver: " + statement);
-    }
-
-    @Override
-    public StressPage executePage(String query, int pageSize, Object pagingState) {
+    protected com.datastax.driver.core.Statement page(String query, int pageSize, Object pagingState) {
         SimpleStatement statement = new SimpleStatement(query);
         statement.setFetchSize(pageSize);
         if (pagingState != null) {
             statement.setPagingState((PagingState) pagingState);
         }
-        ResultSet results = overloadAware(() -> session.execute(statement));
-        int available = results.getAvailableWithoutFetching();
-        List<ByteBuffer[]> rows = new ArrayList<>(available);
-        for (int i = 0; i < available; i++) {
-            rows.add(values(results.one()));
-        }
-        return new StressPage(
-                new StressResult(names(results.getColumnDefinitions()), rows),
-                results.getExecutionInfo().getPagingState(),
-                results.isFullyFetched());
+        return statement;
     }
 
-    static StressResult result(ResultSet results) {
-        List<ByteBuffer[]> rows = new ArrayList<>();
-        for (Row row : results) {
-            rows.add(values(row));
+    @Override
+    protected com.datastax.driver.core.Statement bound(
+            StressBoundStatement statement, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
+        if (statement instanceof V3BoundStatement bound) {
+            return bound.toDriver(consistency, serialConsistency);
         }
-        return new StressResult(names(results.getColumnDefinitions()), rows);
+        throw new IllegalArgumentException("Driver 3.x cannot run a statement bound by another driver: " + statement);
     }
 
-    private static List<String> names(ColumnDefinitions definitions) {
+    @Override
+    protected com.datastax.driver.core.Statement batch(
+            BatchType type,
+            ConsistencyLevel consistency,
+            ConsistencyLevel serialConsistency,
+            List<com.datastax.driver.core.Statement> statements) {
+        BatchStatement batch = new BatchStatement(BatchStatement.Type.valueOf(type.name()));
+        if (consistency != null) {
+            batch.setConsistencyLevel(V3DriverConfig.consistency(consistency));
+        }
+        if (serialConsistency != null) {
+            batch.setSerialConsistencyLevel(V3DriverConfig.consistency(serialConsistency));
+        }
+        batch.addAll(statements);
+        return batch;
+    }
+
+    @Override
+    protected ResultSet run(com.datastax.driver.core.Statement statement) {
+        return session.execute(statement);
+    }
+
+    @Override
+    protected RuntimeException translate(RuntimeException error) {
+        return switch (error) {
+            case com.datastax.driver.core.exceptions.OverloadedException e ->
+                new OverloadedException(e.getMessage(), e);
+            case AlreadyExistsException e -> new SchemaAlreadyExistsException(e.getMessage(), e);
+            default -> error;
+        };
+    }
+
+    @Override
+    protected Iterator<Row> rows(ResultSet results) {
+        return results.iterator();
+    }
+
+    @Override
+    protected int availableWithoutFetching(ResultSet results) {
+        return results.getAvailableWithoutFetching();
+    }
+
+    @Override
+    protected List<String> columnNames(ResultSet results) {
+        ColumnDefinitions definitions = results.getColumnDefinitions();
         List<String> names = new ArrayList<>(definitions.size());
         for (int i = 0; i < definitions.size(); i++) {
             names.add(definitions.getName(i));
@@ -284,12 +259,23 @@ public final class JavaDriverV3Client implements StressClient {
         return names;
     }
 
-    private static ByteBuffer[] values(Row row) {
+    @Override
+    protected ByteBuffer[] values(Row row) {
         ByteBuffer[] values = new ByteBuffer[row.getColumnDefinitions().size()];
         for (int i = 0; i < values.length; i++) {
             values[i] = row.getBytesUnsafe(i);
         }
         return values;
+    }
+
+    @Override
+    protected Object pagingState(ResultSet results) {
+        return results.getExecutionInfo().getPagingState();
+    }
+
+    @Override
+    protected boolean fullyFetched(ResultSet results) {
+        return results.isFullyFetched();
     }
 
     @Override
@@ -309,10 +295,19 @@ public final class JavaDriverV3Client implements StressClient {
                 keyspace,
                 tableName);
         Set<String> descending = new HashSet<>();
-        for (Row row : session.execute(statement)) {
-            if (isDescending(row.getString("clustering_order"))) {
-                descending.add(row.getString("column_name"));
+        try {
+            for (Row row : session.execute(statement)) {
+                if (isDescending(row.getString("clustering_order"))) {
+                    descending.add(row.getString("column_name"));
+                }
             }
+        } catch (DriverException e) {
+            LOGGER.warn(
+                    "Could not read the clustering order of {}.{} from system_schema.columns, so the driver"
+                            + " metadata sets it: {}",
+                    keyspace,
+                    tableName,
+                    e.getMessage());
         }
         return descending;
     }
@@ -365,12 +360,12 @@ public final class JavaDriverV3Client implements StressClient {
     }
 
     @Override
-    public List<TokenSlice> tokenRanges() {
+    protected List<TokenSlice> ringRanges() {
         List<TokenSlice> ranges = new ArrayList<>();
         for (TokenRange range : cluster.getMetadata().getTokenRanges()) {
             ranges.add(new TokenSlice(token(range.getStart()), token(range.getEnd())));
         }
-        return TokenSlice.sortedAndUnwrapped(ranges);
+        return ranges;
     }
 
     static long token(com.datastax.driver.core.Token token) {
@@ -380,20 +375,8 @@ public final class JavaDriverV3Client implements StressClient {
         throw new IllegalStateException("Only the Murmur3 partitioner is supported, got " + token);
     }
 
-    private static <T> T overloadAware(Supplier<T> call) {
-        try {
-            return call.get();
-        } catch (com.datastax.driver.core.exceptions.OverloadedException e) {
-            throw new OverloadedException(e.getMessage(), e);
-        }
-    }
-
     @Override
-    public void disconnect() {
-        try {
-            cluster.close();
-        } catch (RuntimeException e) {
-            output.printf("Failed to close connection due to the following error: %s%n", e);
-        }
+    protected void close() {
+        cluster.close();
     }
 }

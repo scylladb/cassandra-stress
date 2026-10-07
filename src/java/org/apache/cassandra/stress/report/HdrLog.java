@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.report;
 
-import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.HdrHistogram.Histogram;
 import org.HdrHistogram.HistogramLogWriter;
 
@@ -21,14 +22,14 @@ public final class HdrLog implements AutoCloseable {
         writer.outputLegend();
     }
 
-    public static HdrLog open(File file) {
+    public static HdrLog open(Path file) {
         if (file == null) {
             return null;
         }
         try {
-            return new HdrLog(new HistogramLogWriter(file), System.currentTimeMillis());
-        } catch (FileNotFoundException e) {
-            throw new IllegalArgumentException(e);
+            return new HdrLog(new HistogramLogWriter(Files.newOutputStream(file)), System.currentTimeMillis());
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Cannot open the HDR log " + file, e);
         }
     }
 

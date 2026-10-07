@@ -2,7 +2,6 @@
 package org.apache.cassandra.stress.settings;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -87,7 +86,7 @@ public class SettingsCommandPreDefined extends SettingsCommand {
 
         @Override
         public List<? extends Option> options() {
-            return merge(parent.options(), Arrays.asList(add, keysize));
+            return merge(parent.options(), List.of(add, keysize));
         }
     }
 

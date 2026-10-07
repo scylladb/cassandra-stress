@@ -35,7 +35,7 @@ final class SettingsMisc {
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(dist);
+            return List.of(dist);
         }
     }
 
@@ -172,7 +172,7 @@ final class SettingsMisc {
         return () -> GroupedOptions.printOptions(System.out, "print", new GroupedOptions() {
             @Override
             public List<? extends Option> options() {
-                return Arrays.asList(new OptionDistribution("dist=", null, "A mathematical distribution"));
+                return List.of(new OptionDistribution("dist=", null, "A mathematical distribution"));
             }
         });
     }
