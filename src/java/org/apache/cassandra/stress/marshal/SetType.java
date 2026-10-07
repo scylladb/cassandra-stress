@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.marshal;
 
+import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,5 +28,10 @@ public final class SetType<T> extends AbstractType<Set<T>> {
     @Override
     public SetSerializer<T> getSerializer() {
         return serializer;
+    }
+
+    @Override
+    protected int compareCustom(ByteBuffer left, ByteBuffer right) {
+        return compareListOrSet(elements, left, right);
     }
 }

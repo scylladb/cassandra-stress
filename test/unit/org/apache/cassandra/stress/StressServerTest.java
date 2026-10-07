@@ -176,6 +176,7 @@ class StressServerTest {
                 Duration.ofSeconds(60),
                 () -> sendToServer("write", count, "-node", "127.0.0.1", "-port", "native=" + closedPort));
         assertEquals("FAILURE", reply.getLast(), reply.toString());
+        assertTrue(reply.get(reply.size() - 2).startsWith("Stress action failed: "), reply.toString());
     }
 
     @Test

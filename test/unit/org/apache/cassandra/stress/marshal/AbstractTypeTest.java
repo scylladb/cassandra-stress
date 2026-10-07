@@ -1,6 +1,7 @@
 package org.apache.cassandra.stress.marshal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -17,7 +18,9 @@ import java.util.Date;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.cassandra.stress.util.UUIDGen;
@@ -213,5 +216,23 @@ class AbstractTypeTest {
     @Test
     void bytesPrintAsLowerCaseHex() {
         assertEquals("00ff10", BytesType.instance.getString(ByteBuffer.wrap(new byte[] {0, (byte) 0xff, 0x10})));
+    }
+
+    @Test
+    void comparesFrozenListsAndSetsElementByElementThenBySize() {
+        ListType<Integer> list = ListType.getInstance(Int32Type.instance, false);
+        List<List<Integer>> ordered =
+                List.of(List.of(), List.of(-5), List.of(1), List.of(1, 2), List.of(1, 3), List.of(2));
+        for (int i = 1; i < ordered.size(); i++) {
+            assertTrue(
+                    list.compare(list.decompose(ordered.get(i - 1)), list.decompose(ordered.get(i))) < 0,
+                    ordered.get(i).toString());
+            assertTrue(list.compare(list.decompose(ordered.get(i)), list.decompose(ordered.get(i - 1))) > 0);
+        }
+        assertEquals(0, list.compare(list.decompose(List.of(1, 2)), list.decompose(List.of(1, 2))));
+
+        SetType<Integer> set = SetType.getInstance(Int32Type.instance, false);
+        assertTrue(set.compare(set.decompose(Set.of(2, 1)), set.decompose(Set.of(1, 3))) < 0);
+        assertTrue(set.compare(set.decompose(Set.of(1)), set.decompose(Set.of(1, 2))) < 0);
     }
 }

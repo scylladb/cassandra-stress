@@ -39,6 +39,9 @@ public class StressAction implements Runnable {
         try (HdrLog hdr = HdrLog.open(settings.log.hdrFile)) {
             hdrLog = hdr;
             success = runWithHdrLog();
+        } catch (RuntimeException e) {
+            output.println("Stress action failed: " + StressServer.failureMessage(e));
+            throw e;
         } finally {
             hdrLog = null;
             output.println(success ? "END" : "FAILURE");

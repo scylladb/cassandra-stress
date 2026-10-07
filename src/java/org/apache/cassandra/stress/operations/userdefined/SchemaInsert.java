@@ -12,6 +12,7 @@ import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
 import org.apache.cassandra.stress.generate.PartitionIterator;
 import org.apache.cassandra.stress.generate.RatioDistribution;
+import org.apache.cassandra.stress.generate.Row;
 import org.apache.cassandra.stress.generate.SeedManager;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
@@ -20,6 +21,7 @@ public class SchemaInsert extends SchemaStatement {
     static final int MAX_BATCH_SIZE = 65535;
 
     private final BatchType batchType;
+    int maxBatchSize = MAX_BATCH_SIZE;
 
     public SchemaInsert(
             Timer timer,
@@ -42,28 +44,42 @@ public class SchemaInsert extends SchemaStatement {
 
     private final class JavaDriverRun extends Runner {
         final StressClient client;
-        private List<StressBoundStatement> stmts;
+        private final List<StressBoundStatement> stmts = new ArrayList<>();
+        private int partitionIndex;
+        private Row pendingRow;
+        private boolean allBound;
+        private int sentStatements;
 
         private JavaDriverRun(StressClient client) {
             this.client = client;
         }
 
+        private void bindAll() {
+            while (partitionIndex < partitions.size()) {
+                PartitionIterator iterator = partitions.get(partitionIndex);
+                while (pendingRow != null || iterator.hasNext()) {
+                    if (pendingRow == null) {
+                        pendingRow = iterator.next();
+                    }
+                    stmts.add(bindRow(pendingRow));
+                    pendingRow = null;
+                }
+                partitionIndex++;
+            }
+            allBound = true;
+            partitionCount = partitions.size();
+            rowCount = stmts.size();
+        }
+
         @Override
         public boolean run() throws Exception {
-            if (stmts == null) {
-                List<StressBoundStatement> bound = new ArrayList<>();
-                for (PartitionIterator iterator : partitions) {
-                    while (iterator.hasNext()) {
-                        bound.add(bindRow(iterator.next()));
-                    }
-                }
-                stmts = bound;
-                partitionCount = partitions.size();
-                rowCount = stmts.size();
+            if (!allBound) {
+                bindAll();
             }
-
-            for (int j = 0; j < stmts.size(); j += MAX_BATCH_SIZE) {
-                client.executeBatch(stmts.subList(j, Math.min(stmts.size(), j + MAX_BATCH_SIZE)), batchType);
+            while (sentStatements < stmts.size()) {
+                int end = Math.min(stmts.size(), sentStatements + maxBatchSize);
+                client.executeBatch(stmts.subList(sentStatements, end), batchType);
+                sentStatements = end;
             }
             return true;
         }

@@ -41,6 +41,30 @@ public abstract class AbstractType<T> implements Comparator<ByteBuffer> {
         throw new UnsupportedOperationException();
     }
 
+    static int compareListOrSet(AbstractType<?> elements, ByteBuffer left, ByteBuffer right) {
+        if (!left.hasRemaining() || !right.hasRemaining()) {
+            return Boolean.compare(left.hasRemaining(), right.hasRemaining());
+        }
+        ByteBuffer l = left.duplicate();
+        ByteBuffer r = right.duplicate();
+        int leftSize = l.getInt();
+        int rightSize = r.getInt();
+        for (int i = 0; i < Math.min(leftSize, rightSize); i++) {
+            int compared = elements.compare(nextElement(l), nextElement(r));
+            if (compared != 0) {
+                return compared;
+            }
+        }
+        return Integer.compare(leftSize, rightSize);
+    }
+
+    private static ByteBuffer nextElement(ByteBuffer collection) {
+        int length = collection.getInt();
+        ByteBuffer element = collection.slice(collection.position(), length);
+        collection.position(collection.position() + length);
+        return element;
+    }
+
     static int compareSignedFirstByte(ByteBuffer o1, ByteBuffer o2) {
         if (!o1.hasRemaining() || !o2.hasRemaining()) {
             return o1.hasRemaining() ? 1 : o2.hasRemaining() ? -1 : 0;

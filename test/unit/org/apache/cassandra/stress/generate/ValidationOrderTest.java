@@ -14,6 +14,7 @@ import org.apache.cassandra.stress.generate.values.Generator;
 import org.apache.cassandra.stress.generate.values.GeneratorConfig;
 import org.apache.cassandra.stress.generate.values.Inets;
 import org.apache.cassandra.stress.generate.values.Integers;
+import org.apache.cassandra.stress.generate.values.Lists;
 import org.apache.cassandra.stress.generate.values.LocalDates;
 import org.apache.cassandra.stress.generate.values.Strings;
 import org.apache.cassandra.stress.generate.values.TimeUUIDs;
@@ -118,6 +119,20 @@ class ValidationOrderTest {
                 false);
         for (long seed = 1; seed <= 20; seed++) {
             assertOrdered(validated(generator, seed), Comparator.<Integer>naturalOrder());
+        }
+    }
+
+    @Test
+    void frozenListClusteringFollowsTheElements() {
+        Lists<Integer> column = new Lists<>(
+                "c",
+                new Integers("c", config("c", null, null, "uniform(1..5)")),
+                config("c", "fixed(20)", "uniform(1..3)", null));
+        PartitionGenerator generator = generator(column, PartitionGenerator.Order.ARBITRARY, false);
+        for (long seed = 1; seed <= 20; seed++) {
+            List<Row> rows = validated(generator, seed);
+            assertOrdered(rows, column::compareStored);
+            assertEquals(describe(written(generator, seed)), describe(rows));
         }
     }
 
