@@ -32,7 +32,7 @@
     <property name="debuglevel" value="source,lines,vars" />
 
     <property name="base.version" value="3.12.0" />
-    <property name="base.javaDriverVersion" value="4.19.2.1" />
+    <property name="base.javaDriverVersion" value="4.19.2.2" />
 
     <property name="basedir" value="." />
     <property name="build.src" value="${basedir}/src" />
