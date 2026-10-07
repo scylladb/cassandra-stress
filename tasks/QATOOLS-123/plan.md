@@ -326,14 +326,15 @@ stays in every plan built from a spec.
 ## Task 22 — Support driver 3.x and driver 4.x
 
 **Files:**
-- Create: `S/driver/{StressClient,StressPrepared,StressBound,StressRow,StressPage,TableSchema,ColumnSchema,CqlType,TokenSlice}.java`, `S/util/JavaDriverV4Client.java`, `S/util/codecs/v3/EpochDayCodec.java`
-- Modify: `S/util/JavaDriverClient.java` (driver 3.x), `S/settings/{SettingsMode,StressSettings,LoadBalanceType,AuthProvider,ProtocolVersion,ProtocolCompression,SettingsMisc,SettingsNode,SettingsSchema,SettingsInsert}.java`, `S/util/ConsistencyLevel.java`, `S/StressProfile.java`, `S/ProfileGenerators.java`, `S/ProfileInsert.java`, `S/core/{CqlTypes,PreparedStatement}.java`, `S/generate/TokenRangeIterator.java`, `S/Operation.java`, `S/operations/predefined/CqlOperation.java`, `S/operations/userdefined/*.java`, `build.xml`, `conf/logback.xml`, the integration tests
+- Create: `S/driver/{StressClient,StressPreparedStatement,StressBoundStatement,AbstractPreparedStatement,StressClients,StressResult,StressPage,TableSchema,ColumnSchema,CqlType,TokenSlice,BatchType,OverloadedException,SchemaAlreadyExistsException}.java`, `S/driver/v3/{JavaDriverV3Client,V3PreparedStatement,V3BoundStatement,V3DriverConfig}.java`, `S/driver/v3/codecs/EpochDayCodec.java`, `S/driver/v4/{V4PreparedStatement,V4BoundStatement,V4DriverConfig}.java`, `S/settings/ConnectionAPI.java`, `S/util/WhiteListAddresses.java`, the matching tests under `T/driver/`
+- Move: `S/util/JavaDriverClient.java` to `S/driver/v4/JavaDriverV4Client.java`, `S/util/codecs/` to `S/driver/v4/codecs/`
+- Delete: `S/core/PreparedStatement.java`, `S/util/{MetadataProvider,QueryExecutor,QueryPrepare}.java`
+- Modify: `S/settings/{SettingsMode,StressSettings,LoadBalanceType,AuthProvider,ProtocolVersion,ProtocolCompression,SettingsMisc,SettingsSchema,SettingsCommand,SettingsInsert}.java`, `S/util/{ConsistencyLevel,CqlNames}.java`, `S/{StressProfile,ProfileGenerators,ProfileInsert,Operation,StressAction}.java`, `S/core/CqlTypes.java`, `S/generate/TokenRangeIterator.java`, `S/operations/predefined/CqlOperation.java`, `S/operations/userdefined/*.java`, `build.xml`, `renovate.json`, the integration tests
 
-**Internals:** `StressSettings.getClient()` returns the `StressClient` of the selected mode. Each client maps its driver metadata to `TableSchema` and `TokenSlice`, binds generated values through its codecs, and returns rows as raw column bytes. `ScyllaNode` and every integration test take the mode as a parameter.
+**Internals:** `StressSettings.getClient()` returns the `StressClient` that `StressClients.create` builds for `settings.mode.api`. A client binds generated values through its own prepared statement and codecs, returns rows as raw column bytes, and maps its driver metadata to `TableSchema` and `TokenSlice`. `ant integration-test` runs every integration test once with `-mode cql3 native` and once with `-mode cql3 4x`.
 
-- [ ] Write the failing tests: `-mode cql3 native` runs driver 3.x, `version` prints the driver 3.x version, and each integration test runs on both drivers.
-- [ ] Add driver 3.x and guava to `build.xml`, and restore `ConnectionAPI` selection in `SettingsMode`.
-- [ ] Add the neutral `StressClient` types, and move profile, generator, operation and validation code to them.
-- [ ] Move the driver 4.x client to `JavaDriverV4Client`, and write the driver 3.x `JavaDriverClient` with load balancing, whitelist, SSL, auth, compression, protocol version, pooling and the schema agreement warning.
-- [ ] Run `ant lint`, `ant test` and `ant integration-test` on both drivers, and the old-data check with each driver.
-
+- [x] Write the failing tests: mode selection, the client factory, the settings line `API:`, the driver version lines, the type mapping and the configuration of each driver, and `TokenSlice` against driver 4.x.
+- [x] Add driver 3.x and guava to `build.xml` and `renovate.json`, and restore `ConnectionAPI` in `SettingsMode`.
+- [x] Add the `driver` interfaces and neutral types, and move profile, generator, operation and validation code to them.
+- [x] Move the driver 4.x client to `driver.v4`, and write `driver.v3` with load balancing, whitelist, SSL, auth, compression, protocol version, pooling and the `date` codec.
+- [x] Run `ant lint`, `ant test` and `ant integration-test` on both drivers.
