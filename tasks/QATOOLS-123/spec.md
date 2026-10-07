@@ -64,7 +64,7 @@ A file that comes from a Cassandra original starts with `// SPDX-License-Identif
 | runtime | `scylla-driver-core` 3.x (`shaded`), guava, `java-driver-core-shaded` 4.x, commons-math3 3.6.1, snakeyaml, jackson-core, jackson-databind, jctools-core 4.0.7, HdrHistogram 2.2.2, config, slf4j-api 2.x, logback-classic 1.6, `at.yawk.lz4:lz4-java`, snappy-java |
 | test | junit-jupiter 6.1.3, junit-platform-launcher 6.1.3, reactive-streams 1.0.4 (the driver 4.x session proxies of the unit tests), testcontainers-scylladb 2.0.5 (integration tests) |
 | build | `maven-resolver-ant-tasks`, `org.jacoco.ant` 0.8.15 (only for `coverage`) |
-| lint | error_prone_core 2.50.0, checkstyle 14.3.0, pmd-ant and pmd-java 7.28.0, spotbugs-ant and spotbugs 4.10.4, palantir-java-format 2.101.0 (only for `lint` and `format`) |
+| lint | error_prone_core 2.50.0, checkstyle 14.3.0, pmd-ant and pmd-java 7.28.0, spotbugs-ant and spotbugs 4.10.4, palantir-java-format 2.102.0 (only for `lint` and `format`) |
 
 Every other coordinate goes, `compile-command-annotations` and joda-time included. `<javac>` sets `--release 21` and `-proc:none`. With no annotation processor, the `build` target stops copying `META-INF/hotspot_compiler`, and the `artifacts` target stops excluding it. `conf/jvm-clients.options` keeps only the flags that the drivers need. The integration tests on JDK 21 and 25 decide that list.
 
