@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.apache.cassandra.stress.util.EncryptionOptions;
@@ -56,11 +55,15 @@ public class SettingsTransport {
                 "SSL: comma delimited list of encryption suites to use",
                 false);
         final OptionSimple hostnameVerification = new OptionSimple(
-                "hostname-verification=", ".*", "false", "SSL: enable hostname verification in Java Driver", false);
+                "hostname-verification=",
+                "true|false",
+                "true",
+                "SSL: check that the node certificate matches the node address",
+                false);
 
         @Override
         public List<? extends Option> options() {
-            return Arrays.asList(
+            return List.of(
                     trustStore,
                     trustStorePw,
                     keyStore,

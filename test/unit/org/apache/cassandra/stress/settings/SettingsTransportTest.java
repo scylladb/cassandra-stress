@@ -31,4 +31,10 @@ class SettingsTransportTest {
     void defaultsToJks() {
         assertEquals("JKS", parse("truststore=/tmp/ts.jks", "truststore-password=secret").storeType);
     }
+
+    @Test
+    void verifiesTheHostnameByDefault() {
+        assertTrue(parse("truststore=/tmp/ts.jks").hostnameVerification);
+        assertFalse(parse("truststore=/tmp/ts.jks", "hostname-verification=false").hostnameVerification);
+    }
 }

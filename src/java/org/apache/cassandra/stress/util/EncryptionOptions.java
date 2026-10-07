@@ -13,5 +13,5 @@ public class EncryptionOptions {
     public String protocol = "TLS";
     public String algorithm = "SunX509";
     public String storeType = "JKS";
-    public boolean hostnameVerification;
+    public boolean hostnameVerification = true;
 }
