@@ -4,6 +4,7 @@ package org.apache.cassandra.stress.marshal;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 
 public class InetAddressSerializer implements TypeSerializer<InetAddress> {
@@ -33,7 +34,9 @@ public class InetAddressSerializer implements TypeSerializer<InetAddress> {
             InetAddress.getByAddress(ByteBufferUtil.getArray(bytes));
         } catch (UnknownHostException e) {
             throw new MarshalException(
-                    String.format("Expected 4 or 16 byte inetaddress; got %s", ByteBufferUtil.bytesToHex(bytes)), e);
+                    String.format(
+                            Locale.ROOT, "Expected 4 or 16 byte inetaddress; got %s", ByteBufferUtil.bytesToHex(bytes)),
+                    e);
         }
     }
 

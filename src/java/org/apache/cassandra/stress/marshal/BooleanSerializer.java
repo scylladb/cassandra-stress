@@ -2,6 +2,7 @@
 package org.apache.cassandra.stress.marshal;
 
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 
 public class BooleanSerializer implements TypeSerializer<Boolean> {
@@ -26,7 +27,8 @@ public class BooleanSerializer implements TypeSerializer<Boolean> {
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
         if (bytes.remaining() != 1 && bytes.remaining() != 0)
-            throw new MarshalException(String.format("Expected 1 or 0 byte value (%d)", bytes.remaining()));
+            throw new MarshalException(
+                    String.format(Locale.ROOT, "Expected 1 or 0 byte value (%d)", bytes.remaining()));
     }
 
     @Override

@@ -4,6 +4,7 @@ package org.apache.cassandra.stress.operations.predefined;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Function;
 import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.driver.StressPreparedStatement;
@@ -162,6 +163,7 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
 
                     if (actualRows == 0) {
                         validationError = String.format(
+                                Locale.ROOT,
                                 "Data returned was not validated: row empty/missing (expected %d row(s) with %d"
                                         + " column(s) %s, %d bytes total (%dx%d); got 0 rows)",
                                 expectedRows,
@@ -174,9 +176,13 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
                         long actualBytes = 0;
                         for (ByteBuffer[] row : result) if (row != null) actualBytes += totalBytes(row);
                         validationError = String.format(
+                                Locale.ROOT,
                                 "Data returned was not validated: row count mismatch"
                                         + " (expected %d row(s) / %d bytes total; got %d row(s) / %d bytes total)",
-                                expectedRows, expectedBytes, actualRows, actualBytes);
+                                expectedRows,
+                                expectedBytes,
+                                actualRows,
+                                actualBytes);
                     }
                     return false;
                 }
@@ -190,6 +196,7 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
                         long expectedRowBytes = totalBytes(expectedRow);
                         long actualRowBytes = totalBytes(actualRow);
                         validationError = String.format(
+                                Locale.ROOT,
                                 "Data returned was not validated: row %d column count mismatch"
                                         + " (expected %d column(s) %s / %d bytes; got %d column(s) / %d bytes)",
                                 i,
@@ -209,19 +216,22 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
                             int actualSize = (actualVal != null) ? actualVal.remaining() : -1;
                             String colLabel = columnLabel(j);
                             String diff;
-                            if (actualSize < 0) diff = String.format("got null (expected %d bytes)", expectedSize);
+                            if (actualSize < 0)
+                                diff = String.format(Locale.ROOT, "got null (expected %d bytes)", expectedSize);
                             else if (actualSize != expectedSize)
-                                diff = String.format("expected %d bytes, got %d bytes", expectedSize, actualSize);
+                                diff = String.format(
+                                        Locale.ROOT, "expected %d bytes, got %d bytes", expectedSize, actualSize);
                             else
                                 diff = String.format(
+                                        Locale.ROOT,
                                         "same size (%d bytes) but content differs; expected[0..%d]=%s, got[0..%d]=%s",
                                         expectedSize,
                                         Math.min(15, expectedSize - 1),
                                         hexPreview(expectedVal, 16),
                                         Math.min(15, actualSize - 1),
                                         hexPreview(actualVal, 16));
-                            validationError =
-                                    String.format("Data returned was not validated: row %d, %s: %s", i, colLabel, diff);
+                            validationError = String.format(
+                                    Locale.ROOT, "Data returned was not validated: row %d, %s: %s", i, colLabel, diff);
                             return false;
                         }
                     }
@@ -232,8 +242,8 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
 
         private String columnLabel(int j) {
             List<String> names = settings.columns.namestrs;
-            if (names != null && j < names.size()) return String.format("column %d (%s)", j, names.get(j));
-            return String.format("column %d", j);
+            if (names != null && j < names.size()) return String.format(Locale.ROOT, "column %d (%s)", j, names.get(j));
+            return String.format(Locale.ROOT, "column %d", j);
         }
 
         private String columnNamesPreview(int count) {

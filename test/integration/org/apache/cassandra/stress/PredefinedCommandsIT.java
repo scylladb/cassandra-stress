@@ -193,4 +193,28 @@ class PredefinedCommandsIT {
         assertTrue(write.output().contains("  API: " + api), write::toString);
         assertEquals(10, ScyllaNode.count(keyspace, "standard1"));
     }
+
+    @Test
+    void truncatesAMixedCaseKeyspace() {
+        ScyllaNode.dropKeyspace("\"MixedCaseKs\"");
+        CassandraStress stress = new CassandraStress(dir);
+        StressResult first = stress.run(
+                "write", "n=100", "no-warmup", "-rate", "threads=2", "-schema", "keyspace=MixedCaseKs", REPLICATION);
+        assertTrue(first.succeeded(), first::toString);
+
+        StressResult truncated = stress.run(
+                "write",
+                "n=10",
+                "no-warmup",
+                "truncate=once",
+                "-pop",
+                "seq=1..10",
+                "-rate",
+                "threads=1",
+                "-schema",
+                "keyspace=MixedCaseKs",
+                REPLICATION);
+        assertTrue(truncated.succeeded(), truncated::toString);
+        assertEquals(10, ScyllaNode.count("\"MixedCaseKs\"", "standard1"));
+    }
 }

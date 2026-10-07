@@ -2,6 +2,7 @@
 package org.apache.cassandra.stress.marshal;
 
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 
 public class FloatSerializer implements TypeSerializer<Float> {
@@ -22,7 +23,8 @@ public class FloatSerializer implements TypeSerializer<Float> {
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
         if (bytes.remaining() != 4 && bytes.remaining() != 0)
-            throw new MarshalException(String.format("Expected 4 or 0 byte value for a float (%d)", bytes.remaining()));
+            throw new MarshalException(
+                    String.format(Locale.ROOT, "Expected 4 or 0 byte value for a float (%d)", bytes.remaining()));
     }
 
     @Override

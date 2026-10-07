@@ -144,7 +144,11 @@ public class StressGraph {
                     else
                         json.put(
                                 "revision",
-                                String.format("%s - %s threads", stressSettings.graph.revision, currentThreadCount));
+                                String.format(
+                                        Locale.ROOT,
+                                        "%s - %s threads",
+                                        stressSettings.graph.revision,
+                                        currentThreadCount));
                     String command = String.join(" ", stressArguments).replaceAll("password=.*? ", "password=******* ");
                     json.put("command", command);
                     json.set("intervals", intervals);

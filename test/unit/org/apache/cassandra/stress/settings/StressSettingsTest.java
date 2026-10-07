@@ -3,7 +3,14 @@ package org.apache.cassandra.stress.settings;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -70,5 +77,36 @@ class StressSettingsTest {
         InvalidSettingsException e =
                 assertThrows(InvalidSettingsException.class, () -> StressSettings.parse(new String[0]));
         assertEquals("No command provided", e.getMessage());
+    }
+
+    private static Set<Path> graphLogs() throws IOException {
+        try (Stream<Path> files = Files.list(Path.of(System.getProperty("java.io.tmpdir")))) {
+            return files.filter(f -> f.getFileName().toString().startsWith("cassandra-stress"))
+                    .collect(Collectors.toSet());
+        }
+    }
+
+    @Test
+    void deletesTheGraphLogWhenAnArgumentIsLeftOver() throws IOException {
+        Set<Path> before = graphLogs();
+        assertThrows(
+                InvalidSettingsException.class,
+                () -> StressSettings.parse(new String[] {"write", "n=1", "-graph", "file=a.html", "-bogus"}));
+        assertEquals(before, graphLogs());
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                "write n=1                           | standard1",
+                "read n=1                            | standard1",
+                "counter_write n=1                   | counter1",
+                "mixed ratio(write=1,read=1) n=1     | standard1",
+            })
+    void truncatesOnlyTheTablesThatTheCommandUses(String command, String tables) {
+        SettingsCommandPreDefined settings =
+                (SettingsCommandPreDefined) StressSettings.parse(command.split(" ")).command;
+        assertEquals(List.of(tables.split(",")), List.of(settings.tables()));
     }
 }

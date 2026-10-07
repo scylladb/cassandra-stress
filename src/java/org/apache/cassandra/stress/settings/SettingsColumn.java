@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
@@ -51,7 +52,7 @@ public class SettingsColumn {
 
                 @Override
                 public String getConfigAsString() {
-                    return String.format("Count:  fixed=%d", nameCount);
+                    return String.format(Locale.ROOT, "Count:  fixed=%d", nameCount);
                 }
             };
         } else {

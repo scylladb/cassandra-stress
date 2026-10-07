@@ -7,6 +7,7 @@ import org.apache.cassandra.stress.driver.v3.JavaDriverV3Client;
 import org.apache.cassandra.stress.driver.v4.JavaDriverV4Client;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.EncryptionOptions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -22,5 +23,15 @@ class StressClientsTest {
         Class<? extends StressClient> expected =
                 "v3".equals(driver) ? JavaDriverV3Client.class : JavaDriverV4Client.class;
         assertEquals(expected, client.getClass());
+    }
+
+    @Test
+    void readsTheDriverVersionsThatTheDriversReport() {
+        assertEquals(com.datastax.driver.core.Cluster.getDriverVersion(), StressClients.driver3Version());
+        assertEquals(
+                com.datastax.oss.driver.api.core.session.Session.OSS_DRIVER_COORDINATES
+                        .getVersion()
+                        .toString(),
+                StressClients.driver4Version());
     }
 }

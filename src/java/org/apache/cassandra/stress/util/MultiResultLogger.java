@@ -3,6 +3,7 @@ package org.apache.cassandra.stress.util;
 
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @SuppressWarnings("PMD.CloseResource")
@@ -45,7 +46,7 @@ public class MultiResultLogger implements ResultLogger, AutoCloseable {
     @Override
     public void printf(String s, Object... args) {
         for (PrintStream stream : streams) {
-            stream.printf(s, args);
+            stream.printf(Locale.ROOT, s, args);
         }
     }
 

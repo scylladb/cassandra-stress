@@ -2,6 +2,7 @@
 package org.apache.cassandra.stress.marshal;
 
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 
 public class ByteSerializer implements TypeSerializer<Byte> {
@@ -22,7 +23,8 @@ public class ByteSerializer implements TypeSerializer<Byte> {
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
         if (bytes.remaining() != 1)
-            throw new MarshalException(String.format("Expected 1 byte for a tinyint (%d)", bytes.remaining()));
+            throw new MarshalException(
+                    String.format(Locale.ROOT, "Expected 1 byte for a tinyint (%d)", bytes.remaining()));
     }
 
     @Override

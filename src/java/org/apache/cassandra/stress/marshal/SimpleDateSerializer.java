@@ -4,6 +4,7 @@ package org.apache.cassandra.stress.marshal;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 
 public class SimpleDateSerializer implements TypeSerializer<Integer> {
@@ -23,14 +24,15 @@ public class SimpleDateSerializer implements TypeSerializer<Integer> {
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
         if (bytes.remaining() != 4)
-            throw new MarshalException(String.format("Expected 4 byte long for date (%d)", bytes.remaining()));
+            throw new MarshalException(
+                    String.format(Locale.ROOT, "Expected 4 byte long for date (%d)", bytes.remaining()));
     }
 
     @Override
     public String toString(Integer value) {
         if (value == null) return "";
 
-        return FORMATTER.format(LocalDate.ofEpochDay((long) value - Integer.MIN_VALUE));
+        return FORMATTER.format(LocalDate.ofEpochDay(value));
     }
 
     @Override

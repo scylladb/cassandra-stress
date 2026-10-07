@@ -81,7 +81,8 @@ public final class JavaDriverV3Client implements StressClient {
     private final SettingsNode node;
     private final ProtocolVersion protocolVersion;
     private final EncryptionOptions encryptionOptions;
-    private final ConcurrentMap<String, V3PreparedStatement> statements = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, com.datastax.driver.core.PreparedStatement> statements =
+            new ConcurrentHashMap<>();
     private volatile Cluster cluster;
     private volatile Session session;
 
@@ -97,10 +98,6 @@ public final class JavaDriverV3Client implements StressClient {
         this.connectionsPerHost = Objects.requireNonNullElse(settings.mode.connectionsPerHost, 8);
         this.requestTimeout = Objects.requireNonNullElse(settings.mode.requestTimeout, 12000);
         this.maxPendingPerConnection = settings.mode.maxPendingPerConnection;
-    }
-
-    public static String driverVersion() {
-        return Cluster.getDriverVersion();
     }
 
     static CodecRegistry codecRegistry() {
@@ -184,7 +181,7 @@ public final class JavaDriverV3Client implements StressClient {
 
     @Override
     public StressPreparedStatement prepare(String query) {
-        return statements.computeIfAbsent(query, q -> new V3PreparedStatement(session.prepare(q)));
+        return new V3PreparedStatement(statements.computeIfAbsent(query, session::prepare));
     }
 
     @Override
@@ -270,10 +267,10 @@ public final class JavaDriverV3Client implements StressClient {
 
     @Override
     public TableSchema tableSchema(String keyspace, String tableName) {
-        KeyspaceMetadata metadata = cluster.getMetadata().getKeyspace(Metadata.quoteIfNecessary(keyspace));
+        KeyspaceMetadata metadata = cluster.getMetadata().getKeyspace(keyspace);
         if (metadata == null) return null;
-        TableMetadata table = metadata.getTable(Metadata.quoteIfNecessary(tableName));
-        return table == null ? null : schema(table, descendingColumns(keyspace, tableName));
+        TableMetadata table = metadata.getTable(tableName);
+        return table == null ? null : schema(table, descendingColumns(metadata.getName(), table.getName()));
     }
 
     private Set<String> descendingColumns(String keyspace, String tableName) {

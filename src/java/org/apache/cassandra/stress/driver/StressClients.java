@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.driver;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Properties;
 import org.apache.cassandra.stress.driver.v3.JavaDriverV3Client;
 import org.apache.cassandra.stress.driver.v4.JavaDriverV4Client;
 import org.apache.cassandra.stress.settings.StressSettings;
@@ -19,10 +23,21 @@ public final class StressClients {
     }
 
     public static String driver3Version() {
-        return JavaDriverV3Client.driverVersion();
+        return driverVersion("com/datastax/driver/core/Driver.properties");
     }
 
     public static String driver4Version() {
-        return JavaDriverV4Client.driverVersion();
+        return driverVersion("com/datastax/oss/driver/Driver.properties");
+    }
+
+    static String driverVersion(String resource) {
+        try (InputStream in = StressClients.class.getClassLoader().getResourceAsStream(resource)) {
+            if (in == null) throw new IllegalStateException("Missing driver resource " + resource);
+            Properties properties = new Properties();
+            properties.load(in);
+            return properties.getProperty("driver.version");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

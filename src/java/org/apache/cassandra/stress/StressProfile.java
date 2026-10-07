@@ -134,9 +134,12 @@ public class StressProfile {
         for (String query : queries.keySet()) {
             assert !tokenRangeQueries.containsKey(query)
                     : String.format(
-                            "Found %s in both queries and token_range_queries, please use different names", query);
+                            Locale.ROOT,
+                            "Found %s in both queries and token_range_queries, please use different names",
+                            query);
             assert !"insert".equals(query)
-                    : String.format("Found 'insert' in queries, this name is reserved, please use different name");
+                    : String.format(
+                            Locale.ROOT, "Found 'insert' in queries, this name is reserved, please use different name");
         }
         if (keyspaceCql != null && keyspaceCql.length() > 0) {
             try {
@@ -213,7 +216,9 @@ public class StressProfile {
 
                 settings.output()
                         .println(String.format(
-                                "Created schema. Sleeping %ss for propagation.", settings.node.nodes.size()));
+                                Locale.ROOT,
+                                "Created schema. Sleeping %ss for propagation.",
+                                settings.node.nodes.size()));
                 Sleep.uninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);
             }
 
@@ -225,7 +230,9 @@ public class StressProfile {
 
                 settings.output()
                         .println(String.format(
-                                "Created extra schema. Sleeping %ss for propagation.", settings.node.nodes.size()));
+                                Locale.ROOT,
+                                "Created extra schema. Sleeping %ss for propagation.",
+                                settings.node.nodes.size()));
                 Sleep.uninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);
             }
             schemaCreated = true;
@@ -251,12 +258,15 @@ public class StressProfile {
     public void truncateTable(StressSettings settings) {
         StressClient client = settings.getClient(false);
         assert settings.command.truncate != SettingsCommand.TruncateWhen.NEVER;
-        String cql = String.format("TRUNCATE %s.%s", keyspaceName, tableName);
+        String cql = String.format(Locale.ROOT, "TRUNCATE %s.%s", keyspaceName, tableName);
         client.execute(cql, ConsistencyLevel.ONE);
         settings.output()
                 .println(String.format(
+                        Locale.ROOT,
                         "Truncated %s.%s. Sleeping %ss for propagation.",
-                        keyspaceName, tableName, settings.node.nodes.size()));
+                        keyspaceName,
+                        tableName,
+                        settings.node.nodes.size()));
         Sleep.uninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);
     }
 
@@ -357,7 +367,7 @@ public class StressProfile {
             synchronized (this) {
                 if (insertSpec == null) {
                     maybeLoadSchemaInfo(settings);
-                    insertSpec = ProfileInsert.of(tableMetaData, tableName, insert, generator, settings);
+                    insertSpec = ProfileInsert.of(tableMetaData, insert, generator, settings);
                 }
             }
         }

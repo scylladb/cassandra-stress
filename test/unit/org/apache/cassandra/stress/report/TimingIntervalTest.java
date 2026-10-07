@@ -13,9 +13,9 @@ class TimingIntervalTest {
     private static Locale previous;
 
     @BeforeAll
-    static void useUsLocale() {
+    static void useAGermanLocale() {
         previous = Locale.getDefault();
-        Locale.setDefault(Locale.US);
+        Locale.setDefault(Locale.GERMANY);
     }
 
     @AfterAll

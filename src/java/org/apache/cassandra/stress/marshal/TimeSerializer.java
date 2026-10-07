@@ -2,6 +2,7 @@
 package org.apache.cassandra.stress.marshal;
 
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 
 public class TimeSerializer implements TypeSerializer<Long> {
@@ -20,7 +21,8 @@ public class TimeSerializer implements TypeSerializer<Long> {
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
         if (bytes.remaining() != 8)
-            throw new MarshalException(String.format("Expected 8 byte long for time (%d)", bytes.remaining()));
+            throw new MarshalException(
+                    String.format(Locale.ROOT, "Expected 8 byte long for time (%d)", bytes.remaining()));
     }
 
     @Override

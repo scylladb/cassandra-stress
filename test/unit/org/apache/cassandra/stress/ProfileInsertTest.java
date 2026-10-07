@@ -45,7 +45,7 @@ class ProfileInsertTest {
     }
 
     private static ProfileInsert insert(TableSchema table, Map<String, String> options) {
-        return ProfileInsert.of(table, "t", options, generator(), StressSettings.parse(new String[] {"write", "n=10"}));
+        return ProfileInsert.of(table, options, generator(), StressSettings.parse(new String[] {"write", "n=10"}));
     }
 
     @ParameterizedTest
@@ -70,17 +70,15 @@ class ProfileInsertTest {
     void insertsTheKeyWhenEveryValueColumnIsUnsupported() {
         assertEquals(
                 "INSERT INTO t (pk, ck) values(?, ?)",
-                ProfileInsert.cql(table(column("m", collection("MAP", false, of("TEXT"), of("INT")))), "t"));
+                ProfileInsert.cql(table(column("m", collection("MAP", false, of("TEXT"), of("INT"))))));
     }
 
     @Test
     void updatesEachSupportedValueColumn() {
-        String cql = ProfileInsert.cql(
-                table(
-                        column("tags", collection("SET", false, of("TEXT"))),
-                        column("nums", collection("LIST", true, of("INT"))),
-                        column("m", collection("MAP", false, of("TEXT"), of("INT")))),
-                "t");
+        String cql = ProfileInsert.cql(table(
+                column("tags", collection("SET", false, of("TEXT"))),
+                column("nums", collection("LIST", true, of("INT"))),
+                column("m", collection("MAP", false, of("TEXT"), of("INT")))));
         assertTrue(cql.startsWith("UPDATE t SET "), cql);
         assertTrue(cql.contains("tags = tags + ?"), cql);
         assertTrue(cql.contains("nums = ?"), cql);
@@ -90,6 +88,17 @@ class ProfileInsertTest {
 
     @Test
     void addsToACounter() {
-        assertTrue(ProfileInsert.cql(table(column("hits", of("COUNTER"))), "t").contains("hits = hits + ?"));
+        assertTrue(ProfileInsert.cql(table(column("hits", of("COUNTER")))).contains("hits = hits + ?"));
+    }
+
+    @Test
+    void quotesReservedAndMixedCaseNames() {
+        TableSchema table = new TableSchema(
+                "ks",
+                "MyTable",
+                List.of(column("pk", of("INT"))),
+                List.of(column("order", of("INT"))),
+                List.of(column("token", of("TEXT"))));
+        assertEquals("UPDATE \"MyTable\" SET \"token\" = ? WHERE pk = ? AND \"order\" = ?", ProfileInsert.cql(table));
     }
 }

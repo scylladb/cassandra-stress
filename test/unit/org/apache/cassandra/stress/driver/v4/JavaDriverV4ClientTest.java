@@ -7,9 +7,9 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
 import com.datastax.oss.driver.api.core.cql.ExecutionInfo;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.datastax.oss.driver.api.core.session.Session;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodecs;
 import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
@@ -27,7 +27,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.cassandra.stress.driver.StressPage;
+import org.apache.cassandra.stress.driver.StressPreparedStatement;
 import org.apache.cassandra.stress.settings.StressSettings;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.apache.cassandra.stress.util.EncryptionOptions;
 import org.apache.cassandra.stress.util.HostAndPort;
 import org.junit.jupiter.api.Test;
@@ -133,7 +135,39 @@ class JavaDriverV4ClientTest {
     }
 
     @Test
-    void readsTheDriverVersion() {
-        assertEquals(Session.OSS_DRIVER_COORDINATES.getVersion().toString(), JavaDriverV4Client.driverVersion());
+    void eachPreparedQueryKeepsItsOwnConsistencyLevel() throws Exception {
+        AtomicInteger prepared = new AtomicInteger();
+        PreparedStatement driverStatement = fake(
+                PreparedStatement.class,
+                Map.of(
+                        "getQuery",
+                        "SELECT * FROM t WHERE pk = ?",
+                        "getVariableDefinitions",
+                        fake(
+                                ColumnDefinitions.class,
+                                Map.of("iterator", List.of().iterator()))));
+        CqlSession session = (CqlSession) Proxy.newProxyInstance(
+                JavaDriverV4ClientTest.class.getClassLoader(),
+                new Class<?>[] {CqlSession.class},
+                (proxy, method, args) -> {
+                    if (!"prepare".equals(method.getName())) throw new UnsupportedOperationException(method.getName());
+                    prepared.incrementAndGet();
+                    return driverStatement;
+                });
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "4x"});
+        JavaDriverV4Client client =
+                new JavaDriverV4Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+        Field field = JavaDriverV4Client.class.getDeclaredField("session");
+        field.setAccessible(true);
+        field.set(client, session);
+
+        StressPreparedStatement quorum = client.prepare("SELECT * FROM t WHERE pk = ?");
+        StressPreparedStatement one = client.prepare("SELECT * FROM t WHERE pk = ?");
+        quorum.setConsistencyLevel(ConsistencyLevel.QUORUM);
+        one.setConsistencyLevel(ConsistencyLevel.ONE);
+
+        assertEquals(ConsistencyLevel.QUORUM, quorum.getConsistencyLevel());
+        assertEquals(ConsistencyLevel.ONE, one.getConsistencyLevel());
+        assertEquals(1, prepared.get());
     }
 }

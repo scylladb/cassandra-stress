@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -137,12 +138,12 @@ public class TokenRangeQuery extends Operation {
                 .map(ColumnSchema::name)
                 .map(CqlNames::quote)
                 .toList();
-        String tokenStatement = String.format("token(%s)", String.join(", ", pkColumns));
+        String tokenStatement = String.format(Locale.ROOT, "token(%s)", String.join(", ", pkColumns));
 
-        return "SELECT " + tokenStatement + ", " + columns + " FROM "
+        String query = "SELECT " + tokenStatement + ", " + columns + " FROM "
                 + CqlNames.quote(tableMetadata.name())
-                + " WHERE " + tokenStatement + " > " + tokenRange.start()
-                + " AND " + tokenStatement + " <= " + tokenRange.end();
+                + " WHERE " + tokenStatement + " > " + tokenRange.start();
+        return tokenRange.endsAtRingEnd() ? query : query + " AND " + tokenStatement + " <= " + tokenRange.end();
     }
 
     @Override

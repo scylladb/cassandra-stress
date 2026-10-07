@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.cassandra.stress.driver.ColumnSchema;
@@ -63,8 +64,20 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
 
     @Override
     protected boolean reset(Seed seed, PartitionIterator iterator) {
+        if (isBeingWritten(seed)) return false;
         bounds = iterator.resetToBounds(seed, clusteringComponents);
         return true;
+    }
+
+    static List<Row> expectedRows(PartitionIterator iter, boolean inclusiveStart, boolean inclusiveEnd) {
+        List<Row> rows = new ArrayList<>();
+        if (!inclusiveStart && iter.hasNext()) iter.next();
+        while (iter.hasNext()) {
+            Row row = iter.next();
+            if (!inclusiveEnd && !iter.hasNext()) break;
+            rows.add(row);
+        }
+        return rows;
     }
 
     private static final int UNKNOWN_COLUMN = Integer.MIN_VALUE;
@@ -82,16 +95,9 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
         private List<Row> expected;
 
         List<Row> expectedRows() {
-            if (expected == null) {
-                List<Row> rows = new ArrayList<>();
-                if (!statements[statementIndex].inclusiveStart && iter.hasNext()) iter.next();
-                while (iter.hasNext()) {
-                    Row row = iter.next();
-                    if (!statements[statementIndex].inclusiveEnd && !iter.hasNext()) break;
-                    rows.add(row);
-                }
-                expected = rows;
-            }
+            if (expected == null)
+                expected = ValidatingSchemaQuery.expectedRows(
+                        iter, statements[statementIndex].inclusiveStart, statements[statementIndex].inclusiveEnd);
             return expected;
         }
 
@@ -136,6 +142,7 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
             for (Row expectedRow : expectedRows()) {
                 if (!results.hasNext()) {
                     validationError = String.format(
+                            Locale.ROOT,
                             "Data returned was not validated: expected row %d but result set exhausted (row"
                                     + " empty/missing)",
                             rowCount + 1);
@@ -150,6 +157,7 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
                     Object actualValue = spec.partitionGenerator.convert(valueIndex[i], actualRow[i]);
                     if (!Objects.equals(expectedValue, actualValue)) {
                         validationError = String.format(
+                                Locale.ROOT,
                                 "Data returned was not validated: row %d, column %d (%s): value mismatch"
                                         + " (expected [%s] %s, got [%s] %s)",
                                 rowCount,
@@ -170,6 +178,7 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
             partitionCount = Math.min(1, rowCount);
             if (results.hasNext()) {
                 validationError = String.format(
+                        Locale.ROOT,
                         "Data returned was not validated: result set not exhausted after consuming %d expected row(s)"
                                 + " (got more rows than expected)",
                         rowCount);

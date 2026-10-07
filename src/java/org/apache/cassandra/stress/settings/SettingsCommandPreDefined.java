@@ -92,7 +92,11 @@ public class SettingsCommandPreDefined extends SettingsCommand {
 
     @Override
     public void truncateTables(StressSettings settings) {
-        truncateTables(settings, settings.schema.keyspace, "standard1", "counter1", "counter3");
+        truncateTables(settings, settings.schema.keyspace, tables());
+    }
+
+    String[] tables() {
+        return new String[] {type.table};
     }
 
     @Override

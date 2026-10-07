@@ -35,21 +35,24 @@ public class StressAction implements Runnable {
 
     @Override
     public void run() {
+        boolean success = false;
         try (HdrLog hdr = HdrLog.open(settings.log.hdrFile)) {
             hdrLog = hdr;
-            runWithHdrLog();
+            success = runWithHdrLog();
         } finally {
             hdrLog = null;
+            output.println(success ? "END" : "FAILURE");
+            settings.disconnect();
         }
+        if (!success) throw new RuntimeException("Failed to execute stress action");
     }
 
-    private void runWithHdrLog() {
+    private boolean runWithHdrLog() {
         settings.maybeCreateKeyspaces();
 
         if (settings.command.count == 0) {
             output.println("N=0: SCHEMA CREATED, NOTHING ELSE DONE.");
-            settings.disconnect();
-            return;
+            return true;
         }
 
         output.println("Sleeping 2s...");
@@ -67,26 +70,17 @@ public class StressAction implements Runnable {
         UniformRateLimiter rateLimiter = null;
         if (settings.rate.opsPerSecond > 0) rateLimiter = new UniformRateLimiter(settings.rate.opsPerSecond);
 
-        boolean success;
-        if (settings.rate.minThreads > 0) success = runMulti(settings.rate.auto, rateLimiter);
-        else
-            success = null
-                    != run(
-                            settings.command.getFactory(settings),
-                            settings.rate.threadCount,
-                            settings.command.count,
-                            settings.command.duration,
-                            rateLimiter,
-                            settings.command.durationUnits,
-                            output,
-                            false);
-
-        if (success) output.println("END");
-        else output.println("FAILURE");
-
-        settings.disconnect();
-
-        if (!success) throw new RuntimeException("Failed to execute stress action");
+        if (settings.rate.minThreads > 0) return runMulti(settings.rate.auto, rateLimiter);
+        return null
+                != run(
+                        settings.command.getFactory(settings),
+                        settings.rate.threadCount,
+                        settings.command.count,
+                        settings.command.duration,
+                        rateLimiter,
+                        settings.command.durationUnits,
+                        output,
+                        false);
     }
 
     @SuppressWarnings("resource")
@@ -101,7 +95,8 @@ public class StressAction implements Runnable {
         if (settings.rate.threadCount > 0) threads = Math.min(threads, settings.rate.threadCount);
 
         for (OpDistributionFactory single : operations.each()) {
-            output.println(String.format("Warming up %s with %d iterations...", single.desc(), iterations));
+            output.println(
+                    String.format(Locale.ROOT, "Warming up %s with %d iterations...", single.desc(), iterations));
             boolean success = null != run(single, threads, iterations, 0, null, null, ResultLogger.NOOP, true);
             if (!success) throw new RuntimeException("Failed to execute warmup");
         }
@@ -118,7 +113,7 @@ public class StressAction implements Runnable {
         List<String> runIds = new ArrayList<>();
         do {
             output.println("");
-            output.println(String.format("Running with %d threadCount", threadCount));
+            output.println(String.format(Locale.ROOT, "Running with %d threadCount", threadCount));
 
             if (settings.command.truncate == SettingsCommand.TruncateWhen.ALWAYS)
                 settings.command.truncateTables(settings);
@@ -137,8 +132,10 @@ public class StressAction implements Runnable {
 
             if (prevThreadCount > 0)
                 output.println(String.format(
+                        Locale.ROOT,
                         "Improvement over %d threadCount: %.0f%%",
-                        prevThreadCount, 100 * averageImprovement(results, 1)));
+                        prevThreadCount,
+                        100 * averageImprovement(results, 1)));
 
             runIds.add(threadCount + " threadCount");
             prevThreadCount = threadCount;
@@ -189,6 +186,7 @@ public class StressAction implements Runnable {
             ResultLogger output,
             boolean isWarmup) {
         output.println(String.format(
+                Locale.ROOT,
                 "Running %s with %d threads %s",
                 operations.desc(),
                 threadCount,
@@ -228,6 +226,7 @@ public class StressAction implements Runnable {
 
         metrics.start();
 
+        boolean interrupted = false;
         if (durationUnits != null) {
             try {
                 if (settings.errors.failFast) {
@@ -236,7 +235,7 @@ public class StressAction implements Runnable {
                     done.await(duration, durationUnits);
                 }
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                interrupted = true;
             }
             workManager.stop();
         } else if (opCount <= 0) {
@@ -245,16 +244,26 @@ public class StressAction implements Runnable {
                         settings.command.targetUncertainty,
                         settings.command.minimumUncertaintyMeasurements,
                         settings.command.maximumUncertaintyMeasurements);
-            } catch (InterruptedException ignored) {
+            } catch (InterruptedException e) {
+                interrupted = true;
             }
             workManager.stop();
         }
 
-        try {
-            done.await();
-            metrics.stop();
-        } catch (InterruptedException ignored) {
+        for (; ; ) {
+            if (interrupted) {
+                workManager.stop();
+                metrics.cancel();
+            }
+            try {
+                done.await();
+                metrics.stop();
+                break;
+            } catch (InterruptedException e) {
+                interrupted = true;
+            }
         }
+        if (interrupted) Thread.currentThread().interrupt();
 
         if (metrics.wasCancelled()) return null;
 

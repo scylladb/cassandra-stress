@@ -2,6 +2,7 @@
 package org.apache.cassandra.stress.marshal;
 
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 
 public class ShortSerializer implements TypeSerializer<Short> {
@@ -20,7 +21,8 @@ public class ShortSerializer implements TypeSerializer<Short> {
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
         if (bytes.remaining() != 2)
-            throw new MarshalException(String.format("Expected 2 bytes for a smallint (%d)", bytes.remaining()));
+            throw new MarshalException(
+                    String.format(Locale.ROOT, "Expected 2 bytes for a smallint (%d)", bytes.remaining()));
     }
 
     @Override

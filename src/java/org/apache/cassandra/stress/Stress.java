@@ -13,6 +13,7 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Locale;
 import org.apache.cassandra.stress.settings.InvalidSettingsException;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.HostAndPort;
@@ -44,7 +45,7 @@ public final class Stress {
                 System.out.println(e.getMessage());
                 return 1;
             } catch (IllegalArgumentException e) {
-                System.out.printf("%s%n", e.getMessage());
+                System.out.printf(Locale.ROOT, "%s%n", e.getMessage());
                 printHelpMessage();
                 return 1;
             }
@@ -108,7 +109,7 @@ public final class Stress {
                 String line;
                 while (!socket.isClosed() && (line = inp.readLine()) != null) {
                     if ("END".equals(line) || "FAILURE".equals(line)) {
-                        out.writeInt(1);
+                        acknowledge(out);
                         return "END".equals(line);
                     }
                     logout.println(line);
@@ -117,6 +118,15 @@ public final class Stress {
                 if (!stopped) throw e;
             }
             return false;
+        }
+    }
+
+    @SuppressWarnings("EmptyCatch")
+    private static void acknowledge(DataOutputStream out) {
+        try {
+            out.writeInt(1);
+            out.flush();
+        } catch (IOException ignored) {
         }
     }
 

@@ -46,14 +46,14 @@ final class SettingsMisc {
     }
 
     private static void printDistribution(Distribution dist) {
-        System.out.printf("%% of samples    Range       %% of total%n");
+        System.out.printf(Locale.ROOT, "%% of samples    Range       %% of total%n");
 
         double rangemax = dist.inverseCumProb(1d) / 100d;
         for (double d : new double[] {0.1d, 0.2d, 0.3d, 0.4d, 0.5d, 0.6d, 0.7d, 0.8d, 0.9d, 0.95d, 0.99d, 1d}) {
             double sampleperc = d * 100;
             long max = dist.inverseCumProb(d);
             double rangeperc = max / rangemax;
-            System.out.println(String.format("%-16.1f%-12d%12.1f", sampleperc, max, rangeperc));
+            System.out.println(String.format(Locale.ROOT, "%-16.1f%-12d%12.1f", sampleperc, max, rangeperc));
         }
     }
 
@@ -111,12 +111,14 @@ final class SettingsMisc {
         System.out.println();
         System.out.println("---Commands---");
         for (Command cmd : Command.values()) {
-            System.out.println(String.format("%-20s : %s", cmd.toString().toLowerCase(Locale.ROOT), cmd.description));
+            System.out.println(
+                    String.format(Locale.ROOT, "%-20s : %s", cmd.toString().toLowerCase(Locale.ROOT), cmd.description));
         }
         System.out.println();
         System.out.println("---Options---");
         for (CliOption cmd : CliOption.values()) {
-            System.out.println(String.format("-%-20s : %s", cmd.toString().toLowerCase(Locale.ROOT), cmd.description));
+            System.out.println(String.format(
+                    Locale.ROOT, "-%-20s : %s", cmd.toString().toLowerCase(Locale.ROOT), cmd.description));
         }
     }
 

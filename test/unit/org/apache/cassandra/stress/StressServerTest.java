@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedReader;
@@ -21,6 +22,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -147,9 +149,51 @@ class StressServerTest {
 
     @Test
     void answersFailureForAnyErrorWhileParsing() throws Exception {
-        List<String> reply = sendToServer("write", "n=10", "-node", "file=/nonexistent/stress-nodes");
+        List<String> reply = sendToServer("write", "n=10", "-pop", "seq=10..1");
         assertEquals("FAILURE", reply.getLast());
-        assertTrue(reply.getFirst().contains("NoSuchFileException"), reply.toString());
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                "stressd refuses -node file=. Pass the nodes as a list. | write n=10 -node file=/etc/hosts",
+                "stressd refuses -log hdrfile=.                         | write n=10 -log hdrfile=/tmp/x.hdr",
+                "stressd runs the predefined commands only.            | user profile=/etc/passwd ops(insert=1)",
+            })
+    void refusesOptionsThatReadOrWriteFilesOnTheDaemonHost(String message, String command) throws Exception {
+        assertEquals(List.of(message, "FAILURE"), sendToServer(command.split(" ")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"n=0", "n=10"})
+    void answersFailureWhenTheActionCannotConnect(String count) throws Exception {
+        int closedPort;
+        try (ServerSocket probe = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+            closedPort = probe.getLocalPort();
+        }
+        List<String> reply = assertTimeoutPreemptively(
+                Duration.ofSeconds(60),
+                () -> sendToServer("write", count, "-node", "127.0.0.1", "-port", "native=" + closedPort));
+        assertEquals("FAILURE", reply.getLast(), reply.toString());
+    }
+
+    @Test
+    void refusesAClientAboveTheLimit() throws Exception {
+        StressServer.CLIENTS.acquire(StressServer.MAX_CLIENTS);
+        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
+                Socket client = new Socket(InetAddress.getLoopbackAddress(), server.getLocalPort());
+                BufferedReader reply =
+                        new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8))) {
+            StressServer.accept(server.accept());
+            assertEquals(
+                    List.of(
+                            "stressd serves " + StressServer.MAX_CLIENTS + " clients at a time. Try again later.",
+                            "FAILURE"),
+                    reply.lines().toList());
+        } finally {
+            StressServer.CLIENTS.release(StressServer.MAX_CLIENTS);
+        }
     }
 
     private static boolean sendThroughFakeDaemon(String... reply) throws Exception {

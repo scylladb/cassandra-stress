@@ -3,6 +3,7 @@ package org.apache.cassandra.stress.settings;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -127,7 +128,7 @@ public class OptionRatioDistribution extends Option {
 
         @Override
         public String getConfigAsString() {
-            return String.format("Ratio: divisor=%f;delegate=%s", divisor, delegate.getConfigAsString());
+            return String.format(Locale.ROOT, "Ratio: divisor=%f;delegate=%s", divisor, delegate.getConfigAsString());
         }
         ;
     }

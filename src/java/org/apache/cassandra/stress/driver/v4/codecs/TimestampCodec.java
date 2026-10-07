@@ -123,11 +123,11 @@ public class TimestampCodec implements TypeCodec<Date> {
                     return new Date(Long.parseLong(unquoted));
                 } catch (NumberFormatException e) {
                     throw new IllegalArgumentException(
-                            String.format("Cannot parse timestamp value from \"%s\"", value), e);
+                            String.format(Locale.ROOT, "Cannot parse timestamp value from \"%s\"", value), e);
                 }
             } else if (!Strings.isQuoted(value)) {
                 throw new IllegalArgumentException(
-                        String.format("Alphanumeric timestamp literal must be quoted: \"%s\"", value));
+                        String.format(Locale.ROOT, "Alphanumeric timestamp literal must be quoted: \"%s\"", value));
             } else {
                 SimpleDateFormat parser = this.parser.get();
 
@@ -143,7 +143,8 @@ public class TimestampCodec implements TypeCodec<Date> {
                     }
                 }
 
-                throw new IllegalArgumentException(String.format("Cannot parse timestamp value from \"%s\"", value));
+                throw new IllegalArgumentException(
+                        String.format(Locale.ROOT, "Cannot parse timestamp value from \"%s\"", value));
             }
         } else {
             return null;

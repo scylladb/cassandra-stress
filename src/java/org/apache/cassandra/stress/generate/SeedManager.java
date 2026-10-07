@@ -77,6 +77,10 @@ public class SeedManager {
         }
     }
 
+    public boolean isWriting(Seed seed) {
+        return managing.containsKey(seed.seed);
+    }
+
     public void markLastWrite(Seed seed, boolean first) {
         if (managing.remove(seed.seed, seed) && !first) seed.remove(sampleFrom);
     }

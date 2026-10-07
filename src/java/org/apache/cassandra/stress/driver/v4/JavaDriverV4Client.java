@@ -26,7 +26,6 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.metadata.token.Token;
 import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException;
-import com.datastax.oss.driver.api.core.session.Session;
 import com.datastax.oss.driver.api.core.ssl.ProgrammaticSslEngineFactory;
 import com.datastax.oss.driver.api.core.ssl.SslEngineFactory;
 import com.datastax.oss.driver.api.core.type.CustomType;
@@ -102,7 +101,8 @@ public final class JavaDriverV4Client implements StressClient {
     private final SettingsNode node;
     private final ProtocolVersion protocolVersion;
     private final EncryptionOptions encryptionOptions;
-    private final ConcurrentMap<String, V4PreparedStatement> statements = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, com.datastax.oss.driver.api.core.cql.PreparedStatement> statements =
+            new ConcurrentHashMap<>();
     private volatile CqlSession session;
 
     public JavaDriverV4Client(
@@ -117,10 +117,6 @@ public final class JavaDriverV4Client implements StressClient {
         this.connectionsPerHost = Objects.requireNonNullElse(settings.mode.connectionsPerHost, 8);
         this.requestTimeout = Objects.requireNonNullElse(settings.mode.requestTimeout, 12000);
         this.maxPendingPerConnection = settings.mode.maxPendingPerConnection;
-    }
-
-    public static String driverVersion() {
-        return Session.OSS_DRIVER_COORDINATES.getVersion().toString();
     }
 
     static MutableCodecRegistry codecRegistry() {
@@ -222,7 +218,7 @@ public final class JavaDriverV4Client implements StressClient {
 
     @Override
     public StressPreparedStatement prepare(String query) {
-        return statements.computeIfAbsent(query, q -> new V4PreparedStatement(session.prepare(q)));
+        return new V4PreparedStatement(statements.computeIfAbsent(query, session::prepare));
     }
 
     @Override

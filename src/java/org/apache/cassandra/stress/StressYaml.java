@@ -3,6 +3,7 @@ package org.apache.cassandra.stress;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @SuppressWarnings("checkstyle:MemberName")
@@ -27,10 +28,11 @@ public class StressYaml {
         public String serialConsistencyLevel;
 
         public String getConfigAsString() {
-            StringBuilder output = new StringBuilder(String.format("CQL:%s;Fields:%s;", cql, fields));
-            if (consistencyLevel != null) output.append(String.format("consistencyLevel:%s;", consistencyLevel));
+            StringBuilder output = new StringBuilder(String.format(Locale.ROOT, "CQL:%s;Fields:%s;", cql, fields));
+            if (consistencyLevel != null)
+                output.append(String.format(Locale.ROOT, "consistencyLevel:%s;", consistencyLevel));
             if (serialConsistencyLevel != null)
-                output.append(String.format("serialConsistencyLevel:%s;", serialConsistencyLevel));
+                output.append(String.format(Locale.ROOT, "serialConsistencyLevel:%s;", serialConsistencyLevel));
             return output.toString();
         }
     }
@@ -40,7 +42,7 @@ public class StressYaml {
         public int page_size = 5000;
 
         public String getConfigAsString() {
-            return String.format("Columns:%s;", columns);
+            return String.format(Locale.ROOT, "Columns:%s;", columns);
         }
     }
 }

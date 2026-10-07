@@ -53,9 +53,11 @@ final class ProfileGenerators {
         String tableName = table.name();
         String level = skipUnsupportedColumns ? "WARNING" : "ERROR";
         for (ColumnInfo column : unsupportedValues)
-            System.err.printf("%s: Table '%s' has column '%s' of unsupported type%n", level, tableName, column.name);
+            System.err.printf(
+                    Locale.ROOT, "%s: Table '%s' has column '%s' of unsupported type%n", level, tableName, column.name);
         for (ColumnInfo column : unsupportedKeys)
-            System.err.printf("ERROR: Table '%s' has column '%s' of unsupported type%n", tableName, column.name);
+            System.err.printf(
+                    Locale.ROOT, "ERROR: Table '%s' has column '%s' of unsupported type%n", tableName, column.name);
         if (!unsupportedKeys.isEmpty())
             throw new IllegalArgumentException("Table '" + tableName + "' has key columns of unsupported types");
     }

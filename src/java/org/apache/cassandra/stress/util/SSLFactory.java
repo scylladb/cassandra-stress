@@ -31,7 +31,7 @@ public final class SSLFactory {
                 try (InputStream tsf = Files.newInputStream(Paths.get(options.truststore))) {
                     TrustManagerFactory tmf = TrustManagerFactory.getInstance(options.algorithm);
                     KeyStore ts = KeyStore.getInstance(options.storeType);
-                    ts.load(tsf, options.truststorePassword.toCharArray());
+                    ts.load(tsf, chars(options.truststorePassword));
                     tmf.init(ts);
                     trustManagers = tmf.getTrustManagers();
                 }
@@ -40,24 +40,31 @@ public final class SSLFactory {
             try (InputStream ksf = Files.newInputStream(Paths.get(options.keystore))) {
                 KeyManagerFactory kmf = KeyManagerFactory.getInstance(options.algorithm);
                 KeyStore ks = KeyStore.getInstance(options.storeType);
-                ks.load(ksf, options.keystorePassword.toCharArray());
+                ks.load(ksf, chars(options.keystorePassword));
                 if (!checkedExpiry) {
                     for (Enumeration<String> aliases = ks.aliases(); aliases.hasMoreElements(); ) {
-                        String alias = aliases.nextElement();
-                        if ("X.509".equals(ks.getCertificate(alias).getType())) {
-                            Date expires = ((X509Certificate) ks.getCertificate(alias)).getNotAfter();
+                        if (ks.getCertificate(aliases.nextElement()) instanceof X509Certificate certificate) {
+                            Date expires = certificate.getNotAfter();
                             if (expires.before(new Date()))
-                                LOGGER.warn("Certificate for {} expired on {}", alias, expires);
+                                LOGGER.warn(
+                                        "Certificate for {} expired on {}",
+                                        certificate.getSubjectX500Principal(),
+                                        expires);
                         }
                     }
                     checkedExpiry = true;
                 }
-                kmf.init(ks, options.keystorePassword.toCharArray());
+                kmf.init(ks, chars(options.keystorePassword));
                 ctx.init(kmf.getKeyManagers(), trustManagers, null);
             }
             return ctx;
         } catch (Exception e) {
-            throw new IOException("Error creating the initializing the SSL Context", e);
+            throw new IOException("Could not create the SSL context", e);
         }
+    }
+
+    @SuppressWarnings("PMD.ReturnEmptyCollectionRatherThanNull")
+    private static char[] chars(String password) {
+        return password == null ? null : password.toCharArray();
     }
 }

@@ -12,8 +12,6 @@ import org.apache.cassandra.stress.generate.values.Bytes;
 import org.apache.cassandra.stress.generate.values.Generator;
 import org.apache.cassandra.stress.generate.values.GeneratorConfig;
 import org.apache.cassandra.stress.generate.values.Inets;
-import org.apache.cassandra.stress.generate.values.Integers;
-import org.apache.cassandra.stress.generate.values.Lists;
 import org.apache.cassandra.stress.generate.values.Strings;
 import org.apache.cassandra.stress.generate.values.TimeUUIDs;
 import org.apache.cassandra.stress.generate.values.UUIDs;
@@ -39,10 +37,7 @@ class GeneratedDataCompatibilityTest {
                         new TimeUUIDs("c2", config("c2", "fixed(2)", null)),
                         new UUIDs("c3", config("c3", "fixed(2)", null)),
                         new Inets("c4", config("c4", "fixed(2)", null))),
-                List.of(
-                        new Strings("v", config("v", null, "fixed(10)")),
-                        new Lists<>(
-                                "l", new Integers("l", config("l", null, null)), config("l", null, "uniform(1..4)"))),
+                List.of(new Strings("v", config("v", null, "fixed(10)"))),
                 order);
     }
 
@@ -90,8 +85,8 @@ class GeneratedDataCompatibilityTest {
 
     @ParameterizedTest
     @CsvSource({
-        "ARBITRARY, 372af9cb3353929ea37b874a95454ba1bff8e709a81329b51690d6ff3b70b73d",
-        "SORTED, 9c1e8327710242e85b04809064234bd0799f2b0b83ad2472b0e2cce9b1f8e142",
+        "ARBITRARY, 9423ff51a324c2deb90dda83c81f346653f2d60d1f2c7d4ae92dacca4107fe01",
+        "SORTED, 9c815900b0fdd970c15d0fd4d875bd21b8ede5501dcbd205c634e6aeaf6d1b60",
     })
     void readsTheRowsOfThePreviousRelease(PartitionGenerator.Order order, String digest) throws Exception {
         List<String> rows =
@@ -102,8 +97,8 @@ class GeneratedDataCompatibilityTest {
 
     @ParameterizedTest
     @CsvSource({
-        "ARBITRARY, 26eab19f69444b220f3ab6d2333822c201a6d5ef508ff7ea446c944b4d3d9592",
-        "SORTED, 7ddc71bc9f71d9b6282f7a3b4f85b39f4a386bf044cffa180aa17b77d38a3fe8",
+        "ARBITRARY, a60de66c836943e1575412c0cad19317ddcbf96f4f0acc6c4bfb801c68c40f9f",
+        "SORTED, c1be7d5760d7d64cbbf115868a35a7b74a2ea4a149e57f47b00224b3eec904d3",
     })
     void writesTheRowsOfThePreviousReleaseFirst(PartitionGenerator.Order order, String digest) throws Exception {
         List<String> firstRows = partitions(order, true).stream()

@@ -108,4 +108,9 @@ public class SettingsCommandPreDefinedMixed extends SettingsCommandPreDefined {
     public static Runnable helpPrinter() {
         return () -> printHelp();
     }
+
+    @Override
+    String[] tables() {
+        return ratios.keySet().stream().map(command -> command.table).distinct().toArray(String[]::new);
+    }
 }

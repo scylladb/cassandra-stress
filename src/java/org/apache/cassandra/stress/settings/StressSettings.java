@@ -10,6 +10,7 @@ import java.util.Objects;
 import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.driver.StressClients;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
+import org.apache.cassandra.stress.util.CqlNames;
 import org.apache.cassandra.stress.util.EncryptionOptions;
 import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.apache.cassandra.stress.util.ResultLogger;
@@ -88,19 +89,26 @@ public class StressSettings {
         synchronized (clientLock) {
             if (numFailures >= MAX_NUM_FAILURES) throw new RuntimeException("Failed to create client too many times");
 
+            if (client != null) return client;
+            StressClient c = null;
             try {
-                if (client != null) return client;
-
                 EncryptionOptions encOptions = transport.getEncryptionOptions();
-                StressClient c = StressClients.create(this, node.nodes, port.nativePort, encOptions);
+                c = StressClients.create(this, node.nodes, port.nativePort, encOptions);
                 c.connect(mode.compression());
                 if (setKeyspace && schema.keyspace != null)
-                    c.execute("USE \"" + schema.keyspace + "\";", ConsistencyLevel.ONE);
+                    c.execute("USE " + CqlNames.quote(schema.keyspace), ConsistencyLevel.ONE);
 
                 client = c;
                 return c;
             } catch (Exception e) {
                 numFailures += 1;
+                if (c != null) {
+                    try {
+                        c.disconnect();
+                    } catch (RuntimeException suppressed) {
+                        e.addSuppressed(suppressed);
+                    }
+                }
                 throw new RuntimeException(e);
             }
         }
@@ -115,14 +123,38 @@ public class StressSettings {
     }
 
     public static StressSettings parse(String[] args) {
+        return parse(args, false);
+    }
+
+    public static StressSettings parseForDaemon(String[] args) {
+        return parse(args, true);
+    }
+
+    private static StressSettings parse(String[] args, boolean daemon) {
         if (args.length == 0) throw new InvalidSettingsException("No command provided", StressSettings::printHelp);
         args = repairParams(args);
         final Map<String, String[]> clArgs = parseMap(args);
+        if (daemon) refuseDaemonFileAccess(clArgs);
         if (clArgs.containsKey("legacy"))
             throw new IllegalArgumentException(
                     "Command legacy was removed. Run cassandra-stress help to see the commands.");
         if (SettingsMisc.maybeDoSpecial(clArgs)) return null;
         return get(clArgs);
+    }
+
+    private static void refuseDaemonFileAccess(Map<String, String[]> clArgs) {
+        if (Command.USER.names.stream().anyMatch(clArgs::containsKey))
+            throw new IllegalArgumentException("stressd runs the predefined commands only.");
+        if (hasValue(clArgs.get("-node"), "file="))
+            throw new IllegalArgumentException("stressd refuses -node file=. Pass the nodes as a list.");
+        if (hasValue(clArgs.get("-log"), "hdrfile="))
+            throw new IllegalArgumentException("stressd refuses -log hdrfile=.");
+    }
+
+    private static boolean hasValue(String[] values, String prefix) {
+        if (values == null) return false;
+        for (String value : values) if (value.toLowerCase(Locale.ROOT).startsWith(prefix)) return true;
+        return false;
     }
 
     private static String[] repairParams(String[] args) {
@@ -160,6 +192,7 @@ public class StressSettings {
         SettingsTransport transport = SettingsTransport.get(clArgs);
         SettingsGraph graph = SettingsGraph.get(clArgs, command);
         if (!clArgs.isEmpty()) {
+            graph.deleteTemporaryLogFile();
             StringBuilder message =
                     new StringBuilder("Error processing command line arguments. The following were ignored:");
             for (Map.Entry<String, String[]> e : clArgs.entrySet()) {

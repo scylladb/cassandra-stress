@@ -2,6 +2,7 @@
 package org.apache.cassandra.stress.generate.values;
 
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
@@ -43,13 +44,13 @@ public class GeneratorConfig {
     public String getConfigAsString() {
         StringBuilder sb = new StringBuilder();
         if (clusteringDistributions != null) {
-            sb.append(String.format("Clustering: %s;", clusteringDistributions.getConfigAsString()));
+            sb.append(String.format(Locale.ROOT, "Clustering: %s;", clusteringDistributions.getConfigAsString()));
         }
         if (sizeDistributions != null) {
-            sb.append(String.format("Size: %s;", sizeDistributions.getConfigAsString()));
+            sb.append(String.format(Locale.ROOT, "Size: %s;", sizeDistributions.getConfigAsString()));
         }
         if (identityDistributions != null) {
-            sb.append(String.format("Identity: %s;", identityDistributions.getConfigAsString()));
+            sb.append(String.format(Locale.ROOT, "Identity: %s;", identityDistributions.getConfigAsString()));
         }
         return sb.toString();
     }

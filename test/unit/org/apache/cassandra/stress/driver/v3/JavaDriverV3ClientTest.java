@@ -41,9 +41,4 @@ class JavaDriverV3ClientTest {
         assertEquals(
                 driverCodec.serialize(dates, ProtocolVersion.V4), generatedCodec.serialize(days, ProtocolVersion.V4));
     }
-
-    @Test
-    void readsTheDriverVersion() {
-        assertEquals(com.datastax.driver.core.Cluster.getDriverVersion(), JavaDriverV3Client.driverVersion());
-    }
 }

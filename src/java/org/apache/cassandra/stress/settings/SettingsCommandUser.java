@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -92,8 +93,8 @@ public class SettingsCommandUser extends SettingsCommand {
                 }
 
                 if (!profiles.containsKey(profile_name)) {
-                    throw new IllegalArgumentException(
-                            String.format("Op name %s contains an invalid profile specname: %s", key, profile_name));
+                    throw new IllegalArgumentException(String.format(
+                            Locale.ROOT, "Op name %s contains an invalid profile specname: %s", key, profile_name));
                 }
                 StressProfile profile = profiles.get(profile_name);
                 TokenRangeIterator tokenRangeIterator = tokenRangeIterators.get(profile_name);

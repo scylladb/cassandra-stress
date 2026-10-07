@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.operations.OpDistributionFactory;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
+import org.apache.cassandra.stress.util.CqlNames;
 import org.apache.cassandra.stress.util.ResultLogger;
 import org.apache.cassandra.stress.util.Sleep;
 
@@ -159,13 +160,16 @@ public abstract class SettingsCommand {
         StressClient client = settings.getClient(false);
         assert settings.command.truncate != SettingsCommand.TruncateWhen.NEVER;
         for (String table : tables) {
-            String cql = String.format("TRUNCATE %s.%s", ks, table);
+            String cql = "TRUNCATE " + CqlNames.quote(ks) + "." + CqlNames.quote(table);
             client.execute(cql, org.apache.cassandra.stress.util.ConsistencyLevel.ONE);
         }
         settings.output()
                 .println(String.format(
+                        Locale.ROOT,
                         "Truncated %s.%s. Sleeping %ss for propagation.",
-                        ks, Arrays.toString(tables), settings.node.nodes.size()));
+                        ks,
+                        Arrays.toString(tables),
+                        settings.node.nodes.size()));
         Sleep.uninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);
     }
 

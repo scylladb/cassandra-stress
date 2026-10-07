@@ -46,7 +46,17 @@ class TokenSliceTest {
     void unwrapsAsTheDriverDoes(long start, long end) {
         TokenSlice slice = new TokenSlice(start, end);
         assertEquals(driver(start, end).isWrappedAround(), slice.isWrappedAround());
-        assertEquals(slices(driver(start, end).unwrap()), slice.unwrap());
+        if (start != end) assertEquals(slices(driver(start, end).unwrap()), slice.unwrap());
+    }
+
+    @Test
+    void unwrapsARangeThatCoversTheWholeRing() {
+        assertEquals(
+                List.of(new TokenSlice(5, Long.MIN_VALUE), new TokenSlice(Long.MIN_VALUE, 5)),
+                new TokenSlice(5, 5).unwrap());
+        assertEquals(
+                List.of(new TokenSlice(Long.MIN_VALUE, Long.MIN_VALUE)),
+                new TokenSlice(Long.MIN_VALUE, Long.MIN_VALUE).unwrap());
     }
 
     @ParameterizedTest

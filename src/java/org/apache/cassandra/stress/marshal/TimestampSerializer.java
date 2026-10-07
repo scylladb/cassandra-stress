@@ -36,7 +36,8 @@ public class TimestampSerializer implements TypeSerializer<Date> {
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
         if (bytes.remaining() != 8 && bytes.remaining() != 0)
-            throw new MarshalException(String.format("Expected 8 or 0 byte long for date (%d)", bytes.remaining()));
+            throw new MarshalException(
+                    String.format(Locale.ROOT, "Expected 8 or 0 byte long for date (%d)", bytes.remaining()));
     }
 
     @Override

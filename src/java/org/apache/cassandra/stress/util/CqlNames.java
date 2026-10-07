@@ -1,6 +1,7 @@
 package org.apache.cassandra.stress.util;
 
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,11 +18,76 @@ public final class CqlNames {
             Pattern.CASE_INSENSITIVE);
 
     private static final Pattern UNQUOTED = Pattern.compile("[a-z][a-z0-9_]*");
+    private static final Set<String> RESERVED = Set.of(
+            "add",
+            "allow",
+            "alter",
+            "and",
+            "apply",
+            "asc",
+            "authorize",
+            "batch",
+            "begin",
+            "by",
+            "columnfamily",
+            "create",
+            "default",
+            "delete",
+            "desc",
+            "describe",
+            "drop",
+            "entries",
+            "execute",
+            "from",
+            "full",
+            "grant",
+            "if",
+            "in",
+            "index",
+            "infinity",
+            "insert",
+            "into",
+            "is",
+            "keyspace",
+            "limit",
+            "materialized",
+            "mbean",
+            "mbeans",
+            "modify",
+            "nan",
+            "norecursive",
+            "not",
+            "null",
+            "of",
+            "on",
+            "or",
+            "order",
+            "primary",
+            "rename",
+            "replace",
+            "revoke",
+            "schema",
+            "select",
+            "set",
+            "table",
+            "to",
+            "token",
+            "truncate",
+            "unlogged",
+            "unset",
+            "update",
+            "use",
+            "using",
+            "view",
+            "where",
+            "with");
 
     private CqlNames() {}
 
     public static String quote(String identifier) {
-        return UNQUOTED.matcher(identifier).matches() ? identifier : '"' + identifier.replace("\"", "\"\"") + '"';
+        return UNQUOTED.matcher(identifier).matches() && !RESERVED.contains(identifier)
+                ? identifier
+                : '"' + identifier.replace("\"", "\"\"") + '"';
     }
 
     public static String keyspaceOf(String createKeyspaceCql) {

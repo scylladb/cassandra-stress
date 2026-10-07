@@ -21,7 +21,13 @@ public record TokenSlice(long start, long end) implements Comparable<TokenSlice>
         return start > end && end != Long.MIN_VALUE;
     }
 
+    public boolean endsAtRingEnd() {
+        return end == Long.MIN_VALUE;
+    }
+
     public List<TokenSlice> unwrap() {
+        if (start == end && start != Long.MIN_VALUE)
+            return List.of(new TokenSlice(start, Long.MIN_VALUE), new TokenSlice(Long.MIN_VALUE, end));
         if (!isWrappedAround()) return List.of(this);
         List<TokenSlice> parts = new ArrayList<>(2);
         if (start != Long.MIN_VALUE) parts.add(new TokenSlice(start, Long.MIN_VALUE));

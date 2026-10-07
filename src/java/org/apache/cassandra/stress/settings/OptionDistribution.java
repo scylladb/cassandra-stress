@@ -368,7 +368,7 @@ public class OptionDistribution extends Option {
 
         @Override
         public String getConfigAsString() {
-            return String.format("Exponential:  min=%d,max=%d,mean=%f", min, max, mean);
+            return String.format(Locale.ROOT, "Exponential:  min=%d,max=%d,mean=%f", min, max, mean);
         }
     }
 
@@ -399,7 +399,7 @@ public class OptionDistribution extends Option {
 
         @Override
         public String getConfigAsString() {
-            return String.format("Extreme:  min=%d,max=%d,shape=%f, scale=%f", min, max, shape, scale);
+            return String.format(Locale.ROOT, "Extreme:  min=%d,max=%d,shape=%f, scale=%f", min, max, shape, scale);
         }
     }
 
@@ -453,7 +453,7 @@ public class OptionDistribution extends Option {
 
         @Override
         public String getConfigAsString() {
-            return String.format("Gaussian:  min=%d,max=%d,mean=%f,stdev=%f", min, max, mean, stdev);
+            return String.format(Locale.ROOT, "Gaussian:  min=%d,max=%d,mean=%f,stdev=%f", min, max, mean, stdev);
         }
     }
 
@@ -474,7 +474,7 @@ public class OptionDistribution extends Option {
 
         @Override
         public String getConfigAsString() {
-            return String.format("Uniform:  min=%d,max=%d", min, max);
+            return String.format(Locale.ROOT, "Uniform:  min=%d,max=%d", min, max);
         }
     }
 
@@ -492,7 +492,7 @@ public class OptionDistribution extends Option {
 
         @Override
         public String getConfigAsString() {
-            return String.format("Fixed:  key=%d", key);
+            return String.format(Locale.ROOT, "Fixed:  key=%d", key);
         }
     }
 
@@ -512,7 +512,7 @@ public class OptionDistribution extends Option {
 
         @Override
         public String getConfigAsString() {
-            return String.format("Sequence:  start=%d,end=%d", start, end);
+            return String.format(Locale.ROOT, "Sequence:  start=%d,end=%d", start, end);
         }
     }
 

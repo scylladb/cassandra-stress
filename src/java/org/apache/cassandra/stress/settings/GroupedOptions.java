@@ -5,6 +5,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public abstract class GroupedOptions {
@@ -89,10 +90,10 @@ public abstract class GroupedOptions {
     }
 
     static String formatLong(String longDisplay, String description) {
-        return String.format("%-40s %s", longDisplay, description);
+        return String.format(Locale.ROOT, "%-40s %s", longDisplay, description);
     }
 
     static String formatMultiLine(String longDisplay, String description) {
-        return String.format("%-36s %s", longDisplay, description);
+        return String.format(Locale.ROOT, "%-36s %s", longDisplay, description);
     }
 }

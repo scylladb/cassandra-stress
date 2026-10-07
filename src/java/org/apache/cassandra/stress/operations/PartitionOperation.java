@@ -98,6 +98,10 @@ public abstract class PartitionOperation extends Operation {
         return partitions.size();
     }
 
+    protected boolean isBeingWritten(Seed seed) {
+        return spec.seedManager.isWriting(seed);
+    }
+
     protected boolean reset(Seed seed, PartitionIterator iterator) {
         if (spec.useRatio == null)
             return iterator.reset(seed, spec.targetCount, spec.rowPopulationRatio.next(), isWrite());

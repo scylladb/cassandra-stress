@@ -4,6 +4,7 @@ package org.apache.cassandra.stress.marshal;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 
 public class DecimalSerializer implements TypeSerializer<BigDecimal> {
@@ -40,7 +41,8 @@ public class DecimalSerializer implements TypeSerializer<BigDecimal> {
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
         if (bytes.remaining() != 0 && bytes.remaining() < 4)
-            throw new MarshalException(String.format("Expected 0 or at least 4 bytes (%d)", bytes.remaining()));
+            throw new MarshalException(
+                    String.format(Locale.ROOT, "Expected 0 or at least 4 bytes (%d)", bytes.remaining()));
     }
 
     @Override

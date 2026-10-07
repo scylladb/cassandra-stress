@@ -5,11 +5,13 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.cassandra.stress.driver.SchemaAlreadyExistsException;
 import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
+import org.apache.cassandra.stress.util.CqlNames;
 import org.apache.cassandra.stress.util.ResultLogger;
 
 public class SettingsSchema {
@@ -50,7 +52,7 @@ public class SettingsSchema {
         try {
             client.execute(createKeyspaceStatementCQL3(), ConsistencyLevel.LOCAL_QUORUM);
 
-            client.execute("USE \"" + keyspace + "\"", ConsistencyLevel.LOCAL_QUORUM);
+            client.execute("USE " + CqlNames.quote(keyspace), ConsistencyLevel.LOCAL_QUORUM);
 
             client.execute(createStandard1StatementCQL3(settings), ConsistencyLevel.LOCAL_QUORUM);
 
@@ -60,7 +62,9 @@ public class SettingsSchema {
 
             settings.output()
                     .println(String.format(
-                            "Created keyspaces. Sleeping %ss for propagation.", settings.node.nodes.size()));
+                            Locale.ROOT,
+                            "Created keyspaces. Sleeping %ss for propagation.",
+                            settings.node.nodes.size()));
             Thread.sleep(settings.node.nodes.size() * 1000L);
         } catch (SchemaAlreadyExistsException ignored) {
         } catch (Exception e) {
@@ -71,9 +75,9 @@ public class SettingsSchema {
     String createKeyspaceStatementCQL3() {
         StringBuilder b = new StringBuilder();
 
-        b.append("CREATE KEYSPACE IF NOT EXISTS \"")
-                .append(keyspace)
-                .append("\" WITH replication = {'class': '")
+        b.append("CREATE KEYSPACE IF NOT EXISTS ")
+                .append(CqlNames.quote(keyspace))
+                .append(" WITH replication = {'class': '")
                 .append(replicationStrategy)
                 .append('\'');
 

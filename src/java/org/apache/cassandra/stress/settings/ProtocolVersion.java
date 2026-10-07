@@ -1,5 +1,7 @@
 package org.apache.cassandra.stress.settings;
 
+import java.util.Locale;
+
 public final class ProtocolVersion {
     int protocolVersion;
 
@@ -32,9 +34,9 @@ public final class ProtocolVersion {
             } else if (protocolVersion == SpecialVersions.NEWEST_SUPPORTED.index) {
                 return "NEWEST_SUPPORTED";
             }
-            return String.format("unknown version: %d", protocolVersion);
+            return String.format(Locale.ROOT, "unknown version: %d", protocolVersion);
         }
-        return String.format("%d", protocolVersion);
+        return String.format(Locale.ROOT, "%d", protocolVersion);
     }
 
     private enum SpecialVersions {

@@ -22,6 +22,12 @@ class MarshalStringsTest {
         assertEquals(expected, TimeSerializer.instance.toString(nanos));
     }
 
+    @ParameterizedTest
+    @CsvSource({"0, 1970-01-01", "5, 1970-01-06", "19675, 2023-11-14", "-1, 1969-12-31"})
+    void datePrintsTheEpochDayThatStressGenerates(int days, String expected) {
+        assertEquals(expected, SimpleDateSerializer.instance.toString(days));
+    }
+
     @Test
     void timeValidatesItsLength() {
         assertDoesNotThrow(() -> TimeSerializer.instance.validate(ByteBuffer.allocate(8)));

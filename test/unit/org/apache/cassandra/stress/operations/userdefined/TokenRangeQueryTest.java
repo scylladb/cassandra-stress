@@ -91,4 +91,17 @@ class TokenRangeQueryTest {
         query.run(client);
         assertEquals("[0, 0]", query.key());
     }
+
+    @Test
+    void readsToTheEndOfTheRingWithoutAnUpperBound() throws Exception {
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-errors", "retries=0"});
+        List<String> queries = new ArrayList<>();
+        StressClient client = client(
+                queries, new StressPage(new StressResult(List.of("system.token(pk)", "pk"), List.of()), null, true));
+        TokenRangeQuery query = query(settings, new TokenSlice(100, Long.MIN_VALUE));
+
+        assertEquals(1, query.ready(new WorkManager.FixedWorkManager(1)));
+        query.run(client);
+        assertEquals(List.of("SELECT token(pk), pk FROM t WHERE token(pk) > 100"), queries);
+    }
 }

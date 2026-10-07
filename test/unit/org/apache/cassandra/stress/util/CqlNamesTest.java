@@ -60,4 +60,20 @@ class CqlNamesTest {
         assertThrows(IllegalArgumentException.class, () -> CqlNames.tableOf("SELECT * FROM t1"));
         assertThrows(IllegalArgumentException.class, () -> CqlNames.keyspaceOf("CREATE TABLE t1 (k int PRIMARY KEY)"));
     }
+
+    @ParameterizedTest
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                "standard1 | standard1",
+                "c_1       | c_1",
+                "order     | \"order\"",
+                "token     | \"token\"",
+                "MyTable   | \"MyTable\"",
+                "1col      | \"1col\"",
+                "a\"b      | \"a\"\"b\"",
+            })
+    void quotesNamesThatCqlWouldNotReadAsTheyAre(String name, String expected) {
+        assertEquals(expected, CqlNames.quote(name));
+    }
 }

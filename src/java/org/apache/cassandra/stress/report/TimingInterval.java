@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.report;
 
+import java.util.Locale;
 import org.HdrHistogram.Histogram;
 
 public final class TimingInterval {
@@ -24,6 +25,7 @@ public final class TimingInterval {
     @Override
     public String toString() {
         return String.format(
+                Locale.ROOT,
                 "Start: %d end: %d maxLatency: %d pCount: %d rcount: %d opCount: %d errors: %d",
                 startNs,
                 endNs,
@@ -114,16 +116,16 @@ public final class TimingInterval {
 
     String getStringValue(TimingParameter value, double rank) {
         return switch (value) {
-            case OPRATE -> String.format("%,.0f", opRate());
-            case ROWRATE -> String.format("%,.0f", rowRate());
-            case ADJROWRATE -> String.format("%,.0f", adjustedRowRate());
-            case PARTITIONRATE -> String.format("%,.0f", partitionRate());
-            case MEANLATENCY -> String.format("%,.1f", meanLatencyMs());
-            case MAXLATENCY -> String.format("%,.1f", maxLatencyMs());
-            case MEDIANLATENCY -> String.format("%,.1f", medianLatencyMs());
-            case RANKLATENCY -> String.format("%,.1f", latencyAtPercentileMs(rank));
-            case ERRORCOUNT -> String.format("%,d", errorCount);
-            case PARTITIONCOUNT -> String.format("%,d", partitionCount);
+            case OPRATE -> String.format(Locale.ROOT, "%,.0f", opRate());
+            case ROWRATE -> String.format(Locale.ROOT, "%,.0f", rowRate());
+            case ADJROWRATE -> String.format(Locale.ROOT, "%,.0f", adjustedRowRate());
+            case PARTITIONRATE -> String.format(Locale.ROOT, "%,.0f", partitionRate());
+            case MEANLATENCY -> String.format(Locale.ROOT, "%,.1f", meanLatencyMs());
+            case MAXLATENCY -> String.format(Locale.ROOT, "%,.1f", maxLatencyMs());
+            case MEDIANLATENCY -> String.format(Locale.ROOT, "%,.1f", medianLatencyMs());
+            case RANKLATENCY -> String.format(Locale.ROOT, "%,.1f", latencyAtPercentileMs(rank));
+            case ERRORCOUNT -> String.format(Locale.ROOT, "%,d", errorCount);
+            case PARTITIONCOUNT -> String.format(Locale.ROOT, "%,d", partitionCount);
         };
     }
 
