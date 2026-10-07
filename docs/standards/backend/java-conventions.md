@@ -11,6 +11,32 @@ it. Do not format a file by hand, and do not argue with the formatter.
 The formatter also orders the imports and removes unused ones. Do not use
 star imports.
 
+The formatter runs on the newest JDK that CI uses, JDK 25, and on JDK 21. It
+parses the code with the `javac` of the JDK that runs it, so keep
+palantir-java-format at a release that supports that JDK. CI runs `ant lint`
+on JDK 25.
+
+### Braces
+
+Put every body of `if`, `else`, `for`, `while`, `do`, `try`, `catch`,
+`finally`, `switch` and `synchronized` in braces, also a body of one
+statement. Put the opening brace at the end of the line. Put each statement
+of the body on its own line. Put the closing brace on its own line, or before
+`else`, `catch`, `finally` or the `while` of a `do`.
+
+```java
+if (count == 0) {
+    return true;
+}
+for (String table : tables) {
+    truncate(table);
+}
+```
+
+Do not write `if (count == 0) return true;` or `if (count == 0) { return true; }`.
+Checkstyle rejects both with `NeedBraces`, `LeftCurly` and `RightCurly`, and
+`ant format-check` rejects the second.
+
 ### Static analysis
 
 Run `ant lint` before a commit. It runs `format-check`, Error Prone on the

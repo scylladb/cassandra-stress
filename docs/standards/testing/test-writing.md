@@ -15,8 +15,7 @@ package-private. Import the assertions statically from
 ```java
 @ParameterizedTest
 @ValueSource(strings = { "super=1", "comparator=UTF8Type" })
-void removedOptionsAreRejected(String param)
-{
+void removedOptionsAreRejected(String param) {
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse(param));
     assertEquals("Invalid parameter " + param, e.getMessage());
 }

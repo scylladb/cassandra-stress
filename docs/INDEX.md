@@ -27,7 +27,10 @@ palantir-java-format formats every Java file through `ant format`, and
 `ant format-check` fails on unformatted code. `ant lint` runs the format
 check, Error Prone, Checkstyle, PMD and SpotBugs with the rules in `lint/`,
 and a deliberate exception gets a `@SuppressWarnings` on the smallest
-element. No star imports. The code targets Java 21 with `release="21"`, and
+element. Every `if`, `else`, `for`, `while`, `do`, `try`, `catch`,
+`finally`, `switch` and `synchronized` body has braces and one statement per
+line, also for one statement. The formatter runs on JDK 21 and on JDK 25,
+the JDK of the CI lint job. No star imports. The code targets Java 21 with `release="21"`, and
 CI runs it on JDK 21 and 25. No code or dependency calls `sun.misc.Unsafe`.
 
 ### Testing standards
