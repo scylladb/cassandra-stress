@@ -308,3 +308,17 @@ stays in every plan built from a spec.
 - [x] Write every row of a partition with three or more clustering columns, with `PartitionWriteTest` failing first.
 - [x] Make `ops(validate=1)` read clustered rows, collections and dates back as the insert wrote them, with a failing test first for each bug.
 - [x] Run `ant lint`, `ant test`, `ant integration-test` and `ant coverage-all`.
+
+## Task 21 — Close the output files
+
+**Files:**
+- Create: `S/report/HdrLog.java`, `T/StressTest.java`, `T/report/HdrLogTest.java`
+- Modify: `S/util/MultiResultLogger.java`, `S/Stress.java`, `S/StressServer.java`, `S/StressAction.java`, `S/report/StressMetrics.java`, `S/settings/SettingsLog.java`, `S/settings/SettingsGraph.java`, `T/util/MultiResultLoggerTest.java`, `T/StressServerTest.java`
+
+**Internals:** `MultiResultLogger.addOwnedStream` takes ownership, and `close` flushes every stream and closes the owned ones. `Stress.run(StressSettings, String[])` opens the logger with try-with-resources and deletes the graph log in its `finally`. `StressAction.run` opens one `HdrLog` and passes it to each non-warmup `StressMetrics`.
+
+- [x] Write the failing tests: concurrent close, owned and borrowed streams, the failure in the log file, the graph log deletion and the stressd cancel join.
+- [x] Make `MultiResultLogger` closeable with copy-on-write lists and explicit ownership.
+- [x] Share one `HdrLog` across the steps of a run, and close it.
+- [x] Delete the graph log, skip it for `-send-to`, and join the stressd action thread on cancel.
+- [x] Run `ant lint`, `ant test` and `ant integration-test`.
