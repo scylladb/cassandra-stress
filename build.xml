@@ -62,7 +62,7 @@
     <property name="checkstyle.version" value="14.3.0" />
     <property name="pmd.version" value="7.28.0" />
     <property name="spotbugs.version" value="4.10.4" />
-    <property name="palantir.version" value="2.101.0" />
+    <property name="palantir.version" value="2.102.0" />
     <property name="lint.dir" value="${build.dir}/lint" />
     <property name="lint.config" value="${basedir}/lint" />
     <property name="test.timeout" value="240000" />

@@ -31,6 +31,24 @@
         <module name="ModifierOrder" />
         <module name="RedundantModifier" />
         <module name="EmptyStatement" />
+        <module name="NeedBraces">
+            <property name="tokens" value="LITERAL_DO, LITERAL_ELSE, LITERAL_FOR, LITERAL_IF, LITERAL_WHILE" />
+            <property name="allowSingleLineStatement" value="false" />
+            <property name="allowEmptyLoopBody" value="false" />
+        </module>
+        <module name="LeftCurly">
+            <property name="option" value="eol" />
+        </module>
+        <module name="RightCurly">
+            <property name="id" value="RightCurlySame" />
+            <property name="option" value="same" />
+            <property name="tokens" value="LITERAL_IF, LITERAL_ELSE, LITERAL_TRY, LITERAL_CATCH, LITERAL_FINALLY, LITERAL_DO" />
+        </module>
+        <module name="RightCurly">
+            <property name="id" value="RightCurlyAlone" />
+            <property name="option" value="alone" />
+            <property name="tokens" value="LITERAL_FOR, LITERAL_WHILE, LITERAL_SWITCH, STATIC_INIT, INSTANCE_INIT" />
+        </module>
         <module name="EmptyBlock">
             <property name="option" value="text" />
         </module>
