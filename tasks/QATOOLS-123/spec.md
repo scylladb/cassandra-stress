@@ -21,7 +21,7 @@ The change deletes the Cassandra server tree and the stress features that run on
 | `-mode thrift` | Run | Stops at argument parsing: `Invalid parameter thrift` |
 | `-mode cql3 simplenative` | Run | Stops at argument parsing: `Mode simplenative was removed. Use -mode cql3 native or -mode cql3 4x.` |
 | `-port` | `native=`, `thrift=`, `jmx=` | `native=`. `jmx=` stops with `Port option jmx= was removed. Use -port native=.` and `thrift=` with `Invalid parameter thrift=9160` |
-| `-transport` | `factory=` and the SSL options | The SSL options. `factory=` stops at argument parsing |
+| `-transport` | `factory=` and the SSL options, `hostname-verification=false` by default | The SSL options, `hostname-verification=true` by default. `factory=` stops at argument parsing |
 | `-schema replication(strategy=X)` | Any class on the classpath that extends `AbstractReplicationStrategy` | `NetworkTopologyStrategy` or `EverywhereStrategy`, short or full name. Other names stop with `Invalid replication strategy: X` |
 | `-schema compaction(strategy=X)` | Any compaction class that `CFMetaData` loads | The five compaction classes of the vendored tree. Other names stop with `Invalid compaction strategy: X` |
 | GC columns and the GC summary lines | Values over JMX, or zero when JMX fails | Removed |
@@ -229,3 +229,12 @@ public enum CompactionStrategy {
 - `SSLFactory` loads a trust store or a key store with no password, so `-transport truststore=` works without `truststore-password=`. (review)
 - The `date` string of a generated value is the date of its epoch day, because stress generates `date` values as days since the epoch. (review)
 - `truncate=` truncates only the tables that the predefined command uses: `standard1`, or `counter1` for the counter commands, and the tables of every command in a `mixed` ratio. Truncating `counter1` and `counter3` for every command failed on a keyspace that `write` created. (review)
+- `AbstractStressClient` holds the code that both drivers share: the prepared statement cache, execution and error translation, batches, pages, result rows, row counts, the token ring and disconnect. `JavaDriverV3Client` and `JavaDriverV4Client` supply the driver calls through small hooks, so a fix to that logic applies to both drivers once. (review)
+- `StressClient.executeCount` counts the rows of a result without copying their values. The predefined reads and the profile queries that only report a row count use it, and `StressResult` wraps its lists without a copy. A token range scan keeps each partition token as a `long`. (review)
+- A batch, or a single bound statement sent as a batch, uses the consistency levels of its first statement, and the `cl=` and `serial-cl=` levels of the command when the statement has none. (review)
+- Driver 3.x reads the clustering order from the driver metadata when it cannot read `system_schema.columns`, and logs a warning. (review)
+- `-transport hostname-verification=` defaults to `true` and accepts only `true` or `false`, so a TLS connection checks that the node certificate matches the node address. A configuration that connects to nodes whose certificates do not name their addresses sets `hostname-verification=false`. (review)
+- The settings, `HdrLog` and the graph log use `java.nio.file.Path`. The option lists are `List.of`, and the driver 4.x type mapping and the unprepared CQL literals use pattern `switch`. (review)
+- A profile insert binds all its rows once and keeps them across retries. A retry sends only the batch chunks that did not complete, so a counter or a list append is not applied twice. A row whose bind fails is bound again on the retry, so no row is lost. (review)
+- A frozen `list` or `set` clustering column compares as CQL does: element by element in the element order, and the shorter collection first when one is a prefix of the other. Validation of such a table no longer stops with `UnsupportedOperationException`. (review)
+- A failed stressd action sends `Stress action failed: <message>` before `FAILURE`, so the client sees why the run failed. (review)
