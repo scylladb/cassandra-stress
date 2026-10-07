@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.LockSupport;
 import org.apache.cassandra.stress.operations.OpDistribution;
 import org.apache.cassandra.stress.operations.OpDistributionFactory;
+import org.apache.cassandra.stress.report.HdrLog;
 import org.apache.cassandra.stress.report.StressMetrics;
 import org.apache.cassandra.stress.settings.SettingsCommand;
 import org.apache.cassandra.stress.settings.StressSettings;
@@ -25,6 +26,7 @@ public class StressAction implements Runnable {
 
     private final StressSettings settings;
     private final ResultLogger output;
+    private HdrLog hdrLog;
 
     public StressAction(StressSettings settings, ResultLogger out) {
         this.settings = settings;
@@ -33,6 +35,15 @@ public class StressAction implements Runnable {
 
     @Override
     public void run() {
+        try (HdrLog hdr = HdrLog.open(settings.log.hdrFile)) {
+            hdrLog = hdr;
+            runWithHdrLog();
+        } finally {
+            hdrLog = null;
+        }
+    }
+
+    private void runWithHdrLog() {
         settings.maybeCreateKeyspaces();
 
         if (settings.command.count == 0) {
@@ -190,7 +201,8 @@ public class StressAction implements Runnable {
         if (opCount < 0) workManager = new WorkManager.ContinuousWorkManager();
         else workManager = new WorkManager.FixedWorkManager(opCount);
 
-        final StressMetrics metrics = new StressMetrics(output, settings.log.intervalMillis, settings);
+        final StressMetrics metrics =
+                new StressMetrics(output, settings.log.intervalMillis, settings, isWarmup ? null : hdrLog);
 
         final CountDownLatch anyFailed = new CountDownLatch(1);
         final CountDownLatch releaseConsumers = new CountDownLatch(1);

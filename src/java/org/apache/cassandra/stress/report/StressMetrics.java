@@ -3,7 +3,6 @@ package org.apache.cassandra.stress.report;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-import java.io.FileNotFoundException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -16,7 +15,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import org.HdrHistogram.Histogram;
-import org.HdrHistogram.HistogramLogWriter;
 import org.apache.cassandra.stress.StressAction.Consumer;
 import org.apache.cassandra.stress.StressAction.MeasurementSink;
 import org.apache.cassandra.stress.StressAction.OpMeasurement;
@@ -30,7 +28,7 @@ public class StressMetrics implements MeasurementSink {
     private final Thread thread;
     private final Uncertainty rowRateUncertainty = new Uncertainty();
     private final CountDownLatch stopped = new CountDownLatch(1);
-    private final HistogramLogWriter histogramWriter;
+    private final HdrLog hdrLog;
     private final long epochNs = System.nanoTime();
     private final long epochMs = System.currentTimeMillis();
 
@@ -43,24 +41,9 @@ public class StressMetrics implements MeasurementSink {
     private final TimingInterval totalCurrentInterval;
     private final TimingInterval totalSummaryInterval;
 
-    public StressMetrics(ResultLogger output, final long logIntervalMillis, StressSettings settings) {
+    public StressMetrics(ResultLogger output, final long logIntervalMillis, StressSettings settings, HdrLog hdrLog) {
         this.output = output;
-        if (settings.log.hdrFile != null) {
-            try {
-                histogramWriter = new HistogramLogWriter(settings.log.hdrFile);
-                histogramWriter.outputComment("Logging op latencies for Cassandra Stress");
-                histogramWriter.outputLogFormatVersion();
-                final long roundedEpoch = epochMs - (epochMs % 1000);
-                histogramWriter.outputBaseTime(roundedEpoch);
-                histogramWriter.setBaseTime(roundedEpoch);
-                histogramWriter.outputStartTime(roundedEpoch);
-                histogramWriter.outputLegend();
-            } catch (FileNotFoundException e) {
-                throw new IllegalArgumentException(e);
-            }
-        } else {
-            histogramWriter = null;
-        }
+        this.hdrLog = hdrLog;
         this.totalCurrentInterval = new TimingInterval(settings.rate.isFixed);
         this.totalSummaryInterval = new TimingInterval(settings.rate.isFixed);
         printHeader("", output);
@@ -212,7 +195,7 @@ public class StressMetrics implements MeasurementSink {
     }
 
     private void logHistograms(String opName, TimingInterval opInterval) {
-        if (histogramWriter == null) return;
+        if (hdrLog == null) return;
         final long startNs = opInterval.startNanos();
         final long endNs = opInterval.endNanos();
 
@@ -230,7 +213,7 @@ public class StressMetrics implements MeasurementSink {
             final long relativeEndNs = endNs - epochNs;
             final long endMs = (long) (1000 * ((epochMs + NANOSECONDS.toMillis(relativeEndNs)) / 1000.0));
             histogram.setEndTimeStamp(endMs);
-            histogramWriter.outputIntervalHistogram(histogram);
+            hdrLog.write(histogram);
         }
     }
 

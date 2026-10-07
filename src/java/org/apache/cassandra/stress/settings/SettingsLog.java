@@ -51,7 +51,7 @@ public class SettingsLog {
         MultiResultLogger stream = new MultiResultLogger(new PrintStream(System.out, false, StandardCharsets.UTF_8));
 
         if (file != null)
-            stream.addStream(new PrintStream(Files.newOutputStream(file.toPath()), false, StandardCharsets.UTF_8));
+            stream.addOwnedStream(new PrintStream(Files.newOutputStream(file.toPath()), false, StandardCharsets.UTF_8));
 
         return stream;
     }

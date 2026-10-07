@@ -13,7 +13,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.HostAndPort;
 import org.apache.cassandra.stress.util.MultiResultLogger;
-import org.apache.cassandra.stress.util.ResultLogger;
 
 public final class StressServer {
     private StressServer() {}
@@ -87,6 +86,7 @@ public final class StressServer {
         return e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     static void serve(Socket socket) throws IOException, InterruptedException {
         try (socket;
                 DataInputStream in = new DataInputStream(socket.getInputStream());
@@ -104,22 +104,26 @@ public final class StressServer {
                 return;
             }
 
-            ResultLogger log = new MultiResultLogger(out);
+            MultiResultLogger log = new MultiResultLogger(out);
             settings.setOutput(log);
             Thread actionThread = Thread.ofPlatform()
                     .name("stress-" + THREAD_COUNTER.incrementAndGet())
                     .start(new StressAction(settings, log));
 
-            while (actionThread.isAlive()) {
-                try {
-                    if (in.readInt() == 1) {
-                        actionThread.interrupt();
+            try {
+                while (actionThread.isAlive()) {
+                    try {
+                        if (in.readInt() == 1) {
+                            actionThread.interrupt();
+                            break;
+                        }
+                    } catch (IOException e) {
                         break;
                     }
-                } catch (IOException e) {
-                    actionThread.join();
-                    break;
                 }
+                actionThread.join();
+            } finally {
+                settings.graph.deleteTemporaryLogFile();
             }
         }
     }

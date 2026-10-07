@@ -178,4 +178,35 @@ class StressServerTest {
         assertFalse(sendThroughFakeDaemon("Invalid parameter bogus", "FAILURE"));
         assertFalse(sendThroughFakeDaemon("Results:"));
     }
+
+    @Test
+    void aCancelledRequestEndsOnlyAfterItsActionStops() throws Exception {
+        int closedPort;
+        try (ServerSocket probe = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+            closedPort = probe.getLocalPort();
+        }
+        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+            CompletableFuture<Void> served = CompletableFuture.runAsync(() -> {
+                try {
+                    StressServer.serve(server.accept());
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            try (Socket client = new Socket(InetAddress.getLoopbackAddress(), server.getLocalPort())) {
+                DataOutputStream out = new DataOutputStream(client.getOutputStream());
+                StressServer.writeCommand(
+                        out, new String[] {"write", "n=10", "-node", "127.0.0.1", "-port", "native=" + closedPort});
+                out.writeInt(1);
+                out.flush();
+                served.get(60, TimeUnit.SECONDS);
+            }
+            assertTrue(
+                    Thread.getAllStackTraces().keySet().stream()
+                            .noneMatch(t -> t.getName().startsWith("stress-") && t.isAlive()),
+                    "the action thread outlived its request");
+        }
+    }
 }

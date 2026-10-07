@@ -4,6 +4,7 @@ package org.apache.cassandra.stress.settings;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -41,6 +42,15 @@ public class SettingsGraph {
     private static File createTemporaryLogFile() {
         try {
             return File.createTempFile("cassandra-stress", ".log");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public void deleteTemporaryLogFile() {
+        if (temporaryLogFile == null) return;
+        try {
+            Files.deleteIfExists(temporaryLogFile.toPath());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

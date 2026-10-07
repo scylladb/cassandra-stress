@@ -33,7 +33,6 @@ public final class Stress {
         System.exit(exitCode);
     }
 
-    @SuppressWarnings("PMD.AvoidFileStream")
     static int run(String[] arguments) {
         try {
             final StressSettings settings;
@@ -50,34 +49,50 @@ public final class Stress {
                 return 1;
             }
 
-            MultiResultLogger logout = settings.log.getOutput();
-            settings.setOutput(logout);
-
-            if (!settings.log.noSettings) {
-                settings.printSettings(logout);
-            }
-
-            if (settings.graph.inGraphMode()) {
-                logout.addStream(new PrintStream(
-                        new java.io.FileOutputStream(settings.graph.temporaryLogFile),
-                        false,
-                        java.nio.charset.StandardCharsets.UTF_8));
-            }
-
-            if (settings.sendToDaemon != null) {
-                if (!sendToDaemon(
-                        HostAndPort.parse(settings.sendToDaemon, StressServer.DEFAULT_PORT), arguments, logout))
-                    return 1;
-            } else {
-                StressAction stressAction = new StressAction(settings, logout);
-                stressAction.run();
-                logout.flush();
-                if (settings.graph.inGraphMode()) new StressGraph(settings, arguments).generateGraph();
-            }
-
+            return run(settings, arguments);
         } catch (Throwable t) {
             t.printStackTrace();
             return 1;
+        }
+    }
+
+    static int run(StressSettings settings, String[] arguments) throws Exception {
+        try (MultiResultLogger logout = settings.log.getOutput()) {
+            settings.setOutput(logout);
+            try {
+                return run(settings, arguments, logout);
+            } catch (Exception e) {
+                logout.printFailureToOwnedStreams(e);
+                throw e;
+            } finally {
+                settings.setOutput(new MultiResultLogger(System.out));
+            }
+        } finally {
+            settings.graph.deleteTemporaryLogFile();
+        }
+    }
+
+    @SuppressWarnings("PMD.AvoidFileStream")
+    private static int run(StressSettings settings, String[] arguments, MultiResultLogger logout) throws Exception {
+        if (!settings.log.noSettings) {
+            settings.printSettings(logout);
+        }
+
+        if (settings.graph.inGraphMode() && settings.sendToDaemon == null) {
+            logout.addOwnedStream(new PrintStream(
+                    new java.io.FileOutputStream(settings.graph.temporaryLogFile),
+                    false,
+                    java.nio.charset.StandardCharsets.UTF_8));
+        }
+
+        if (settings.sendToDaemon != null) {
+            if (!sendToDaemon(HostAndPort.parse(settings.sendToDaemon, StressServer.DEFAULT_PORT), arguments, logout))
+                return 1;
+        } else {
+            StressAction stressAction = new StressAction(settings, logout);
+            stressAction.run();
+            logout.flush();
+            if (settings.graph.inGraphMode()) new StressGraph(settings, arguments).generateGraph();
         }
 
         return 0;
