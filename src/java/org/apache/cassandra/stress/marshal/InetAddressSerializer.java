@@ -12,7 +12,9 @@ public class InetAddressSerializer implements TypeSerializer<InetAddress> {
 
     @Override
     public InetAddress deserialize(ByteBuffer bytes) {
-        if (bytes.remaining() == 0) return null;
+        if (bytes.remaining() == 0) {
+            return null;
+        }
 
         try {
             return InetAddress.getByAddress(ByteBufferUtil.getArray(bytes));
@@ -28,7 +30,9 @@ public class InetAddressSerializer implements TypeSerializer<InetAddress> {
 
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
-        if (bytes.remaining() == 0) return;
+        if (bytes.remaining() == 0) {
+            return;
+        }
 
         try {
             InetAddress.getByAddress(ByteBufferUtil.getArray(bytes));

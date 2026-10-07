@@ -20,14 +20,17 @@ public class TimeSerializer implements TypeSerializer<Long> {
 
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
-        if (bytes.remaining() != 8)
+        if (bytes.remaining() != 8) {
             throw new MarshalException(
                     String.format(Locale.ROOT, "Expected 8 byte long for time (%d)", bytes.remaining()));
+        }
     }
 
     @Override
     public String toString(Long value) {
-        if (value == null) return "null";
+        if (value == null) {
+            return "null";
+        }
 
         int nano = (int) (value % 1000);
         value -= nano;
@@ -64,7 +67,9 @@ public class TimeSerializer implements TypeSerializer<Long> {
 
     private void leftPadZeros(int value, int digits, StringBuilder sb) {
         for (int i = 1; i < digits; ++i) {
-            if (value < Math.pow(10, i)) sb.append('0');
+            if (value < Math.pow(10, i)) {
+                sb.append('0');
+            }
         }
         sb.append(value);
     }

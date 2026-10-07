@@ -62,7 +62,9 @@ public final class StressServer {
         }
 
         try (serverSocket) {
-            for (; ; ) accept(serverSocket.accept());
+            for (; ; ) {
+                accept(serverSocket.accept());
+            }
         }
     }
 
@@ -84,29 +86,43 @@ public final class StressServer {
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
             if ("-h".equals(arg) || "--host".equals(arg)) {
-                if (i + 1 == args.length) return null;
+                if (i + 1 == args.length) {
+                    return null;
+                }
                 host = args[++i];
-            } else if (arg.startsWith("--host=")) host = arg.substring("--host=".length());
-            else if ("-p".equals(arg) || "--port".equals(arg)) {
-                if (i + 1 == args.length) return null;
+            } else if (arg.startsWith("--host=")) {
+                host = arg.substring("--host=".length());
+            } else if ("-p".equals(arg) || "--port".equals(arg)) {
+                if (i + 1 == args.length) {
+                    return null;
+                }
                 port = HostAndPort.parsePort(args[++i]);
-            } else if (arg.startsWith("--port=")) port = HostAndPort.parsePort(arg.substring("--port=".length()));
-            else if (arg.startsWith("-")) return null;
+            } else if (arg.startsWith("--port=")) {
+                port = HostAndPort.parsePort(arg.substring("--port=".length()));
+            } else if (arg.startsWith("-")) {
+                return null;
+            }
         }
         return new HostAndPort(host, port);
     }
 
     static void writeCommand(DataOutputStream out, String[] arguments) throws IOException {
         out.writeInt(arguments.length);
-        for (String argument : arguments) out.writeUTF(argument);
+        for (String argument : arguments) {
+            out.writeUTF(argument);
+        }
         out.flush();
     }
 
     static String[] readCommand(DataInputStream in) throws IOException {
         int count = in.readInt();
-        if (count < 0 || count > MAX_ARGUMENTS) throw new IOException("Invalid argument count: " + count);
+        if (count < 0 || count > MAX_ARGUMENTS) {
+            throw new IOException("Invalid argument count: " + count);
+        }
         String[] arguments = new String[count];
-        for (int i = 0; i < count; i++) arguments[i] = in.readUTF();
+        for (int i = 0; i < count; i++) {
+            arguments[i] = in.readUTF();
+        }
         return arguments;
     }
 

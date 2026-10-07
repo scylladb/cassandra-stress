@@ -92,19 +92,24 @@ public final class CqlNames {
 
     public static String keyspaceOf(String createKeyspaceCql) {
         Matcher matcher = CREATE_KEYSPACE.matcher(createKeyspaceCql);
-        if (!matcher.find())
+        if (!matcher.find()) {
             throw new IllegalArgumentException("Not a CREATE KEYSPACE statement: " + createKeyspaceCql);
+        }
         return unquote(matcher.group(1));
     }
 
     public static String tableOf(String createTableCql) {
         Matcher matcher = CREATE_TABLE.matcher(createTableCql);
-        if (!matcher.find()) throw new IllegalArgumentException("Not a CREATE TABLE statement: " + createTableCql);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("Not a CREATE TABLE statement: " + createTableCql);
+        }
         return unquote(matcher.group(2));
     }
 
     private static String unquote(String name) {
-        if (name.startsWith("\"")) return name.substring(1, name.length() - 1).replace("\"\"", "\"");
+        if (name.startsWith("\"")) {
+            return name.substring(1, name.length() - 1).replace("\"\"", "\"");
+        }
         return name.toLowerCase(Locale.ROOT);
     }
 }

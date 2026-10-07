@@ -32,7 +32,9 @@ public final class StressClients {
 
     static String driverVersion(String resource) {
         try (InputStream in = StressClients.class.getClassLoader().getResourceAsStream(resource)) {
-            if (in == null) throw new IllegalStateException("Missing driver resource " + resource);
+            if (in == null) {
+                throw new IllegalStateException("Missing driver resource " + resource);
+            }
             Properties properties = new Properties();
             properties.load(in);
             return properties.getProperty("driver.version");

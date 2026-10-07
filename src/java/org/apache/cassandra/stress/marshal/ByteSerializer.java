@@ -22,9 +22,10 @@ public class ByteSerializer implements TypeSerializer<Byte> {
 
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
-        if (bytes.remaining() != 1)
+        if (bytes.remaining() != 1) {
             throw new MarshalException(
                     String.format(Locale.ROOT, "Expected 1 byte for a tinyint (%d)", bytes.remaining()));
+        }
     }
 
     @Override

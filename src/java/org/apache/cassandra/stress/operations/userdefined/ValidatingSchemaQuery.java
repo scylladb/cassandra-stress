@@ -55,26 +55,35 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
         this.cl = cl;
         bindBuffer = new Object[statements[0].statement.variableCount()];
         for (ValidatingStatement statement : statements) {
-            if (statement.statement.getConsistencyLevel() == null) statement.statement.setConsistencyLevel(cl);
-            if (statement.statement.getSerialConsistencyLevel() == null)
+            if (statement.statement.getConsistencyLevel() == null) {
+                statement.statement.setConsistencyLevel(cl);
+            }
+            if (statement.statement.getSerialConsistencyLevel() == null) {
                 statement.statement.setSerialConsistencyLevel(serialCl);
+            }
         }
         this.clusteringComponents = clusteringComponents;
     }
 
     @Override
     protected boolean reset(Seed seed, PartitionIterator iterator) {
-        if (isBeingWritten(seed)) return false;
+        if (isBeingWritten(seed)) {
+            return false;
+        }
         bounds = iterator.resetToBounds(seed, clusteringComponents);
         return true;
     }
 
     static List<Row> expectedRows(PartitionIterator iter, boolean inclusiveStart, boolean inclusiveEnd) {
         List<Row> rows = new ArrayList<>();
-        if (!inclusiveStart && iter.hasNext()) iter.next();
+        if (!inclusiveStart && iter.hasNext()) {
+            iter.next();
+        }
         while (iter.hasNext()) {
             Row row = iter.next();
-            if (!inclusiveEnd && !iter.hasNext()) break;
+            if (!inclusiveEnd && !iter.hasNext()) {
+                break;
+            }
             rows.add(row);
         }
         return rows;
@@ -95,9 +104,10 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
         private List<Row> expected;
 
         List<Row> expectedRows() {
-            if (expected == null)
+            if (expected == null) {
                 expected = ValidatingSchemaQuery.expectedRows(
                         iter, statements[statementIndex].inclusiveStart, statements[statementIndex].inclusiveEnd);
+            }
             return expected;
         }
 
@@ -135,7 +145,9 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
             StressResult rs = client.execute(bind(statementIndex), null, null);
             List<String> columnNames = rs.columnNames();
             int[] valueIndex = new int[columnNames.size()];
-            for (int i = 0; i < valueIndex.length; i++) valueIndex[i] = indexOf(columnNames.get(i));
+            for (int i = 0; i < valueIndex.length; i++) {
+                valueIndex[i] = indexOf(columnNames.get(i));
+            }
 
             rowCount = 0;
             Iterator<ByteBuffer[]> results = rs.rows().iterator();
@@ -152,7 +164,9 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
                 rowCount++;
                 ByteBuffer[] actualRow = results.next();
                 for (int i = 0; i < actualRow.length; i++) {
-                    if (valueIndex[i] == UNKNOWN_COLUMN) continue;
+                    if (valueIndex[i] == UNKNOWN_COLUMN) {
+                        continue;
+                    }
                     Object expectedValue = expectedRow.get(valueIndex[i]);
                     Object actualValue = spec.partitionGenerator.convert(valueIndex[i], actualRow[i]);
                     if (!Objects.equals(expectedValue, actualValue)) {
@@ -231,12 +245,13 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
         for (int depth = 0; depth < queries.size(); depth++) {
             List<Slice> slices = queries.get(depth);
             ValidatingStatement[] statements = new ValidatingStatement[slices.size()];
-            for (int i = 0; i < statements.length; i++)
+            for (int i = 0; i < statements.length; i++) {
                 statements[i] = prepare(
                         settings,
                         slices.get(i).cql(),
                         slices.get(i).inclusiveStart(),
                         slices.get(i).inclusiveEnd());
+            }
             factories.add(new Factory(statements, depth));
         }
         return factories;
@@ -301,9 +316,15 @@ public final class ValidatingSchemaQuery extends PartitionOperation {
     }
 
     private static String describeValue(Object value) {
-        if (value == null) return "null";
-        if (value instanceof ByteBuffer bb) return hexPreview(bb, 16) + " (" + bb.remaining() + " bytes)";
-        if (value instanceof byte[] b) return hexPreview(ByteBuffer.wrap(b), 16) + " (" + b.length + " bytes)";
+        if (value == null) {
+            return "null";
+        }
+        if (value instanceof ByteBuffer bb) {
+            return hexPreview(bb, 16) + " (" + bb.remaining() + " bytes)";
+        }
+        if (value instanceof byte[] b) {
+            return hexPreview(ByteBuffer.wrap(b), 16) + " (" + b.length + " bytes)";
+        }
         String s = String.valueOf(value);
         return s.length() > 80 ? s.substring(0, 80) + "..." : s;
     }

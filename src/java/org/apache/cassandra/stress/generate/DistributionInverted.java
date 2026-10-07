@@ -34,7 +34,9 @@ public class DistributionInverted extends Distribution {
     }
 
     public static Distribution invert(Distribution distribution) {
-        if (distribution instanceof DistributionInverted inverted) return inverted.wrapped;
+        if (distribution instanceof DistributionInverted inverted) {
+            return inverted.wrapped;
+        }
         return new DistributionInverted(distribution);
     }
 }

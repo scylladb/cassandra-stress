@@ -47,8 +47,9 @@ public class SeedManager {
         Distribution sample = settings.insert.revisit.get();
         this.sampleOffset = Math.min(sample.minValue(), sample.maxValue());
         long sampleSize = 1 + Math.max(sample.minValue(), sample.maxValue()) - sampleOffset;
-        if (sampleOffset < 0 || sampleSize > Integer.MAX_VALUE)
+        if (sampleOffset < 0 || sampleSize > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("sample range is invalid");
+        }
         this.sampleFrom = new LockedDynamicList<>((int) sampleSize);
         this.sample = DistributionInverted.invert(sample);
         this.sampleSize = (int) sampleSize;
@@ -58,7 +59,9 @@ public class SeedManager {
     public Seed next(Operation op) {
         if (!op.isWrite()) {
             Seed seed = reads.next(-1);
-            if (seed == null) return null;
+            if (seed == null) {
+                return null;
+            }
             Seed managing = this.managing.get(seed.seed);
             return managing == null ? seed : managing;
         }
@@ -66,12 +69,18 @@ public class SeedManager {
         while (true) {
             int index = (int) (sample.next() - sampleOffset);
             Seed seed = sampleFrom.get(index);
-            if (seed != null && seed.isSaved()) return seed;
+            if (seed != null && seed.isSaved()) {
+                return seed;
+            }
 
             seed = writes.next((int) visits.next());
-            if (seed == null) return null;
+            if (seed == null) {
+                return null;
+            }
             if (managing.putIfAbsent(seed.seed, seed) == null) {
-                if (!updateSampleImmediately || seed.save(sampleFrom, sampleSize)) return seed;
+                if (!updateSampleImmediately || seed.save(sampleFrom, sampleSize)) {
+                    return seed;
+                }
                 managing.remove(seed.seed, seed);
             }
         }
@@ -82,11 +91,15 @@ public class SeedManager {
     }
 
     public void markLastWrite(Seed seed, boolean first) {
-        if (managing.remove(seed.seed, seed) && !first) seed.remove(sampleFrom);
+        if (managing.remove(seed.seed, seed) && !first) {
+            seed.remove(sampleFrom);
+        }
     }
 
     public void markFirstWrite(Seed seed, boolean last) {
-        if (!last && !updateSampleImmediately) seed.save(sampleFrom, Integer.MAX_VALUE);
+        if (!last && !updateSampleImmediately) {
+            seed.save(sampleFrom, Integer.MAX_VALUE);
+        }
         writes.finishWrite(seed);
     }
 
@@ -119,7 +132,9 @@ public class SeedManager {
 
         SeriesGenerator(long start, long end, boolean wrap) {
             this.wrap = wrap;
-            if (start > end) throw new IllegalStateException();
+            if (start > end) {
+                throw new IllegalStateException();
+            }
             this.start = start;
             this.totalCount = 1 + end - start;
         }
@@ -127,7 +142,9 @@ public class SeedManager {
         @Override
         public Seed next(int visits) {
             long next = this.next.getAndIncrement();
-            if (!wrap && next >= totalCount) return null;
+            if (!wrap && next >= totalCount) {
+                return null;
+            }
             return new Seed(start + (next % totalCount), visits);
         }
     }
@@ -147,19 +164,27 @@ public class SeedManager {
         @Override
         public Seed next(int visits) {
             long next = this.next.getAndIncrement();
-            if (!wrap && next >= totalCount) return null;
+            if (!wrap && next >= totalCount) {
+                return null;
+            }
             return new Seed(start + (next % totalCount), visits);
         }
 
         @Override
         void finishWrite(Seed seed) {
-            if (seed.seed <= writeCount.get()) return;
+            if (seed.seed <= writeCount.get()) {
+                return;
+            }
             afterMin.put(seed, seed);
             while (true) {
                 Map.Entry<Seed, Seed> head = afterMin.firstEntry();
-                if (head == null) return;
+                if (head == null) {
+                    return;
+                }
                 long min = this.writeCount.get();
-                if (head.getKey().seed <= min) return;
+                if (head.getKey().seed <= min) {
+                    return;
+                }
                 if (head.getKey().seed == min + 1 && this.writeCount.compareAndSet(min, min + 1)) {
                     afterMin.remove(head.getKey());
                     continue;
@@ -174,10 +199,11 @@ public class SeedManager {
 
             LookbackReadGenerator(Distribution lookback) {
                 this.lookback = lookback;
-                if (lookback.maxValue() > start + totalCount)
+                if (lookback.maxValue() > start + totalCount) {
                     throw new IllegalArgumentException(
                             "Invalid lookback distribution; max value is " + lookback.maxValue()
                                     + ", but series only ranges from " + writeCount + " to " + (start + totalCount));
+                }
             }
 
             @Override
@@ -186,7 +212,9 @@ public class SeedManager {
                 long range = writeCount.get();
                 long startOffset = range - lookback;
                 if (startOffset < 0) {
-                    if (range == totalCount && !wrap) return null;
+                    if (range == totalCount && !wrap) {
+                        return null;
+                    }
                     startOffset = range == 0 ? 0 : lookback % range;
                 }
                 return new Seed(start + startOffset, visits);

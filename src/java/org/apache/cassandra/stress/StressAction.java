@@ -44,7 +44,9 @@ public class StressAction implements Runnable {
             output.println(success ? "END" : "FAILURE");
             settings.disconnect();
         }
-        if (!success) throw new RuntimeException("Failed to execute stress action");
+        if (!success) {
+            throw new RuntimeException("Failed to execute stress action");
+        }
     }
 
     private boolean runWithHdrLog() {
@@ -58,19 +60,28 @@ public class StressAction implements Runnable {
         output.println("Sleeping 2s...");
         Sleep.uninterruptibly(2, TimeUnit.SECONDS);
 
-        if (!settings.command.noWarmup) warmup(settings.command.getFactory(settings));
+        if (!settings.command.noWarmup) {
+            warmup(settings.command.getFactory(settings));
+        }
 
         if ((settings.command.truncate == SettingsCommand.TruncateWhen.ONCE)
                 || ((settings.rate.threadCount != -1)
-                        && (settings.command.truncate == SettingsCommand.TruncateWhen.ALWAYS)))
+                        && (settings.command.truncate == SettingsCommand.TruncateWhen.ALWAYS))) {
             settings.command.truncateTables(settings);
+        }
 
-        if (settings.rate.threadCount == -1) output.println("Thread count was not specified");
+        if (settings.rate.threadCount == -1) {
+            output.println("Thread count was not specified");
+        }
 
         UniformRateLimiter rateLimiter = null;
-        if (settings.rate.opsPerSecond > 0) rateLimiter = new UniformRateLimiter(settings.rate.opsPerSecond);
+        if (settings.rate.opsPerSecond > 0) {
+            rateLimiter = new UniformRateLimiter(settings.rate.opsPerSecond);
+        }
 
-        if (settings.rate.minThreads > 0) return runMulti(settings.rate.auto, rateLimiter);
+        if (settings.rate.minThreads > 0) {
+            return runMulti(settings.rate.auto, rateLimiter);
+        }
         return null
                 != run(
                         settings.command.getFactory(settings),
@@ -87,26 +98,35 @@ public class StressAction implements Runnable {
     private void warmup(OpDistributionFactory operations) {
         int iterations = (settings.command.count >= 0 ? Math.min(50000, (int) (settings.command.count * 0.25)) : 50000)
                 * settings.node.nodes.size();
-        if (iterations <= 0) return;
+        if (iterations <= 0) {
+            return;
+        }
 
         int threads = 100;
 
-        if (settings.rate.maxThreads > 0) threads = Math.min(threads, settings.rate.maxThreads);
-        if (settings.rate.threadCount > 0) threads = Math.min(threads, settings.rate.threadCount);
+        if (settings.rate.maxThreads > 0) {
+            threads = Math.min(threads, settings.rate.maxThreads);
+        }
+        if (settings.rate.threadCount > 0) {
+            threads = Math.min(threads, settings.rate.threadCount);
+        }
 
         for (OpDistributionFactory single : operations.each()) {
             output.println(
                     String.format(Locale.ROOT, "Warming up %s with %d iterations...", single.desc(), iterations));
             boolean success = null != run(single, threads, iterations, 0, null, null, ResultLogger.NOOP, true);
-            if (!success) throw new RuntimeException("Failed to execute warmup");
+            if (!success) {
+                throw new RuntimeException("Failed to execute warmup");
+            }
         }
     }
 
     private boolean runMulti(boolean auto, UniformRateLimiter rateLimiter) {
-        if (settings.command.targetUncertainty >= 0)
+        if (settings.command.targetUncertainty >= 0) {
             output.println(
                     "WARNING: uncertainty mode (err<) results in uneven workload between thread runs, so should be"
                             + " used for high level analysis only");
+        }
         int prevThreadCount = -1;
         int threadCount = settings.rate.minThreads;
         List<StressMetrics> results = new ArrayList<>();
@@ -115,8 +135,9 @@ public class StressAction implements Runnable {
             output.println("");
             output.println(String.format(Locale.ROOT, "Running with %d threadCount", threadCount));
 
-            if (settings.command.truncate == SettingsCommand.TruncateWhen.ALWAYS)
+            if (settings.command.truncate == SettingsCommand.TruncateWhen.ALWAYS) {
                 settings.command.truncateTables(settings);
+            }
 
             StressMetrics result = run(
                     settings.command.getFactory(settings),
@@ -127,23 +148,32 @@ public class StressAction implements Runnable {
                     settings.command.durationUnits,
                     output,
                     false);
-            if (result == null) return false;
+            if (result == null) {
+                return false;
+            }
             results.add(result);
 
-            if (prevThreadCount > 0)
+            if (prevThreadCount > 0) {
                 output.println(String.format(
                         Locale.ROOT,
                         "Improvement over %d threadCount: %.0f%%",
                         prevThreadCount,
                         100 * averageImprovement(results, 1)));
+            }
 
             runIds.add(threadCount + " threadCount");
             prevThreadCount = threadCount;
-            if (threadCount < 500) threadCount += 100;
-            else if (threadCount < 1500) threadCount = (int) (threadCount * 1.2);
-            else threadCount = (int) (threadCount * 1.1);
+            if (threadCount < 500) {
+                threadCount += 100;
+            } else if (threadCount < 1500) {
+                threadCount = (int) (threadCount * 1.2);
+            } else {
+                threadCount = (int) (threadCount * 1.1);
+            }
 
-            if (!results.isEmpty() && threadCount > settings.rate.maxThreads) break;
+            if (!results.isEmpty() && threadCount > settings.rate.maxThreads) {
+                break;
+            }
 
             if (settings.command.type.updates) {
                 output.println("Sleeping for 15s");
@@ -196,8 +226,11 @@ public class StressAction implements Runnable {
                                 ? "for " + opCount + " iteration"
                                 : "until stderr of mean < " + settings.command.targetUncertainty));
         final WorkManager workManager;
-        if (opCount < 0) workManager = new WorkManager.ContinuousWorkManager();
-        else workManager = new WorkManager.FixedWorkManager(opCount);
+        if (opCount < 0) {
+            workManager = new WorkManager.ContinuousWorkManager();
+        } else {
+            workManager = new WorkManager.FixedWorkManager(opCount);
+        }
 
         final StressMetrics metrics =
                 new StressMetrics(output, settings.log.intervalMillis, settings, isWarmup ? null : hdrLog);
@@ -212,7 +245,9 @@ public class StressAction implements Runnable {
                     operations, isWarmup, done, start, releaseConsumers, anyFailed, workManager, metrics, rateLimiter);
         }
 
-        for (int i = 0; i < threadCount; i++) consumers[i].start();
+        for (int i = 0; i < threadCount; i++) {
+            consumers[i].start();
+        }
 
         try {
             start.await();
@@ -263,16 +298,24 @@ public class StressAction implements Runnable {
                 interrupted = true;
             }
         }
-        if (interrupted) Thread.currentThread().interrupt();
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
 
-        if (metrics.wasCancelled()) return null;
+        if (metrics.wasCancelled()) {
+            return null;
+        }
 
         metrics.summarise();
 
         boolean success = true;
-        for (Consumer consumer : consumers) success &= consumer.success;
+        for (Consumer consumer : consumers) {
+            success &= consumer.success;
+        }
 
-        if (!success) return null;
+        if (!success) {
+            return null;
+        }
 
         return metrics;
     }
@@ -310,7 +353,9 @@ public class StressAction implements Runnable {
         Operation nextOp() {
             Operation op = operations.next();
             final int partitionCount = op.ready(workManager);
-            if (partitionCount == 0) return null;
+            if (partitionCount == 0) {
+                return null;
+            }
             if (rateLimiter != null) {
                 long intendedTime = rateLimiter.acquire(partitionCount);
                 op.intendedStartNs(intendedTime);
@@ -401,14 +446,19 @@ public class StressAction implements Runnable {
                         break;
                     }
                     Operation op = opStream.nextOp();
-                    if (op == null) break;
+                    if (op == null) {
+                        break;
+                    }
 
                     try {
                         op.run(client);
                     } catch (NoSuchElementException ignored) {
                     } catch (Exception e) {
-                        if (output == null) System.err.println(e.getMessage());
-                        else output.printException(e);
+                        if (output == null) {
+                            System.err.println(e.getMessage());
+                        } else {
+                            output.printException(e);
+                        }
 
                         success = false;
                         anyFailed.countDown();

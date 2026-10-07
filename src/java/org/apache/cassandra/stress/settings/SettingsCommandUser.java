@@ -59,8 +59,9 @@ public class SettingsCommandUser extends SettingsCommand {
             profiles.put(specName, profile);
         }
 
-        if (ratios.isEmpty())
+        if (ratios.isEmpty()) {
             throw new IllegalArgumentException("Must specify at least one command with a non-zero ratio");
+        }
     }
 
     public boolean hasInsertOnly() {
@@ -99,13 +100,17 @@ public class SettingsCommandUser extends SettingsCommand {
                 StressProfile profile = profiles.get(profile_name);
                 TokenRangeIterator tokenRangeIterator = tokenRangeIterators.get(profile_name);
                 PartitionGenerator generator = profile.newGenerator(settings);
-                if ("insert".equalsIgnoreCase(sub_key))
+                if ("insert".equalsIgnoreCase(sub_key)) {
                     return Collections.singletonList(profile.getInsert(timer, generator, seeds, settings));
-                if ("validate".equalsIgnoreCase(sub_key)) return profile.getValidate(timer, generator, seeds, settings);
+                }
+                if ("validate".equalsIgnoreCase(sub_key)) {
+                    return profile.getValidate(timer, generator, seeds, settings);
+                }
 
-                if (profile.tokenRangeQueries.containsKey(sub_key))
+                if (profile.tokenRangeQueries.containsKey(sub_key)) {
                     return Collections.singletonList(
                             profile.getBulkReadQueries(sub_key, timer, settings, tokenRangeIterator, isWarmup));
+                }
 
                 return Collections.singletonList(profile.getQuery(sub_key, timer, generator, seeds, settings));
             }

@@ -21,9 +21,11 @@ public class Bytes extends Generator<ByteBuffer> {
         sizeDistribution.setSeed(seed);
         rand.setSeed(~seed);
         int size = (int) sizeDistribution.next();
-        for (int i = 0; i < size; )
-            for (long v = rand.nextLong(), n = Math.min(size - i, Long.SIZE / Byte.SIZE); n-- > 0; v >>= Byte.SIZE)
+        for (int i = 0; i < size; ) {
+            for (long v = rand.nextLong(), n = Math.min(size - i, Long.SIZE / Byte.SIZE); n-- > 0; v >>= Byte.SIZE) {
                 bytes[i++] = (byte) v;
+            }
+        }
         return ByteBuffer.wrap(Arrays.copyOf(bytes, size));
     }
 }

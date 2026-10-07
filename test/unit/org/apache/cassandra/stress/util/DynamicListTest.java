@@ -33,7 +33,9 @@ class DynamicListTest {
                 assertEquals(model.get(probe), list.get(probe));
             }
         }
-        for (int i = 0; i < model.size(); i++) assertEquals(model.get(i), list.get(i));
+        for (int i = 0; i < model.size(); i++) {
+            assertEquals(model.get(i), list.get(i));
+        }
     }
 
     @Test

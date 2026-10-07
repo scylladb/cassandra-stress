@@ -36,7 +36,9 @@ public abstract class Operation {
     public abstract int ready(WorkManager permits);
 
     protected static String hexPreview(ByteBuffer bb, int maxBytes) {
-        if (bb == null) return "null";
+        if (bb == null) {
+            return "null";
+        }
         byte[] head = new byte[Math.min(bb.remaining(), maxBytes)];
         bb.duplicate().get(head);
         return "0x" + HexFormat.of().formatHex(head) + (bb.remaining() > maxBytes ? "..." : "");
@@ -64,7 +66,9 @@ public abstract class Operation {
                 throw e;
             } catch (OverloadedException e) {
                 exceptionMessage = getExceptionMessage(e);
-                if (tries + 1 >= settings.errors.tries) continue;
+                if (tries + 1 >= settings.errors.tries) {
+                    continue;
+                }
                 try {
                     if (settings.log.level.compareTo(SettingsLog.Level.MINIMAL) > 0) {
                         System.err.println(String.format(
@@ -87,8 +91,9 @@ public abstract class Operation {
 
         if (!success) {
             String detail;
-            if (exceptionMessage != null) detail = "Error executing: " + exceptionMessage;
-            else {
+            if (exceptionMessage != null) {
+                detail = "Error executing: " + exceptionMessage;
+            } else {
                 String validationMsg = run.validationErrorMessage();
                 detail = (validationMsg != null) ? validationMsg : "Data returned was not validated";
             }
@@ -105,8 +110,11 @@ public abstract class Operation {
     }
 
     protected void error(String message) throws IOException {
-        if (!settings.errors.ignore) throw new IOException(message);
-        else if (settings.log.level.compareTo(SettingsLog.Level.MINIMAL) > 0) System.err.println(message);
+        if (!settings.errors.ignore) {
+            throw new IOException(message);
+        } else if (settings.log.level.compareTo(SettingsLog.Level.MINIMAL) > 0) {
+            System.err.println(message);
+        }
     }
 
     public void intendedStartNs(long intendedTime) {

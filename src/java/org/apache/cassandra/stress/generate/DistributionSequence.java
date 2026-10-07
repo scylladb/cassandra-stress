@@ -10,7 +10,9 @@ public class DistributionSequence extends Distribution {
     private final AtomicLong next = new AtomicLong();
 
     public DistributionSequence(long start, long end) {
-        if (start > end) throw new IllegalStateException();
+        if (start > end) {
+            throw new IllegalStateException();
+        }
         this.start = start;
         this.totalCount = 1 + end - start;
     }

@@ -23,14 +23,17 @@ public class SimpleDateSerializer implements TypeSerializer<Integer> {
 
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
-        if (bytes.remaining() != 4)
+        if (bytes.remaining() != 4) {
             throw new MarshalException(
                     String.format(Locale.ROOT, "Expected 4 byte long for date (%d)", bytes.remaining()));
+        }
     }
 
     @Override
     public String toString(Integer value) {
-        if (value == null) return "";
+        if (value == null) {
+            return "";
+        }
 
         return FORMATTER.format(LocalDate.ofEpochDay(value));
     }

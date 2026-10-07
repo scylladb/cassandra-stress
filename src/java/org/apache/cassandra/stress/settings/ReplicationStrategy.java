@@ -9,7 +9,9 @@ public enum ReplicationStrategy {
     public static String validate(String name) {
         String shortName = name.startsWith(PACKAGE) ? name.substring(PACKAGE.length()) : name;
         for (ReplicationStrategy strategy : values()) {
-            if (strategy.name().equals(shortName)) return PACKAGE + strategy.name();
+            if (strategy.name().equals(shortName)) {
+                return PACKAGE + strategy.name();
+            }
         }
         throw new IllegalArgumentException("Invalid replication strategy: " + name);
     }

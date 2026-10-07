@@ -202,7 +202,9 @@ class StressServerTest {
                 try (Socket client = daemon.accept();
                         PrintStream out = new PrintStream(client.getOutputStream(), true, StandardCharsets.UTF_8)) {
                     StressServer.readCommand(new DataInputStream(client.getInputStream()));
-                    for (String line : reply) out.println(line);
+                    for (String line : reply) {
+                        out.println(line);
+                    }
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }

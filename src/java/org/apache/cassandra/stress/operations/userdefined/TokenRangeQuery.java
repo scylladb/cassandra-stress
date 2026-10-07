@@ -48,7 +48,9 @@ public class TokenRangeQuery extends Operation {
     }
 
     private static String sanitizeColumns(String columns, TableSchema tableMetadata) {
-        if (!"*".equals(columns)) return columns;
+        if (!"*".equals(columns)) {
+            return columns;
+        }
 
         return tableMetadata.columns().stream()
                 .map(column -> CqlNames.quote(column.name()))
@@ -97,8 +99,11 @@ public class TokenRangeQuery extends Operation {
         }
 
         private static int tokenColumn(List<String> columnNames) {
-            for (int i = 0; i < columnNames.size(); i++)
-                if (TOKEN_COLUMN_NAME.matcher(columnNames.get(i)).matches()) return i;
+            for (int i = 0; i < columnNames.size(); i++) {
+                if (TOKEN_COLUMN_NAME.matcher(columnNames.get(i)).matches()) {
+                    return i;
+                }
+            }
             throw new IllegalStateException("Unable to locate token(...) column in result set. "
                     + "This query must project token(partition_key) without aliasing.");
         }
@@ -108,7 +113,9 @@ public class TokenRangeQuery extends Operation {
             State state = currentState.get();
             if (state == null) {
                 TokenSlice range = tokenRangeIterator.next();
-                if (range == null) return true;
+                if (range == null) {
+                    return true;
+                }
 
                 state = new State(range.format(), buildQuery(range));
                 currentState.set(state);
@@ -122,7 +129,11 @@ public class TokenRangeQuery extends Operation {
 
             if (!rows.isEmpty()) {
                 int token = tokenColumn(page.result().columnNames());
-                for (ByteBuffer[] row : rows) if (state.partitions.add(row[token])) partitionCount += 1;
+                for (ByteBuffer[] row : rows) {
+                    if (state.partitions.add(row[token])) {
+                        partitionCount += 1;
+                    }
+                }
             }
 
             if (page.fullyFetched() || isWarmup) {
@@ -155,7 +166,9 @@ public class TokenRangeQuery extends Operation {
     public int ready(WorkManager workManager) {
         tokenRangeIterator.update();
 
-        if (tokenRangeIterator.exhausted() && currentState.get() == null) return 0;
+        if (tokenRangeIterator.exhausted() && currentState.get() == null) {
+            return 0;
+        }
 
         int numLeft = workManager.takePermits(1);
 

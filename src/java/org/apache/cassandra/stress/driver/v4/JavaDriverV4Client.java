@@ -134,10 +134,12 @@ public final class JavaDriverV4Client implements StressClient {
                 .withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS, "DcInferringLoadBalancingPolicy")
                 .withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost)
                 .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofMillis(requestTimeout));
-        if (protocolVersion != null)
+        if (protocolVersion != null) {
             config = config.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
-        if (maxPendingPerConnection != null)
+        }
+        if (maxPendingPerConnection != null) {
             config = config.withInt(DefaultDriverOption.CONNECTION_MAX_REQUESTS, maxPendingPerConnection);
+        }
         config = V4DriverConfig.loadBalancing(config, node);
         return V4DriverConfig.compression(config, compression);
     }
@@ -150,8 +152,12 @@ public final class JavaDriverV4Client implements StressClient {
                 .withConfigLoader(config(compression).build())
                 .withCodecRegistry(codecRegistry());
 
-        if (node.isWhiteList) builder = builder.withNodeDistanceEvaluator(new WhiteList(contactPoints));
-        if (encryptionOptions.enabled) builder = builder.withSslEngineFactory(sslEngineFactory());
+        if (node.isWhiteList) {
+            builder = builder.withNodeDistanceEvaluator(new WhiteList(contactPoints));
+        }
+        if (encryptionOptions.enabled) {
+            builder = builder.withSslEngineFactory(sslEngineFactory());
+        }
         builder = V4DriverConfig.auth(builder, mode.authProvider, mode.username, mode.password);
 
         session = builder.build();
@@ -204,7 +210,9 @@ public final class JavaDriverV4Client implements StressClient {
 
         boolean allows(Node node) {
             SocketAddress endpoint = node.getEndPoint().resolve();
-            if (endpoint instanceof InetSocketAddress socket && addresses.contains(socket.getAddress())) return true;
+            if (endpoint instanceof InetSocketAddress socket && addresses.contains(socket.getAddress())) {
+                return true;
+            }
             return node.getBroadcastRpcAddress()
                     .map(InetSocketAddress::getAddress)
                     .filter(addresses::contains)
@@ -231,11 +239,12 @@ public final class JavaDriverV4Client implements StressClient {
         } catch (AlreadyExistsException e) {
             throw new SchemaAlreadyExistsException(e.getMessage(), e);
         }
-        if (!result.getExecutionInfo().isSchemaInAgreement())
+        if (!result.getExecutionInfo().isSchemaInAgreement()) {
             LOGGER.warn(
                     "No schema agreement from live replicas after {} s. The schema may not be up to date on some"
                             + " nodes.",
                     schemaAgreementWait().toSeconds());
+        }
     }
 
     private Duration schemaAgreementWait() {
@@ -248,8 +257,12 @@ public final class JavaDriverV4Client implements StressClient {
     @Override
     public StressResult execute(String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
         SimpleStatementBuilder builder = new SimpleStatementBuilder(query);
-        if (consistency != null) builder.setConsistencyLevel(V4DriverConfig.consistency(consistency));
-        if (serialConsistency != null) builder.setSerialConsistencyLevel(V4DriverConfig.consistency(serialConsistency));
+        if (consistency != null) {
+            builder.setConsistencyLevel(V4DriverConfig.consistency(consistency));
+        }
+        if (serialConsistency != null) {
+            builder.setSerialConsistencyLevel(V4DriverConfig.consistency(serialConsistency));
+        }
         return result(overloadAware(() -> session.execute(builder.build())));
     }
 
@@ -267,30 +280,39 @@ public final class JavaDriverV4Client implements StressClient {
         }
         StressPreparedStatement first = statements.getFirst().statement();
         BatchStatementBuilder batch = new BatchStatementBuilder(DefaultBatchType.valueOf(type.name()));
-        if (first.getConsistencyLevel() != null)
+        if (first.getConsistencyLevel() != null) {
             batch.setConsistencyLevel(V4DriverConfig.consistency(first.getConsistencyLevel()));
-        if (first.getSerialConsistencyLevel() != null)
+        }
+        if (first.getSerialConsistencyLevel() != null) {
             batch.setSerialConsistencyLevel(V4DriverConfig.consistency(first.getSerialConsistencyLevel()));
+        }
         List<BatchableStatement<?>> bound = new ArrayList<>(statements.size());
-        for (StressBoundStatement statement : statements)
+        for (StressBoundStatement statement : statements) {
             bound.add(bound(statement).toDriver(null, null));
+        }
         overloadAware(() -> session.execute(batch.addStatements(bound).build()));
     }
 
     private static V4BoundStatement bound(StressBoundStatement statement) {
-        if (statement instanceof V4BoundStatement bound) return bound;
+        if (statement instanceof V4BoundStatement bound) {
+            return bound;
+        }
         throw new IllegalArgumentException("Driver 4.x cannot run a statement bound by another driver: " + statement);
     }
 
     @Override
     public StressPage executePage(String query, int pageSize, Object pagingState) {
         SimpleStatementBuilder statement = new SimpleStatementBuilder(query).setPageSize(pageSize);
-        if (pagingState != null) statement.setPagingState((ByteBuffer) pagingState);
+        if (pagingState != null) {
+            statement.setPagingState((ByteBuffer) pagingState);
+        }
         ResultSet results = overloadAware(() -> session.execute(statement.build()));
         int available = results.getAvailableWithoutFetching();
         List<ByteBuffer[]> rows = new ArrayList<>(available);
         Iterator<Row> iterator = results.iterator();
-        for (int i = 0; i < available; i++) rows.add(values(iterator.next()));
+        for (int i = 0; i < available; i++) {
+            rows.add(values(iterator.next()));
+        }
         return new StressPage(
                 new StressResult(names(results.getColumnDefinitions()), rows),
                 results.getExecutionInfo().getPagingState(),
@@ -299,20 +321,25 @@ public final class JavaDriverV4Client implements StressClient {
 
     static StressResult result(ResultSet results) {
         List<ByteBuffer[]> rows = new ArrayList<>();
-        for (Row row : results) rows.add(values(row));
+        for (Row row : results) {
+            rows.add(values(row));
+        }
         return new StressResult(names(results.getColumnDefinitions()), rows);
     }
 
     private static List<String> names(ColumnDefinitions definitions) {
         List<String> names = new ArrayList<>(definitions.size());
-        for (ColumnDefinition definition : definitions)
+        for (ColumnDefinition definition : definitions) {
             names.add(definition.getName().asInternal());
+        }
         return names;
     }
 
     private static ByteBuffer[] values(Row row) {
         ByteBuffer[] values = new ByteBuffer[row.getColumnDefinitions().size()];
-        for (int i = 0; i < values.length; i++) values[i] = row.getBytesUnsafe(i);
+        for (int i = 0; i < values.length; i++) {
+            values[i] = row.getBytesUnsafe(i);
+        }
         return values;
     }
 
@@ -327,14 +354,19 @@ public final class JavaDriverV4Client implements StressClient {
 
     static TableSchema schema(TableMetadata table) {
         List<ColumnSchema> partitionKey = new ArrayList<>();
-        for (ColumnMetadata column : table.getPartitionKey()) partitionKey.add(column(column, false));
+        for (ColumnMetadata column : table.getPartitionKey()) {
+            partitionKey.add(column(column, false));
+        }
         List<ColumnSchema> clustering = new ArrayList<>();
         table.getClusteringColumns()
                 .forEach((column, order) -> clustering.add(column(column, order == ClusteringOrder.DESC)));
         List<ColumnMetadata> key = table.getPrimaryKey();
         List<ColumnSchema> values = new ArrayList<>();
-        for (ColumnMetadata column : table.getColumns().values())
-            if (!key.contains(column)) values.add(column(column, false));
+        for (ColumnMetadata column : table.getColumns().values()) {
+            if (!key.contains(column)) {
+                values.add(column(column, false));
+            }
+        }
         return new TableSchema(
                 table.getKeyspace().asInternal(), table.getName().asInternal(), partitionKey, clustering, values);
     }
@@ -344,14 +376,24 @@ public final class JavaDriverV4Client implements StressClient {
     }
 
     static CqlType type(DataType type) {
-        if (type instanceof ListType list)
+        if (type instanceof ListType list) {
             return new CqlType("LIST", List.of(type(list.getElementType())), list.isFrozen());
-        if (type instanceof SetType set) return new CqlType("SET", List.of(type(set.getElementType())), set.isFrozen());
-        if (type instanceof MapType map)
+        }
+        if (type instanceof SetType set) {
+            return new CqlType("SET", List.of(type(set.getElementType())), set.isFrozen());
+        }
+        if (type instanceof MapType map) {
             return new CqlType("MAP", List.of(type(map.getKeyType()), type(map.getValueType())), map.isFrozen());
-        if (type instanceof UserDefinedType udt) return new CqlType("UDT", List.of(), udt.isFrozen());
-        if (type instanceof TupleType) return CqlType.of("TUPLE");
-        if (type instanceof CustomType) return CqlType.of("CUSTOM");
+        }
+        if (type instanceof UserDefinedType udt) {
+            return new CqlType("UDT", List.of(), udt.isFrozen());
+        }
+        if (type instanceof TupleType) {
+            return CqlType.of("TUPLE");
+        }
+        if (type instanceof CustomType) {
+            return CqlType.of("CUSTOM");
+        }
         return CqlType.of(type.asCql(false, true).toUpperCase(Locale.ROOT));
     }
 
@@ -361,13 +403,16 @@ public final class JavaDriverV4Client implements StressClient {
                 .getTokenMap()
                 .orElseThrow(() -> new IllegalStateException("The driver has no token map"));
         List<TokenSlice> ranges = new ArrayList<>();
-        for (TokenRange range : tokenMap.getTokenRanges())
+        for (TokenRange range : tokenMap.getTokenRanges()) {
             ranges.add(new TokenSlice(token(range.getStart()), token(range.getEnd())));
+        }
         return TokenSlice.sortedAndUnwrapped(ranges);
     }
 
     static long token(Token token) {
-        if (token instanceof Murmur3Token murmur3) return murmur3.getValue();
+        if (token instanceof Murmur3Token murmur3) {
+            return murmur3.getValue();
+        }
         throw new IllegalStateException("Only the Murmur3 partitioner is supported, got " + token);
     }
 

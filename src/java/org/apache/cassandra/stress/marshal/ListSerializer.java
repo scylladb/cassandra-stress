@@ -25,7 +25,9 @@ public final class ListSerializer<T> extends CollectionSerializer<List<T>> {
     @Override
     public List<ByteBuffer> serializeValues(List<T> values) {
         List<ByteBuffer> buffers = new ArrayList<>(values.size());
-        for (T value : values) buffers.add(elements.serialize(value));
+        for (T value : values) {
+            buffers.add(elements.serialize(value));
+        }
         return buffers;
     }
 
@@ -39,9 +41,13 @@ public final class ListSerializer<T> extends CollectionSerializer<List<T>> {
         try {
             ByteBuffer input = bytes.duplicate();
             int n = readCollectionSize(input);
-            for (int i = 0; i < n; i++) elements.validate(readValue(input));
+            for (int i = 0; i < n; i++) {
+                elements.validate(readValue(input));
+            }
 
-            if (input.hasRemaining()) throw new MarshalException("Unexpected extraneous bytes after list value");
+            if (input.hasRemaining()) {
+                throw new MarshalException("Unexpected extraneous bytes after list value");
+            }
         } catch (BufferUnderflowException e) {
             throw new MarshalException("Not enough bytes to read a list", e);
         }
@@ -53,7 +59,9 @@ public final class ListSerializer<T> extends CollectionSerializer<List<T>> {
             ByteBuffer input = bytes.duplicate();
             int n = readCollectionSize(input);
 
-            if (n < 0) throw new MarshalException("The data cannot be deserialized as a list");
+            if (n < 0) {
+                throw new MarshalException("The data cannot be deserialized as a list");
+            }
 
             List<T> l = new ArrayList<T>(Math.min(n, 256));
             for (int i = 0; i < n; i++) {
@@ -66,7 +74,9 @@ public final class ListSerializer<T> extends CollectionSerializer<List<T>> {
                 }
             }
 
-            if (input.hasRemaining()) throw new MarshalException("Unexpected extraneous bytes after list value");
+            if (input.hasRemaining()) {
+                throw new MarshalException("Unexpected extraneous bytes after list value");
+            }
 
             return l;
         } catch (BufferUnderflowException e) {
@@ -78,7 +88,9 @@ public final class ListSerializer<T> extends CollectionSerializer<List<T>> {
         try {
             ByteBuffer input = serializedList.duplicate();
             int n = readCollectionSize(input);
-            if (n <= index) return null;
+            if (n <= index) {
+                return null;
+            }
 
             for (int i = 0; i < index; i++) {
                 int length = input.getInt();
@@ -96,8 +108,11 @@ public final class ListSerializer<T> extends CollectionSerializer<List<T>> {
         boolean isFirst = true;
         sb.append('[');
         for (T element : value) {
-            if (isFirst) isFirst = false;
-            else sb.append(", ");
+            if (isFirst) {
+                isFirst = false;
+            } else {
+                sb.append(", ");
+            }
             sb.append(elements.toString(element));
         }
         sb.append(']');

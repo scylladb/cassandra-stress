@@ -44,8 +44,11 @@ public abstract class PartitionIterator implements Iterator<Row> {
     final Row row;
 
     public static PartitionIterator get(PartitionGenerator generator, SeedManager seedManager) {
-        if (!generator.clusteringComponents.isEmpty()) return new MultiRowIterator(generator, seedManager);
-        else return new SingleRowIterator(generator, seedManager);
+        if (!generator.clusteringComponents.isEmpty()) {
+            return new MultiRowIterator(generator, seedManager);
+        } else {
+            return new SingleRowIterator(generator, seedManager);
+        }
     }
 
     private PartitionIterator(PartitionGenerator generator, SeedManager seedManager) {
@@ -123,7 +126,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
 
         @Override
         public Row next() {
-            if (done) throw new NoSuchElementException();
+            if (done) {
+                throw new NoSuchElementException();
+            }
 
             double valueColumn = 0.0;
             for (int i = 0; i < row.row.length; i++) {
@@ -165,7 +170,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
 
         MultiRowIterator(PartitionGenerator generator, SeedManager seedManager) {
             super(generator, seedManager);
-            for (int i = 0; i < clusteringComponents.length; i++) clusteringComponents[i] = new ArrayDeque<>();
+            for (int i = 0; i < clusteringComponents.length; i++) {
+                clusteringComponents[i] = new ArrayDeque<>();
+            }
             rollmodifier[0] = 1f;
             chancemodifier[0] = generator.clusteringDescendantAverages[0];
             this.totalValueColumns = generator.valueComponents.size();
@@ -193,20 +200,30 @@ public abstract class PartitionIterator implements Iterator<Row> {
 
             int position = seed.position();
 
-            if (isWrite) expectedRowCount = firstComponentCount * generator.clusteringDescendantAverages[0];
-            else if (position != 0) expectedRowCount = setLastRow(position - 1);
-            else expectedRowCount = setNoLastRow(firstComponentCount);
+            if (isWrite) {
+                expectedRowCount = firstComponentCount * generator.clusteringDescendantAverages[0];
+            } else if (position != 0) {
+                expectedRowCount = setLastRow(position - 1);
+            } else {
+                expectedRowCount = setNoLastRow(firstComponentCount);
+            }
 
-            if (Double.isNaN(useChance)) useChance = Math.clamp(targetCount / (double) expectedRowCount, 0d, 1d);
+            if (Double.isNaN(useChance)) {
+                useChance = Math.clamp(targetCount / (double) expectedRowCount, 0d, 1d);
+            }
             setUseChance(useChance);
 
             while (true) {
 
-                for (Queue<?> q : clusteringComponents) q.clear();
+                for (Queue<?> q : clusteringComponents) {
+                    q.clear();
+                }
                 fill(0);
 
                 if (!isWrite) {
-                    if (seek(0) != State.SUCCESS) throw new IllegalStateException();
+                    if (seek(0) != State.SUCCESS) {
+                        throw new IllegalStateException();
+                    }
                     return true;
                 }
 
@@ -251,7 +268,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
             this.rowPopulationRatio = 1d;
             this.isWrite = false;
             assert clusteringComponentDepth <= clusteringComponents.length;
-            for (Queue<?> q : clusteringComponents) q.clear();
+            for (Queue<?> q : clusteringComponents) {
+                q.clear();
+            }
 
             fill(0);
             Pair<int[], Object[]> bound1 = randomBound(clusteringComponentDepth);
@@ -275,7 +294,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
         }
 
         private int setLastRow(int position) {
-            if (position < 0) throw new IllegalStateException();
+            if (position < 0) {
+                throw new IllegalStateException();
+            }
 
             decompose(position, lastRow);
             int expectedRowCount = 0;
@@ -293,11 +314,15 @@ public abstract class PartitionIterator implements Iterator<Row> {
                 int l = lastRow[i];
                 int r = clusteringComponents[i].size();
                 if (prev < 0) {
-                    if (r > 1) return -1;
+                    if (r > 1) {
+                        return -1;
+                    }
                 } else if (p > l) {
                     return 1;
                 } else if (p != l) {
-                    if (r != 1) return -1;
+                    if (r != 1) {
+                        return -1;
+                    }
                     prev = p - l;
                 }
             }
@@ -320,12 +345,20 @@ public abstract class PartitionIterator implements Iterator<Row> {
         }
 
         private boolean isPastLastRow(int depth) {
-            for (int i = 0; i <= depth; i++) if (currentRow[i] != lastRow[i]) return currentRow[i] > lastRow[i];
+            for (int i = 0; i <= depth; i++) {
+                if (currentRow[i] != lastRow[i]) {
+                    return currentRow[i] > lastRow[i];
+                }
+            }
             return false;
         }
 
         private static int compare(int[] l, int[] r) {
-            for (int i = 0; i < l.length; i++) if (l[i] != r[i]) return Integer.compare(l[i], r[i]);
+            for (int i = 0; i < l.length; i++) {
+                if (l[i] != r[i]) {
+                    return Integer.compare(l[i], r[i]);
+                }
+            }
             return 0;
         }
 
@@ -348,27 +381,39 @@ public abstract class PartitionIterator implements Iterator<Row> {
         private State seekToCurrentRow() {
             int[] position = this.currentRow;
             for (int i = 0; i < position.length; i++) {
-                if (i != 0) fill(i);
-                for (int c = position[i]; c > 0; c--) clusteringComponents[i].poll();
+                if (i != 0) {
+                    fill(i);
+                }
+                for (int c = position[i]; c > 0; c--) {
+                    clusteringComponents[i].poll();
+                }
 
                 if (clusteringComponents[i].isEmpty()) {
                     int j = i;
                     while (true) {
-                        if (--j < 0) return setHasNext(false);
+                        if (--j < 0) {
+                            return setHasNext(false);
+                        }
 
                         clusteringComponents[j].poll();
-                        if (!clusteringComponents[j].isEmpty()) break;
+                        if (!clusteringComponents[j].isEmpty()) {
+                            break;
+                        }
                     }
 
                     position[j]++;
                     Arrays.fill(position, j + 1, position.length, 0);
-                    while (j < i) fill(++j);
+                    while (j < i) {
+                        fill(++j);
+                    }
                 }
 
                 row.row[i] = clusteringComponents[i].peek();
             }
 
-            if (compareToLastRow(currentRow.length - 1) > 0) return setHasNext(false);
+            if (compareToLastRow(currentRow.length - 1) > 0) {
+                return setHasNext(false);
+            }
 
             position[position.length - 1]--;
             clusteringComponents[position.length - 1].addFirst(this);
@@ -404,11 +449,15 @@ public abstract class PartitionIterator implements Iterator<Row> {
             currentRow[depth]++;
             while (true) {
                 if (clusteringComponents[depth].isEmpty()) {
-                    if (depth == 0) return false;
+                    if (depth == 0) {
+                        return false;
+                    }
                     depth--;
                     clusteringComponents[depth].poll();
                     currentRow[depth]++;
-                    if (isPastLastRow(depth)) return false;
+                    if (isPastLastRow(depth)) {
+                        return false;
+                    }
                     continue;
                 }
 
@@ -423,7 +472,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
                 if (forceReturnOne || thischance > 0.99999f || thischance >= random.nextDouble()) {
                     row.row[depth] = clusteringComponents[depth].peek();
                     depth++;
-                    if (depth == clusteringComponents.length) return true;
+                    if (depth == clusteringComponents.length) {
+                        return true;
+                    }
                     if (useChance < 1d) {
                         rollmodifier[depth] = rollmodifier[depth - 1] / Math.min(1d, thischance);
                         chancemodifier[depth] = generator.clusteringDescendantAverages[depth] * rollmodifier[depth];
@@ -433,7 +484,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
                     continue;
                 }
 
-                if (compareToLastRow >= 0) return false;
+                if (compareToLastRow >= 0) {
+                    return false;
+                }
 
                 clusteringComponents[depth].poll();
                 currentRow[depth]++;
@@ -442,7 +495,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
 
         private static Object elementAt(Deque<Object> deque, int index) {
             Iterator<Object> iterator = deque.iterator();
-            for (int i = 0; i < index; i++) iterator.next();
+            for (int i = 0; i < index; i++) {
+                iterator.next();
+            }
             return iterator.next();
         }
 
@@ -457,7 +512,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
                 position[d] = rnd.nextInt(clusteringComponents[d].size());
                 bound[d] = elementAt(clusteringComponents[d], position[d]);
             }
-            for (int d = 1; d < clusteringComponentDepth; d++) clusteringComponents[d].clear();
+            for (int d = 1; d < clusteringComponentDepth; d++) {
+                clusteringComponents[d].clear();
+            }
             return Pair.create(position, bound);
         }
 
@@ -480,7 +537,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
         @SuppressWarnings({"unchecked", "rawtypes"})
         private Object fillInStoredOrder(Queue<Object> queue, int count, Generator gen, Comparator<Object> stored) {
             tosort.clear();
-            for (int i = 0; i < count; i++) tosort.add(gen.generate());
+            for (int i = 0; i < count; i++) {
+                tosort.add(gen.generate());
+            }
             Object first = tosort.getFirst();
             Object seedElement = switch (generator.order) {
                 case ARBITRARY -> first;
@@ -491,8 +550,11 @@ public abstract class PartitionIterator implements Iterator<Row> {
                 case SHUFFLED -> null;
             };
             tosort.sort(stored);
-            for (int i = 0; i < tosort.size(); i++)
-                if (i == 0 || stored.compare(tosort.get(i - 1), tosort.get(i)) != 0) queue.add(tosort.get(i));
+            for (int i = 0; i < tosort.size(); i++) {
+                if (i == 0 || stored.compare(tosort.get(i - 1), tosort.get(i)) != 0) {
+                    queue.add(tosort.get(i));
+                }
+            }
             return seedElement != null ? seedElement : queue.peek();
         }
 
@@ -504,8 +566,11 @@ public abstract class PartitionIterator implements Iterator<Row> {
 
             switch (order) {
                 case SORTED -> {
-                    if (Comparable.class.isAssignableFrom(generator.clazz)) fillSorted(queue, count, generator);
-                    else fillUnique(queue, count, generator);
+                    if (Comparable.class.isAssignableFrom(generator.clazz)) {
+                        fillSorted(queue, count, generator);
+                    } else {
+                        fillUnique(queue, count, generator);
+                    }
                 }
                 case ARBITRARY -> fillUnique(queue, count, generator);
                 case SHUFFLED -> fillShuffled(queue, count, generator);
@@ -515,17 +580,24 @@ public abstract class PartitionIterator implements Iterator<Row> {
         @SuppressWarnings({"unchecked", "rawtypes"})
         private void fillSorted(Queue<Object> queue, int count, Generator generator) {
             tosort.clear();
-            for (int i = 0; i < count; i++) tosort.add(generator.generate());
+            for (int i = 0; i < count; i++) {
+                tosort.add(generator.generate());
+            }
             Collections.sort((List<Comparable>) (List<?>) tosort);
-            for (int i = 0; i < count; i++)
-                if (i == 0 || ((Comparable) tosort.get(i - 1)).compareTo(tosort.get(i)) < 0) queue.add(tosort.get(i));
+            for (int i = 0; i < count; i++) {
+                if (i == 0 || ((Comparable) tosort.get(i - 1)).compareTo(tosort.get(i)) < 0) {
+                    queue.add(tosort.get(i));
+                }
+            }
         }
 
         private void fillUnique(Queue<Object> queue, int count, Generator generator) {
             unique.clear();
             for (int i = 0; i < count; i++) {
                 Object next = generator.generate();
-                if (unique.add(next)) queue.add(next);
+                if (unique.add(next)) {
+                    queue.add(next);
+                }
             }
         }
 
@@ -535,7 +607,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
             ThreadLocalRandom rand = ThreadLocalRandom.current();
             for (int i = 0; i < count; i++) {
                 Object next = generator.generate();
-                if (unique.add(next)) tosort.add(next);
+                if (unique.add(next)) {
+                    tosort.add(next);
+                }
             }
             for (int i = 0; i < tosort.size(); i++) {
                 int index = rand.nextInt(i, tosort.size());
@@ -552,7 +626,9 @@ public abstract class PartitionIterator implements Iterator<Row> {
 
         @Override
         public Row next() {
-            if (!hasNext()) throw new NoSuchElementException();
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
             return advance();
         }
 
@@ -566,8 +642,12 @@ public abstract class PartitionIterator implements Iterator<Row> {
                 boolean isLast = finishedPartition();
                 if (isWrite) {
                     boolean isFirst = isFirstWrite;
-                    if (isFirst) seedManager.markFirstWrite(seed, isLast);
-                    if (isLast) seedManager.markLastWrite(seed, isFirst);
+                    if (isFirst) {
+                        seedManager.markFirstWrite(seed, isLast);
+                    }
+                    if (isLast) {
+                        seedManager.markLastWrite(seed, isFirst);
+                    }
                 }
                 return isLast ? State.END_OF_PARTITION : State.AFTER_LIMIT;
             }
@@ -582,10 +662,14 @@ public abstract class PartitionIterator implements Iterator<Row> {
 
     static long seed(Object object, AbstractType type, long seed) {
         if (object instanceof ByteBuffer buf) {
-            for (int i = buf.position(); i < buf.limit(); i++) seed = (31 * seed) + buf.get(i);
+            for (int i = buf.position(); i < buf.limit(); i++) {
+                seed = (31 * seed) + buf.get(i);
+            }
             return seed;
         } else if (object instanceof String str) {
-            for (int i = 0; i < str.length(); i++) seed = (31 * seed) + str.charAt(i);
+            for (int i = 0; i < str.length(); i++) {
+                seed = (31 * seed) + str.charAt(i);
+            }
             return seed;
         } else if (object instanceof Number number) {
             return (seed * 31) + number.longValue();
@@ -604,14 +688,18 @@ public abstract class PartitionIterator implements Iterator<Row> {
         StringBuilder sb = new StringBuilder();
         int i = 0;
         for (Object key : partitionKey) {
-            if (i > 0) sb.append('|');
+            if (i > 0) {
+                sb.append('|');
+            }
             AbstractType type = generator.partitionKey.get(i++).type;
             String typeStr = type.getString(type.decompose(key));
             if (type instanceof BytesType) {
                 String decoded = tryDecodeHexAsAscii(typeStr);
-                if (decoded != null)
+                if (decoded != null) {
                     sb.append(decoded).append(" (hex: ").append(typeStr).append(')');
-                else sb.append(typeStr);
+                } else {
+                    sb.append(typeStr);
+                }
             } else {
                 sb.append(typeStr);
             }
@@ -620,14 +708,20 @@ public abstract class PartitionIterator implements Iterator<Row> {
     }
 
     private static String tryDecodeHexAsAscii(String hex) {
-        if (hex == null || hex.length() == 0 || hex.length() % 2 != 0) return null;
+        if (hex == null || hex.length() == 0 || hex.length() % 2 != 0) {
+            return null;
+        }
         byte[] bytes = new byte[hex.length() / 2];
         for (int i = 0; i < bytes.length; i++) {
             int hi = Character.digit(hex.charAt(i * 2), 16);
             int lo = Character.digit(hex.charAt(i * 2 + 1), 16);
-            if (hi < 0 || lo < 0) return null;
+            if (hi < 0 || lo < 0) {
+                return null;
+            }
             bytes[i] = (byte) ((hi << 4) | lo);
-            if (bytes[i] < 0x20 || bytes[i] > 0x7E) return null;
+            if (bytes[i] < 0x20 || bytes[i] > 0x7E) {
+                return null;
+            }
         }
         return new String(bytes, java.nio.charset.StandardCharsets.US_ASCII);
     }

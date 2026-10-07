@@ -108,8 +108,9 @@ public final class JavaDriverV3Client implements StressClient {
         PoolingOptions pooling = new PoolingOptions()
                 .setConnectionsPerHost(HostDistance.LOCAL, connectionsPerHost, connectionsPerHost)
                 .setNewConnectionThreshold(HostDistance.LOCAL, 100);
-        if (maxPendingPerConnection != null)
+        if (maxPendingPerConnection != null) {
             pooling.setMaxRequestsPerConnection(HostDistance.LOCAL, maxPendingPerConnection);
+        }
 
         Cluster.Builder builder = Cluster.builder()
                 .addContactPointsWithPorts(
@@ -121,8 +122,12 @@ public final class JavaDriverV3Client implements StressClient {
                 .withLoadBalancingPolicy(V3DriverConfig.loadBalancing(node, contactPoints))
                 .withCompression(V3DriverConfig.compression(compression))
                 .withCodecRegistry(codecRegistry());
-        if (protocolVersion != null) builder.withProtocolVersion(protocolVersion);
-        if (encryptionOptions.enabled) builder.withSSL(sslOptions());
+        if (protocolVersion != null) {
+            builder.withProtocolVersion(protocolVersion);
+        }
+        if (encryptionOptions.enabled) {
+            builder.withSSL(sslOptions());
+        }
         return V3DriverConfig.auth(builder, mode.authProvider, mode.username, mode.password);
     }
 
@@ -142,18 +147,22 @@ public final class JavaDriverV3Client implements StressClient {
             session = cluster.connect();
         } catch (NoHostAvailableException e) {
             Throwable handshake = find(e, SSLHandshakeException.class);
-            if (handshake != null)
+            if (handshake != null) {
                 output.printf(
                         "  Failed to connect to node due to an error during SSL handshake %s: %s%n",
                         handshake.getClass().getName(), handshake.getMessage());
+            }
             throw e;
         }
     }
 
     private static Throwable find(NoHostAvailableException e, Class<? extends Throwable> type) {
         for (Throwable error : e.getErrors().values()) {
-            for (Throwable current = error; current != null; current = current.getCause())
-                if (type.isInstance(current)) return current;
+            for (Throwable current = error; current != null; current = current.getCause()) {
+                if (type.isInstance(current)) {
+                    return current;
+                }
+            }
         }
         return null;
     }
@@ -198,9 +207,12 @@ public final class JavaDriverV3Client implements StressClient {
     @Override
     public StressResult execute(String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
         SimpleStatement statement = new SimpleStatement(query);
-        if (consistency != null) statement.setConsistencyLevel(V3DriverConfig.consistency(consistency));
-        if (serialConsistency != null)
+        if (consistency != null) {
+            statement.setConsistencyLevel(V3DriverConfig.consistency(consistency));
+        }
+        if (serialConsistency != null) {
             statement.setSerialConsistencyLevel(V3DriverConfig.consistency(serialConsistency));
+        }
         return result(overloadAware(() -> session.execute(statement)));
     }
 
@@ -218,17 +230,22 @@ public final class JavaDriverV3Client implements StressClient {
         }
         BatchStatement batch = new BatchStatement(BatchStatement.Type.valueOf(type.name()));
         StressPreparedStatement first = statements.getFirst().statement();
-        if (first.getConsistencyLevel() != null)
+        if (first.getConsistencyLevel() != null) {
             batch.setConsistencyLevel(V3DriverConfig.consistency(first.getConsistencyLevel()));
-        if (first.getSerialConsistencyLevel() != null)
+        }
+        if (first.getSerialConsistencyLevel() != null) {
             batch.setSerialConsistencyLevel(V3DriverConfig.consistency(first.getSerialConsistencyLevel()));
-        for (StressBoundStatement statement : statements)
+        }
+        for (StressBoundStatement statement : statements) {
             batch.add(bound(statement).toDriver(null, null));
+        }
         overloadAware(() -> session.execute(batch));
     }
 
     private static V3BoundStatement bound(StressBoundStatement statement) {
-        if (statement instanceof V3BoundStatement bound) return bound;
+        if (statement instanceof V3BoundStatement bound) {
+            return bound;
+        }
         throw new IllegalArgumentException("Driver 3.x cannot run a statement bound by another driver: " + statement);
     }
 
@@ -236,11 +253,15 @@ public final class JavaDriverV3Client implements StressClient {
     public StressPage executePage(String query, int pageSize, Object pagingState) {
         SimpleStatement statement = new SimpleStatement(query);
         statement.setFetchSize(pageSize);
-        if (pagingState != null) statement.setPagingState((PagingState) pagingState);
+        if (pagingState != null) {
+            statement.setPagingState((PagingState) pagingState);
+        }
         ResultSet results = overloadAware(() -> session.execute(statement));
         int available = results.getAvailableWithoutFetching();
         List<ByteBuffer[]> rows = new ArrayList<>(available);
-        for (int i = 0; i < available; i++) rows.add(values(results.one()));
+        for (int i = 0; i < available; i++) {
+            rows.add(values(results.one()));
+        }
         return new StressPage(
                 new StressResult(names(results.getColumnDefinitions()), rows),
                 results.getExecutionInfo().getPagingState(),
@@ -249,26 +270,34 @@ public final class JavaDriverV3Client implements StressClient {
 
     static StressResult result(ResultSet results) {
         List<ByteBuffer[]> rows = new ArrayList<>();
-        for (Row row : results) rows.add(values(row));
+        for (Row row : results) {
+            rows.add(values(row));
+        }
         return new StressResult(names(results.getColumnDefinitions()), rows);
     }
 
     private static List<String> names(ColumnDefinitions definitions) {
         List<String> names = new ArrayList<>(definitions.size());
-        for (int i = 0; i < definitions.size(); i++) names.add(definitions.getName(i));
+        for (int i = 0; i < definitions.size(); i++) {
+            names.add(definitions.getName(i));
+        }
         return names;
     }
 
     private static ByteBuffer[] values(Row row) {
         ByteBuffer[] values = new ByteBuffer[row.getColumnDefinitions().size()];
-        for (int i = 0; i < values.length; i++) values[i] = row.getBytesUnsafe(i);
+        for (int i = 0; i < values.length; i++) {
+            values[i] = row.getBytesUnsafe(i);
+        }
         return values;
     }
 
     @Override
     public TableSchema tableSchema(String keyspace, String tableName) {
         KeyspaceMetadata metadata = cluster.getMetadata().getKeyspace(keyspace);
-        if (metadata == null) return null;
+        if (metadata == null) {
+            return null;
+        }
         TableMetadata table = metadata.getTable(tableName);
         return table == null ? null : schema(table, descendingColumns(metadata.getName(), table.getName()));
     }
@@ -280,8 +309,11 @@ public final class JavaDriverV3Client implements StressClient {
                 keyspace,
                 tableName);
         Set<String> descending = new HashSet<>();
-        for (Row row : session.execute(statement))
-            if (isDescending(row.getString("clustering_order"))) descending.add(row.getString("column_name"));
+        for (Row row : session.execute(statement)) {
+            if (isDescending(row.getString("clustering_order"))) {
+                descending.add(row.getString("column_name"));
+            }
+        }
         return descending;
     }
 
@@ -291,7 +323,9 @@ public final class JavaDriverV3Client implements StressClient {
 
     static TableSchema schema(TableMetadata table, Set<String> descendingColumns) {
         List<ColumnSchema> partitionKey = new ArrayList<>();
-        for (ColumnMetadata column : table.getPartitionKey()) partitionKey.add(column(column, false));
+        for (ColumnMetadata column : table.getPartitionKey()) {
+            partitionKey.add(column(column, false));
+        }
         List<ColumnSchema> clustering = new ArrayList<>();
         List<ClusteringOrder> orders = table.getClusteringOrder();
         List<ColumnMetadata> clusteringColumns = table.getClusteringColumns();
@@ -302,7 +336,11 @@ public final class JavaDriverV3Client implements StressClient {
         }
         List<ColumnMetadata> key = table.getPrimaryKey();
         List<ColumnSchema> values = new ArrayList<>();
-        for (ColumnMetadata column : table.getColumns()) if (!key.contains(column)) values.add(column(column, false));
+        for (ColumnMetadata column : table.getColumns()) {
+            if (!key.contains(column)) {
+                values.add(column(column, false));
+            }
+        }
         return new TableSchema(table.getKeyspace().getName(), table.getName(), partitionKey, clustering, values);
     }
 
@@ -329,13 +367,16 @@ public final class JavaDriverV3Client implements StressClient {
     @Override
     public List<TokenSlice> tokenRanges() {
         List<TokenSlice> ranges = new ArrayList<>();
-        for (TokenRange range : cluster.getMetadata().getTokenRanges())
+        for (TokenRange range : cluster.getMetadata().getTokenRanges()) {
             ranges.add(new TokenSlice(token(range.getStart()), token(range.getEnd())));
+        }
         return TokenSlice.sortedAndUnwrapped(ranges);
     }
 
     static long token(com.datastax.driver.core.Token token) {
-        if (token.getValue() instanceof Long value) return value;
+        if (token.getValue() instanceof Long value) {
+            return value;
+        }
         throw new IllegalStateException("Only the Murmur3 partitioner is supported, got " + token);
     }
 

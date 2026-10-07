@@ -119,15 +119,17 @@ public class SettingsSchema {
         b.append("CREATE TABLE IF NOT EXISTS standard1 (key blob PRIMARY KEY ");
 
         try {
-            for (ByteBuffer name : settings.columns.names)
+            for (ByteBuffer name : settings.columns.names) {
                 b.append("\n, \"").append(ByteBufferUtil.string(name)).append("\" blob");
+            }
         } catch (CharacterCodingException e) {
             throw new RuntimeException(e);
         }
 
         b.append(") WITH compression = {");
-        if (compression != null)
+        if (compression != null) {
             b.append("'sstable_compression' : '").append(compression).append('\'');
+        }
 
         b.append('}');
 
@@ -136,12 +138,13 @@ public class SettingsSchema {
                     .append(compactionStrategy)
                     .append('\'');
 
-            for (Map.Entry<String, String> entry : compactionStrategyOptions.entrySet())
+            for (Map.Entry<String, String> entry : compactionStrategyOptions.entrySet()) {
                 b.append(", '")
                         .append(entry.getKey())
                         .append("' : '")
                         .append(entry.getValue())
                         .append('\'');
+            }
 
             b.append('}');
         }
@@ -158,15 +161,17 @@ public class SettingsSchema {
         b.append("CREATE TABLE IF NOT EXISTS counter1 (key blob PRIMARY KEY,");
 
         try {
-            for (ByteBuffer name : settings.columns.names)
+            for (ByteBuffer name : settings.columns.names) {
                 b.append("\n, \"").append(ByteBufferUtil.string(name)).append("\" counter");
+            }
         } catch (CharacterCodingException e) {
             throw new RuntimeException(e);
         }
 
         b.append(") WITH compression = {");
-        if (compression != null)
+        if (compression != null) {
             b.append("'sstable_compression' : '").append(compression).append('\'');
+        }
 
         b.append('}');
 
@@ -175,12 +180,13 @@ public class SettingsSchema {
                     .append(compactionStrategy)
                     .append('\'');
 
-            for (Map.Entry<String, String> entry : compactionStrategyOptions.entrySet())
+            for (Map.Entry<String, String> entry : compactionStrategyOptions.entrySet()) {
                 b.append(", '")
                         .append(entry.getKey())
                         .append("' : '")
                         .append(entry.getValue())
                         .append('\'');
+            }
 
             b.append('}');
         }
@@ -222,12 +228,15 @@ public class SettingsSchema {
 
     public static SettingsSchema get(Map<String, String[]> clArgs, SettingsCommand command) {
         String[] params = clArgs.remove("-schema");
-        if (params == null) return new SettingsSchema(new Options(), command);
+        if (params == null) {
+            return new SettingsSchema(new Options(), command);
+        }
 
-        if (command instanceof SettingsCommandUser)
+        if (command instanceof SettingsCommandUser) {
             throw new IllegalArgumentException(
                     "-schema can only be provided with predefined operations insert, read, etc.; the 'user' command"
                             + " requires a schema yaml instead");
+        }
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
         if (options == null) {

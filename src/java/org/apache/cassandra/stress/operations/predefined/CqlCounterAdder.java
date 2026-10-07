@@ -31,7 +31,9 @@ public class CqlCounterAdder extends CqlOperation<Integer> {
         StringBuilder query = new StringBuilder("UPDATE counter1 SET ");
 
         for (int i = 0; i < settings.columns.maxColumnsPerKey; i++) {
-            if (i > 0) query.append(',');
+            if (i > 0) {
+                query.append(',');
+            }
 
             String name = wrapInQuotes(settings.columns.namestrs.get(i));
             query.append(name).append('=').append(name).append("+?");
@@ -43,7 +45,9 @@ public class CqlCounterAdder extends CqlOperation<Integer> {
     @Override
     protected List<Object> getQueryParameters(byte[] key) {
         final List<Object> list = new ArrayList<>();
-        for (int i = 0; i < settings.columns.maxColumnsPerKey; i++) list.add(counteradd.next());
+        for (int i = 0; i < settings.columns.maxColumnsPerKey; i++) {
+            list.add(counteradd.next());
+        }
         list.add(ByteBuffer.wrap(key));
         return list;
     }

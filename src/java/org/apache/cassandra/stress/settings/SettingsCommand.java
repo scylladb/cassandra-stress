@@ -193,11 +193,15 @@ public abstract class SettingsCommand {
 
     static SettingsCommand get(Map<String, String[]> clArgs) {
         for (Command cmd : Command.values()) {
-            if (cmd.category == null) continue;
+            if (cmd.category == null) {
+                continue;
+            }
 
             for (String name : cmd.names) {
                 final String[] params = clArgs.remove(name);
-                if (params == null) continue;
+                if (params == null) {
+                    continue;
+                }
 
                 return switch (cmd.category) {
                     case BASIC -> SettingsCommandPreDefined.build(cmd, params);

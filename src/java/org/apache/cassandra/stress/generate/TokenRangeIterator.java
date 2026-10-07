@@ -20,16 +20,22 @@ public class TokenRangeIterator {
     }
 
     private static Collection<TokenSlice> maybeSplitRanges(Collection<TokenSlice> tokenRanges, int splitFactor) {
-        if (splitFactor <= 1) return tokenRanges;
+        if (splitFactor <= 1) {
+            return tokenRanges;
+        }
 
         TreeSet<TokenSlice> ret = new TreeSet<>();
-        for (TokenSlice range : tokenRanges) ret.addAll(range.splitEvenly(splitFactor));
+        for (TokenSlice range : tokenRanges) {
+            ret.addAll(range.splitEvenly(splitFactor));
+        }
 
         return List.copyOf(ret);
     }
 
     public void update() {
-        if (wrap && pendingRanges.isEmpty()) pendingRanges.addAll(tokenRanges);
+        if (wrap && pendingRanges.isEmpty()) {
+            pendingRanges.addAll(tokenRanges);
+        }
     }
 
     public TokenSlice next() {

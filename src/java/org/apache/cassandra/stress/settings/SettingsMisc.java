@@ -18,9 +18,15 @@ final class SettingsMisc {
     private SettingsMisc() {}
 
     static boolean maybeDoSpecial(Map<String, String[]> clArgs) {
-        if (maybePrintHelp(clArgs)) return true;
-        if (maybePrintDistribution(clArgs)) return true;
-        if (maybePrintVersion(clArgs)) return true;
+        if (maybePrintHelp(clArgs)) {
+            return true;
+        }
+        if (maybePrintDistribution(clArgs)) {
+            return true;
+        }
+        if (maybePrintVersion(clArgs)) {
+            return true;
+        }
         return false;
     }
 
@@ -35,7 +41,9 @@ final class SettingsMisc {
 
     private static boolean maybePrintDistribution(Map<String, String[]> clArgs) {
         final String[] args = clArgs.get("print");
-        if (args == null) return false;
+        if (args == null) {
+            return false;
+        }
         final PrintDistribution dist = new PrintDistribution();
         if (null == GroupedOptions.select(args, dist)) {
             throw new InvalidSettingsException(
@@ -58,15 +66,21 @@ final class SettingsMisc {
     }
 
     private static boolean maybePrintHelp(Map<String, String[]> clArgs) {
-        if (!clArgs.containsKey("-?") && !clArgs.containsKey("help")) return false;
+        if (!clArgs.containsKey("-?") && !clArgs.containsKey("help")) {
+            return false;
+        }
         String[] params = clArgs.remove("-?");
-        if (params == null) params = clArgs.remove("help");
+        if (params == null) {
+            params = clArgs.remove("help");
+        }
         if (params.length == 0) {
             if (!clArgs.isEmpty()) {
                 if (clArgs.size() == 1) {
                     Map.Entry<String, String[]> only =
                             clArgs.entrySet().iterator().next();
-                    if (only.getValue().length == 0) params = new String[] {only.getKey()};
+                    if (only.getValue().length == 0) {
+                        params = new String[] {only.getKey()};
+                    }
                 }
             } else {
                 printHelp();
@@ -98,7 +112,9 @@ final class SettingsMisc {
 
     static String stressVersion() {
         try (InputStream in = SettingsMisc.class.getResourceAsStream("/org/apache/cassandra/stress/stress.version")) {
-            if (in == null) return "unknown";
+            if (in == null) {
+                return "unknown";
+            }
             return new String(in.readAllBytes(), StandardCharsets.UTF_8).trim();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -141,12 +157,14 @@ final class SettingsMisc {
         return () -> {
             System.out.println("Usage: cassandra-stress help <command|option>");
             System.out.println("Commands:");
-            for (Command cmd : Command.values())
+            for (Command cmd : Command.values()) {
                 System.out.println("    " + cmd.names.toString().replaceAll("\\[|\\]", ""));
+            }
             System.out.println("Options:");
-            for (CliOption op : CliOption.values())
+            for (CliOption op : CliOption.values()) {
                 System.out.println("    -" + op.toString().toLowerCase(Locale.ROOT)
                         + (op.extraName != null ? ", " + op.extraName : ""));
+            }
         };
     }
 
@@ -170,8 +188,12 @@ final class SettingsMisc {
 
     static String getSendToDaemon(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-send-to");
-        if (params == null) params = clArgs.remove("-sendto");
-        if (params == null) return null;
+        if (params == null) {
+            params = clArgs.remove("-sendto");
+        }
+        if (params == null) {
+            return null;
+        }
         if (params.length != 1) {
             throw new InvalidSettingsException(
                     "Invalid -sendto specifier: " + Arrays.toString(params), sendToDaemonHelpPrinter());

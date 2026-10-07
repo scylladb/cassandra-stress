@@ -12,8 +12,12 @@ public enum CqlVersion {
     }
 
     static CqlVersion get(String version) {
-        if (version == null) return NOCQL;
-        if (version.charAt(0) != '3') throw new IllegalStateException();
+        if (version == null) {
+            return NOCQL;
+        }
+        if (version.charAt(0) != '3') {
+            throw new IllegalStateException();
+        }
         return CQL3;
     }
 

@@ -55,21 +55,29 @@ public class OptionDistribution extends Option {
 
     @Override
     public boolean accept(String param) {
-        if (!param.toLowerCase(Locale.ROOT).startsWith(prefix)) return false;
+        if (!param.toLowerCase(Locale.ROOT).startsWith(prefix)) {
+            return false;
+        }
         spec = param.substring(prefix.length());
         return true;
     }
 
     public static DistributionFactory get(String spec) {
         Matcher m = FULL.matcher(spec);
-        if (!m.matches()) throw new IllegalArgumentException("Illegal distribution specification: " + spec);
+        if (!m.matches()) {
+            throw new IllegalArgumentException("Illegal distribution specification: " + spec);
+        }
         boolean inverse = "~".equals(m.group(1));
         String name = m.group(2);
         Impl impl = LOOKUP.get(name.toLowerCase(Locale.ROOT));
-        if (impl == null) throw new IllegalArgumentException("Illegal distribution type: " + name);
+        if (impl == null) {
+            throw new IllegalArgumentException("Illegal distribution type: " + name);
+        }
         List<String> params = new ArrayList<>();
         m = ARGS.matcher(m.group(3));
-        while (m.find()) params.add(m.group());
+        while (m.find()) {
+            params.add(m.group());
+        }
         DistributionFactory factory = impl.getFactory(params);
         return inverse ? new InverseFactory(factory) : factory;
     }
@@ -168,7 +176,9 @@ public class OptionDistribution extends Option {
             case 'k' -> 1_000L;
             default -> 1L;
         };
-        if (multiplier != 1L) value = value.substring(0, value.length() - 1);
+        if (multiplier != 1L) {
+            value = value.substring(0, value.length() - 1);
+        }
         return Long.parseLong(value) * multiplier;
     }
 
@@ -176,8 +186,9 @@ public class OptionDistribution extends Option {
 
         @Override
         public DistributionFactory getFactory(List<String> params) {
-            if (params.size() > 3 || params.isEmpty())
+            if (params.size() > 3 || params.isEmpty()) {
                 throw new IllegalArgumentException("Invalid parameter list for gaussian distribution: " + params);
+            }
             try {
                 String[] bounds = params.getFirst().split("\\.\\.+");
                 final long min = parseLong(bounds[0]);
@@ -192,7 +203,9 @@ public class OptionDistribution extends Option {
                     mean = (min + max) / 2d;
                     stdev = ((max - min) / 2d) / stdevsToEdge;
                 }
-                if (min == max) return new FixedFactory(min);
+                if (min == max) {
+                    return new FixedFactory(min);
+                }
                 return new GaussianFactory(min, max, mean, stdev);
             } catch (Exception e) {
                 throw new IllegalArgumentException("Invalid parameter list for uniform distribution: " + params, e);
@@ -203,13 +216,16 @@ public class OptionDistribution extends Option {
     private static final class ExponentialImpl implements Impl {
         @Override
         public DistributionFactory getFactory(List<String> params) {
-            if (params.size() != 1)
+            if (params.size() != 1) {
                 throw new IllegalArgumentException("Invalid parameter list for gaussian distribution: " + params);
+            }
             try {
                 String[] bounds = params.getFirst().split("\\.\\.+");
                 final long min = parseLong(bounds[0]);
                 final long max = parseLong(bounds[1]);
-                if (min == max) return new FixedFactory(min);
+                if (min == max) {
+                    return new FixedFactory(min);
+                }
                 ExponentialDistribution findBounds = new ExponentialDistribution(1d);
                 final double mean =
                         (max - min) / findBounds.inverseCumulativeProbability(1d - Math.sqrt(1d / (max - min)));
@@ -223,14 +239,17 @@ public class OptionDistribution extends Option {
     private static final class ExtremeImpl implements Impl {
         @Override
         public DistributionFactory getFactory(List<String> params) {
-            if (params.size() != 2)
+            if (params.size() != 2) {
                 throw new IllegalArgumentException(
                         "Invalid parameter list for extreme (Weibull) distribution: " + params);
+            }
             try {
                 String[] bounds = params.getFirst().split("\\.\\.+");
                 final long min = parseLong(bounds[0]);
                 final long max = parseLong(bounds[1]);
-                if (min == max) return new FixedFactory(min);
+                if (min == max) {
+                    return new FixedFactory(min);
+                }
                 final double shape = Double.parseDouble(params.get(1));
                 WeibullDistribution findBounds = new WeibullDistribution(shape, 1d);
                 final double scale =
@@ -246,9 +265,10 @@ public class OptionDistribution extends Option {
     private static final class QuantizedExtremeImpl implements Impl {
         @Override
         public DistributionFactory getFactory(List<String> params) {
-            if (params.size() != 3)
+            if (params.size() != 3) {
                 throw new IllegalArgumentException(
                         "Invalid parameter list for quantized extreme (Weibull) distribution: " + params);
+            }
             try {
                 String[] bounds = params.getFirst().split("\\.\\.+");
                 final long min = parseLong(bounds[0]);
@@ -258,7 +278,9 @@ public class OptionDistribution extends Option {
                 WeibullDistribution findBounds = new WeibullDistribution(shape, 1d);
                 final double scale =
                         (max - min) / findBounds.inverseCumulativeProbability(1d - Math.sqrt(1d / (max - min)));
-                if (min == max) return new FixedFactory(min);
+                if (min == max) {
+                    return new FixedFactory(min);
+                }
                 return new QuantizedExtremeFactory(min, max, shape, scale, quantas);
             } catch (Exception e) {
                 throw new IllegalArgumentException(
@@ -271,13 +293,16 @@ public class OptionDistribution extends Option {
 
         @Override
         public DistributionFactory getFactory(List<String> params) {
-            if (params.size() != 1)
+            if (params.size() != 1) {
                 throw new IllegalArgumentException("Invalid parameter list for uniform distribution: " + params);
+            }
             try {
                 String[] bounds = params.getFirst().split("\\.\\.+");
                 final long min = parseLong(bounds[0]);
                 final long max = parseLong(bounds[1]);
-                if (min == max) return new FixedFactory(min);
+                if (min == max) {
+                    return new FixedFactory(min);
+                }
                 return new UniformFactory(min, max);
             } catch (Exception e) {
                 throw new IllegalArgumentException("Invalid parameter list for uniform distribution: " + params, e);
@@ -289,8 +314,9 @@ public class OptionDistribution extends Option {
 
         @Override
         public DistributionFactory getFactory(List<String> params) {
-            if (params.size() != 1)
+            if (params.size() != 1) {
                 throw new IllegalArgumentException("Invalid parameter list for fixed distribution: " + params);
+            }
             try {
                 final long key = parseLong(params.getFirst());
                 return new FixedFactory(key);
@@ -304,8 +330,9 @@ public class OptionDistribution extends Option {
 
         @Override
         public DistributionFactory getFactory(List<String> params) {
-            if (params.size() != 1)
+            if (params.size() != 1) {
                 throw new IllegalArgumentException("Invalid parameter list for sequence distribution: " + params);
+            }
             final long min;
             final long max;
             try {
@@ -315,13 +342,15 @@ public class OptionDistribution extends Option {
             } catch (Exception e) {
                 throw new IllegalArgumentException("Invalid parameter list for sequence distribution: " + params, e);
             }
-            if (min == max)
+            if (min == max) {
                 throw new IllegalArgumentException(
                         "Invalid parameter list for sequence distribution (min==max): " + params);
+            }
 
-            if (min > max)
+            if (min > max) {
                 throw new IllegalArgumentException(
                         "Invalid parameter list for sequence distribution (min>max): " + params);
+            }
 
             return new SequenceFactory(min, max);
         }

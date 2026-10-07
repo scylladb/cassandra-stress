@@ -32,7 +32,9 @@ public enum CliOption {
         final Map<String, CliOption> lookup = new HashMap<>();
         for (CliOption cmd : values()) {
             lookup.put("-" + cmd.toString().toLowerCase(Locale.ROOT), cmd);
-            if (cmd.extraName != null) lookup.put(cmd.extraName, cmd);
+            if (cmd.extraName != null) {
+                lookup.put(cmd.extraName, cmd);
+            }
         }
         LOOKUP = lookup;
     }

@@ -30,7 +30,9 @@ public abstract class SampledOpDistributionFactory<T> implements OpDistributionF
         List<Pair<Operation, Double>> operations = new ArrayList<>();
         for (Map.Entry<T, Double> ratio : ratios.entrySet()) {
             List<? extends Operation> ops = get(new Timer(ratio.getKey().toString(), sink), ratio.getKey(), isWarmup);
-            for (Operation op : ops) operations.add(new Pair<>(op, ratio.getValue() / ops.size()));
+            for (Operation op : ops) {
+                operations.add(new Pair<>(op, ratio.getValue() / ops.size()));
+            }
         }
         return new SampledOpDistribution(new EnumeratedDistribution<>(operations), clustering.get());
     }
@@ -38,7 +40,9 @@ public abstract class SampledOpDistributionFactory<T> implements OpDistributionF
     @Override
     public String desc() {
         List<T> keys = new ArrayList<>();
-        for (Map.Entry<T, Double> ratio : ratios.entrySet()) keys.add(ratio.getKey());
+        for (Map.Entry<T, Double> ratio : ratios.entrySet()) {
+            keys.add(ratio.getKey());
+        }
         return keys.toString();
     }
 
@@ -51,9 +55,13 @@ public abstract class SampledOpDistributionFactory<T> implements OpDistributionF
                 public OpDistribution get(boolean isWarmup, MeasurementSink sink) {
                     List<? extends Operation> ops = SampledOpDistributionFactory.this.get(
                             new Timer(ratio.getKey().toString(), sink), ratio.getKey(), isWarmup);
-                    if (ops.size() == 1) return new FixedOpDistribution(ops.getFirst());
+                    if (ops.size() == 1) {
+                        return new FixedOpDistribution(ops.getFirst());
+                    }
                     List<Pair<Operation, Double>> ratios = new ArrayList<>();
-                    for (Operation op : ops) ratios.add(new Pair<>(op, 1d / ops.size()));
+                    for (Operation op : ops) {
+                        ratios.add(new Pair<>(op, 1d / ops.size()));
+                    }
                     return new SampledOpDistribution(new EnumeratedDistribution<>(ratios), new DistributionFixed(1));
                 }
 

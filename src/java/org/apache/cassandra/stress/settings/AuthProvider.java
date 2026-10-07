@@ -25,7 +25,8 @@ public class AuthProvider {
     }
 
     public void requirePlainText() {
-        if (!PLAIN_TEXT_NAMES.contains(authClassName))
+        if (!PLAIN_TEXT_NAMES.contains(authClassName)) {
             throw new IllegalArgumentException("Unknown auth provider class: " + authClassName);
+        }
     }
 }

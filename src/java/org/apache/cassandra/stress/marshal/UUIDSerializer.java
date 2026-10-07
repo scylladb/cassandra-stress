@@ -22,9 +22,10 @@ public class UUIDSerializer implements TypeSerializer<UUID> {
 
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
-        if (bytes.remaining() != 16 && bytes.remaining() != 0)
+        if (bytes.remaining() != 16 && bytes.remaining() != 0) {
             throw new MarshalException(
                     String.format(Locale.ROOT, "UUID should be 16 or 0 bytes (%d)", bytes.remaining()));
+        }
     }
 
     @Override

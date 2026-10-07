@@ -29,7 +29,9 @@ final class V3DriverConfig {
     }
 
     static ProtocolVersion protocolVersion(org.apache.cassandra.stress.settings.ProtocolVersion version) {
-        if (version.isDefault()) return null;
+        if (version.isDefault()) {
+            return null;
+        }
         return ProtocolVersion.fromInt(version.number());
     }
 
@@ -62,15 +64,23 @@ final class V3DriverConfig {
 
     private static LoadBalancingPolicy dcAware(SettingsNode node) {
         DCAwareRoundRobinPolicy.Builder builder = DCAwareRoundRobinPolicy.builder();
-        if (node.datacenter != null) builder.withLocalDc(node.datacenter);
-        if (node.usedHostsPerRemoteDc != null) builder.withUsedHostsPerRemoteDc(node.usedHostsPerRemoteDc);
+        if (node.datacenter != null) {
+            builder.withLocalDc(node.datacenter);
+        }
+        if (node.usedHostsPerRemoteDc != null) {
+            builder.withUsedHostsPerRemoteDc(node.usedHostsPerRemoteDc);
+        }
         return builder.build();
     }
 
     private static LoadBalancingPolicy rackAware(SettingsNode node) {
         RackAwareRoundRobinPolicy.Builder builder = RackAwareRoundRobinPolicy.builder();
-        if (node.datacenter != null) builder.withLocalDc(node.datacenter);
-        if (node.rack != null) builder.withLocalRack(node.rack);
+        if (node.datacenter != null) {
+            builder.withLocalDc(node.datacenter);
+        }
+        if (node.rack != null) {
+            builder.withLocalRack(node.rack);
+        }
         return builder.build();
     }
 

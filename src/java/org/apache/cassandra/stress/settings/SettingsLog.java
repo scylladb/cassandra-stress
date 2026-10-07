@@ -34,24 +34,36 @@ public class SettingsLog {
         noSettings = options.noSettings.setByUser();
         printStatementsOnError = options.printStatementsOnError.setByUser();
 
-        if (options.outputFile.setByUser()) file = new File(options.outputFile.value());
-        else file = null;
-        if (options.hdrOutputFile.setByUser()) hdrFile = new File(options.hdrOutputFile.value());
-        else hdrFile = null;
+        if (options.outputFile.setByUser()) {
+            file = new File(options.outputFile.value());
+        } else {
+            file = null;
+        }
+        if (options.hdrOutputFile.setByUser()) {
+            hdrFile = new File(options.hdrOutputFile.value());
+        } else {
+            hdrFile = null;
+        }
         String interval = options.interval.value();
-        if (interval.endsWith("ms")) intervalMillis = Integer.parseInt(interval.substring(0, interval.length() - 2));
-        else if (interval.endsWith("s"))
+        if (interval.endsWith("ms")) {
+            intervalMillis = Integer.parseInt(interval.substring(0, interval.length() - 2));
+        } else if (interval.endsWith("s")) {
             intervalMillis = 1000 * Integer.parseInt(interval.substring(0, interval.length() - 1));
-        else intervalMillis = 1000 * Integer.parseInt(interval);
-        if (intervalMillis <= 0) throw new IllegalArgumentException("Log interval must be greater than zero");
+        } else {
+            intervalMillis = 1000 * Integer.parseInt(interval);
+        }
+        if (intervalMillis <= 0) {
+            throw new IllegalArgumentException("Log interval must be greater than zero");
+        }
         level = Level.valueOf(options.level.value().toUpperCase(Locale.ROOT));
     }
 
     public MultiResultLogger getOutput() throws IOException {
         MultiResultLogger stream = new MultiResultLogger(new PrintStream(System.out, false, StandardCharsets.UTF_8));
 
-        if (file != null)
+        if (file != null) {
             stream.addOwnedStream(new PrintStream(Files.newOutputStream(file.toPath()), false, StandardCharsets.UTF_8));
+        }
 
         return stream;
     }
@@ -87,7 +99,9 @@ public class SettingsLog {
 
     public static SettingsLog get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-log");
-        if (params == null) return new SettingsLog(new Options());
+        if (params == null) {
+            return new SettingsLog(new Options());
+        }
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
         if (options == null) {

@@ -45,11 +45,12 @@ public final class SSLFactory {
                     for (Enumeration<String> aliases = ks.aliases(); aliases.hasMoreElements(); ) {
                         if (ks.getCertificate(aliases.nextElement()) instanceof X509Certificate certificate) {
                             Date expires = certificate.getNotAfter();
-                            if (expires.before(new Date()))
+                            if (expires.before(new Date())) {
                                 LOGGER.warn(
                                         "Certificate for {} expired on {}",
                                         certificate.getSubjectX500Principal(),
                                         expires);
+                            }
                         }
                     }
                     checkedExpiry = true;

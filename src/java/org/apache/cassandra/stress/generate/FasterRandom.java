@@ -17,8 +17,11 @@ public class FasterRandom implements RandomGenerator {
 
     @Override
     public void setSeed(int[] ints) {
-        if (ints.length > 1) setSeed(((long) ints[0] << 32) | ints[1]);
-        else setSeed(ints[0]);
+        if (ints.length > 1) {
+            setSeed(((long) ints[0] << 32) | ints[1]);
+        } else {
+            setSeed(ints[0]);
+        }
     }
 
     @Override
@@ -57,7 +60,9 @@ public class FasterRandom implements RandomGenerator {
 
     @Override
     public long nextLong() {
-        if (++this.reseed == 32) rollover();
+        if (++this.reseed == 32) {
+            rollover();
+        }
 
         long seed = this.seed;
         seed ^= seed >> 12;

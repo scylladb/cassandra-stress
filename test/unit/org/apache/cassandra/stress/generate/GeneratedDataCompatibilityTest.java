@@ -51,8 +51,9 @@ class GeneratedDataCompatibilityTest {
         System.arraycopy(row.row, 0, values, row.partitionKey.length, row.row.length);
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < values.length; i++) {
-            if (values[i] == null) sb.append("null");
-            else {
+            if (values[i] == null) {
+                sb.append("null");
+            } else {
                 ByteBuffer bytes = ((Generator<Object>) columns.get(i)).type.decompose(values[i]);
                 byte[] array = new byte[bytes.remaining()];
                 bytes.duplicate().get(array);
@@ -71,7 +72,9 @@ class GeneratedDataCompatibilityTest {
             PartitionIterator iterator = PartitionIterator.get(generator, seeds);
             iterator.reset(new Seed(seed, 1), 1d, 1d, isWrite);
             List<String> rows = new ArrayList<>();
-            while (iterator.hasNext()) rows.add(describe(generator, iterator.next()));
+            while (iterator.hasNext()) {
+                rows.add(describe(generator, iterator.next()));
+            }
             partitions.add(rows);
         }
         return partitions;

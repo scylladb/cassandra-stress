@@ -48,7 +48,9 @@ public class SettingsGraph {
     }
 
     public void deleteTemporaryLogFile() {
-        if (temporaryLogFile == null) return;
+        if (temporaryLogFile == null) {
+            return;
+        }
         try {
             Files.deleteIfExists(temporaryLogFile.toPath());
         } catch (IOException e) {

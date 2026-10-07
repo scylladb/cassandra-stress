@@ -127,9 +127,15 @@ public class StressProfile {
 
         extraSchemaDefinitions = yaml.extra_definitions;
 
-        if (keyspaceName == null) throw new IllegalArgumentException("keyspace name is required in yaml file");
-        if (tableName == null) throw new IllegalArgumentException("table name is required in yaml file");
-        if (queries == null) throw new IllegalArgumentException("queries map is required in yaml file");
+        if (keyspaceName == null) {
+            throw new IllegalArgumentException("keyspace name is required in yaml file");
+        }
+        if (tableName == null) {
+            throw new IllegalArgumentException("table name is required in yaml file");
+        }
+        if (queries == null) {
+            throw new IllegalArgumentException("queries map is required in yaml file");
+        }
 
         for (String query : queries.keySet()) {
             assert !tokenRangeQueries.containsKey(query)
@@ -182,9 +188,12 @@ public class StressProfile {
                 DistributionFactory clustering =
                         !spec.containsKey("cluster") ? null : OptionDistribution.get((String) spec.remove("cluster"));
 
-                if (!spec.isEmpty())
+                if (!spec.isEmpty()) {
                     throw new IllegalArgumentException("Unrecognised option(s) in column spec: " + spec);
-                if (name == null) throw new IllegalArgumentException("Missing name argument in column spec");
+                }
+                if (name == null) {
+                    throw new IllegalArgumentException("Missing name argument in column spec");
+                }
 
                 GeneratorConfig config = new GeneratorConfig(SEED_PREFIX + name, clustering, size, population);
                 columnConfigs.put(name.toLowerCase(Locale.ROOT), config);
@@ -245,9 +254,13 @@ public class StressProfile {
         boolean preferLocal = (requested != null && requested.isDatacenterLocal()) || settings.node.datacenter != null;
         ConsistencyLevel quorum = preferLocal ? ConsistencyLevel.LOCAL_QUORUM : ConsistencyLevel.QUORUM;
 
-        if (requested == null) return quorum;
+        if (requested == null) {
+            return quorum;
+        }
 
-        if (requested.isSerialConsistency() || requested == ConsistencyLevel.ANY) return quorum;
+        if (requested.isSerialConsistency() || requested == ConsistencyLevel.ANY) {
+            return quorum;
+        }
 
         return switch (requested) {
             case ONE, TWO, THREE, LOCAL_ONE -> quorum;
@@ -274,16 +287,21 @@ public class StressProfile {
         if (tableMetaData == null) {
             StressClient client = settings.getClient();
             synchronized (client) {
-                if (tableMetaData != null) return;
+                if (tableMetaData != null) {
+                    return;
+                }
 
                 TableSchema metadata = client.tableSchema(keyspaceName, tableName);
 
-                if (metadata == null)
+                if (metadata == null) {
                     throw new RuntimeException("Unable to find table " + keyspaceName + "." + tableName);
+                }
 
                 for (ColumnSchema column : metadata.columns()) {
                     String colName = column.name();
-                    if (columnConfigs.containsKey(colName)) continue;
+                    if (columnConfigs.containsKey(colName)) {
+                        continue;
+                    }
 
                     columnConfigs.put(colName, new GeneratorConfig(SEED_PREFIX + colName, null, null, null));
                 }
@@ -298,7 +316,9 @@ public class StressProfile {
 
         StressClient client = settings.getClient(false);
         synchronized (client) {
-            if (tokenRanges == null) tokenRanges = client.tokenRanges();
+            if (tokenRanges == null) {
+                tokenRanges = client.tokenRanges();
+            }
             return tokenRanges;
         }
     }
@@ -306,7 +326,9 @@ public class StressProfile {
     public Operation getQuery(
             String name, Timer timer, PartitionGenerator generator, SeedManager seeds, StressSettings settings) {
         name = name.toLowerCase(Locale.ROOT);
-        if (!queries.containsKey(name)) throw new IllegalArgumentException("No query defined with name " + name);
+        if (!queries.containsKey(name)) {
+            throw new IllegalArgumentException("No query defined with name " + name);
+        }
 
         if (queryStatements == null) {
             synchronized (this) {
@@ -357,7 +379,9 @@ public class StressProfile {
             TokenRangeIterator tokenRangeIterator,
             boolean isWarmup) {
         StressYaml.TokenRangeQueryDef def = tokenRangeQueries.get(name);
-        if (def == null) throw new IllegalArgumentException("No bulk read query defined with name " + name);
+        if (def == null) {
+            throw new IllegalArgumentException("No bulk read query defined with name " + name);
+        }
 
         return new TokenRangeQuery(timer, settings, tableMetaData, tokenRangeIterator, def, isWarmup);
     }
@@ -413,7 +437,7 @@ public class StressProfile {
         }
 
         List<ValidatingSchemaQuery> queries = new ArrayList<>();
-        for (ValidatingSchemaQuery.Factory factory : validationFactories)
+        for (ValidatingSchemaQuery.Factory factory : validationFactories) {
             queries.add(factory.create(
                     timer,
                     settings,
@@ -421,6 +445,7 @@ public class StressProfile {
                     seedManager,
                     settings.command.consistencyLevel,
                     settings.command.serialConsistencyLevel));
+        }
         return queries;
     }
 
@@ -429,9 +454,10 @@ public class StressProfile {
             synchronized (this) {
                 maybeCreateSchema(settings);
                 maybeLoadSchemaInfo(settings);
-                if (generators == null)
+                if (generators == null) {
                     generators =
                             new ProfileGenerators(tableMetaData, columnConfigs, settings.errors.skipUnsupportedColumns);
+                }
             }
         }
 
@@ -446,7 +472,9 @@ public class StressProfile {
 
             StressYaml profileYaml;
             try (InputStream yamlStream = file.toURL().openStream()) {
-                if (yamlStream.available() == 0) throw new IOException("Unable to load yaml file from: " + file);
+                if (yamlStream.available() == 0) {
+                    throw new IOException("Unable to load yaml file from: " + file);
+                }
                 profileYaml = yaml.loadAs(yamlStream, StressYaml.class);
             }
 
@@ -463,7 +491,9 @@ public class StressProfile {
         Map<String, V> lowered = new LinkedHashMap<>();
         map.entrySet().removeIf(e -> {
             String lower = e.getKey().toLowerCase(Locale.ROOT);
-            if (lower.equals(e.getKey())) return false;
+            if (lower.equals(e.getKey())) {
+                return false;
+            }
             lowered.put(lower, e.getValue());
             return true;
         });

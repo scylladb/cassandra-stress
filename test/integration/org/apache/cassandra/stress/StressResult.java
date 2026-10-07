@@ -23,7 +23,9 @@ record StressResult(int exitCode, String output) {
 
     private Optional<Long> find(Pattern pattern) {
         Matcher matcher = pattern.matcher(output);
-        if (!matcher.find()) return Optional.empty();
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
         return Optional.of(Long.parseLong(matcher.group(1).replace(",", "")));
     }
 

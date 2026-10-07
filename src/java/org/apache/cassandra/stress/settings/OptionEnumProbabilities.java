@@ -37,7 +37,9 @@ public final class OptionEnumProbabilities<T> extends OptionMulti {
     public OptionEnumProbabilities(List<Opt<T>> universe, String name, String description) {
         super(name, description, false);
         List<OptMatcher<T>> options = new ArrayList<>();
-        for (Opt<T> option : universe) options.add(new OptMatcher<T>(option.option, option.defaultValue));
+        for (Opt<T> option : universe) {
+            options.add(new OptMatcher<T>(option.option, option.defaultValue));
+        }
         this.options = options;
     }
 

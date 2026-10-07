@@ -47,7 +47,9 @@ class ValidationOrderTest {
                 generator, new SeedManager(StressSettings.parse(new String[] {"write", "n=100"})));
         iterator.resetToBounds(new Seed(seed, 1), 0);
         List<Row> rows = new ArrayList<>();
-        while (iterator.hasNext()) rows.add(iterator.next());
+        while (iterator.hasNext()) {
+            rows.add(iterator.next());
+        }
         return rows;
     }
 
@@ -56,7 +58,9 @@ class ValidationOrderTest {
                 generator, new SeedManager(StressSettings.parse(new String[] {"write", "n=100"})));
         iterator.reset(new Seed(seed, 1), 1d, 1d, false);
         List<Row> rows = new ArrayList<>();
-        while (iterator.hasNext()) rows.add(iterator.next());
+        while (iterator.hasNext()) {
+            rows.add(iterator.next());
+        }
         return rows;
     }
 
@@ -81,7 +85,9 @@ class ValidationOrderTest {
 
     private static List<String> describe(List<Row> rows) {
         List<String> out = new ArrayList<>();
-        for (Row row : rows) out.add(Arrays.deepToString(new Object[] {row.partitionKey, row.row}));
+        for (Row row : rows) {
+            out.add(Arrays.deepToString(new Object[] {row.partitionKey, row.row}));
+        }
         out.sort(Comparator.naturalOrder());
         return out;
     }
@@ -90,16 +96,18 @@ class ValidationOrderTest {
     void blobClusteringFollowsUnsignedByteOrder() {
         PartitionGenerator generator = generator(
                 new Bytes("c", config("c", "fixed(40)", "fixed(2)", null)), PartitionGenerator.Order.ARBITRARY, false);
-        for (long seed = 1; seed <= 20; seed++)
+        for (long seed = 1; seed <= 20; seed++) {
             assertOrdered(validated(generator, seed), ValidationOrderTest::unsigned);
+        }
     }
 
     @Test
     void timeuuidClusteringFollowsTheTimestamp() {
         PartitionGenerator generator = generator(
                 new TimeUUIDs("c", config("c", "fixed(20)", null, null)), PartitionGenerator.Order.ARBITRARY, false);
-        for (long seed = 1; seed <= 20; seed++)
+        for (long seed = 1; seed <= 20; seed++) {
             assertOrdered(validated(generator, seed), Comparator.comparingLong(UUID::timestamp));
+        }
     }
 
     @Test
@@ -108,16 +116,18 @@ class ValidationOrderTest {
                 new LocalDates("c", config("c", "fixed(20)", null, "uniform(-1000..1000)")),
                 PartitionGenerator.Order.ARBITRARY,
                 false);
-        for (long seed = 1; seed <= 20; seed++)
+        for (long seed = 1; seed <= 20; seed++) {
             assertOrdered(validated(generator, seed), Comparator.<Integer>naturalOrder());
+        }
     }
 
     @Test
     void descendingClusteringIsReversed() {
         PartitionGenerator generator = generator(
                 new Bytes("c", config("c", "fixed(40)", "fixed(2)", null)), PartitionGenerator.Order.ARBITRARY, true);
-        for (long seed = 1; seed <= 20; seed++)
+        for (long seed = 1; seed <= 20; seed++) {
             assertOrdered(validated(generator, seed), (ByteBuffer l, ByteBuffer r) -> unsigned(r, l));
+        }
     }
 
     @ParameterizedTest
@@ -133,11 +143,12 @@ class ValidationOrderTest {
         for (Generator column : clustering) {
             for (boolean descending : new boolean[] {false, true}) {
                 PartitionGenerator generator = generator(column, order, descending);
-                for (long seed = 1; seed <= 10; seed++)
+                for (long seed = 1; seed <= 10; seed++) {
                     assertEquals(
                             describe(written(generator, seed)),
                             describe(validated(generator, seed)),
                             column.getClass().getSimpleName() + " descending=" + descending);
+                }
             }
         }
     }

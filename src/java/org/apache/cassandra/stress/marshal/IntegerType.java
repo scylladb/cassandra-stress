@@ -21,8 +21,12 @@ public final class IntegerType extends AbstractType<BigInteger> {
         int lhsLen = o1.remaining();
         int rhsLen = o2.remaining();
 
-        if (lhsLen == 0) return rhsLen == 0 ? 0 : -1;
-        if (rhsLen == 0) return 1;
+        if (lhsLen == 0) {
+            return rhsLen == 0 ? 0 : -1;
+        }
+        if (rhsLen == 0) {
+            return 1;
+        }
 
         int lhsMsbIdx = findMostSignificantByte(o1);
         int rhsMsbIdx = findMostSignificantByte(o2);
@@ -34,12 +38,18 @@ public final class IntegerType extends AbstractType<BigInteger> {
         byte rhsMsb = o2.get(o2.position() + rhsMsbIdx);
 
         if (lhsLenDiff != rhsLenDiff) {
-            if (lhsMsb < 0) return rhsMsb < 0 ? rhsLenDiff - lhsLenDiff : -1;
-            if (rhsMsb < 0) return 1;
+            if (lhsMsb < 0) {
+                return rhsMsb < 0 ? rhsLenDiff - lhsLenDiff : -1;
+            }
+            if (rhsMsb < 0) {
+                return 1;
+            }
             return lhsLenDiff - rhsLenDiff;
         }
 
-        if (lhsMsb != rhsMsb) return lhsMsb - rhsMsb;
+        if (lhsMsb != rhsMsb) {
+            return lhsMsb - rhsMsb;
+        }
         lhsMsbIdx++;
         rhsMsbIdx++;
 
@@ -47,7 +57,9 @@ public final class IntegerType extends AbstractType<BigInteger> {
             lhsMsb = o1.get(o1.position() + lhsMsbIdx++);
             rhsMsb = o2.get(o2.position() + rhsMsbIdx++);
 
-            if (lhsMsb != rhsMsb) return (lhsMsb & 0xFF) - (rhsMsb & 0xFF);
+            if (lhsMsb != rhsMsb) {
+                return (lhsMsb & 0xFF) - (rhsMsb & 0xFF);
+            }
         }
 
         return 0;
@@ -58,14 +70,20 @@ public final class IntegerType extends AbstractType<BigInteger> {
         int i = 0;
         for (; i < len; i++) {
             byte b0 = bytes.get(bytes.position() + i);
-            if (b0 != 0 && b0 != -1) break;
+            if (b0 != 0 && b0 != -1) {
+                break;
+            }
             byte b1 = bytes.get(bytes.position() + i + 1);
             if (b0 == 0 && b1 != 0) {
-                if (b1 > 0) i++;
+                if (b1 > 0) {
+                    i++;
+                }
                 break;
             }
             if (b0 == -1 && b1 != -1) {
-                if (b1 < 0) i++;
+                if (b1 < 0) {
+                    i++;
+                }
                 break;
             }
         }

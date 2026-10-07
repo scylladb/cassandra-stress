@@ -19,10 +19,11 @@ class PartitionWriteTest {
     private static PartitionGenerator generator(String shape, PartitionGenerator.Order order) {
         List<Generator> clustering = new ArrayList<>();
         String[] counts = shape.split("x");
-        for (int i = 0; i < counts.length; i++)
+        for (int i = 0; i < counts.length; i++) {
             clustering.add(new Integers(
                     "c" + i,
                     new GeneratorConfig("c" + i, OptionDistribution.get("fixed(" + counts[i] + ")"), null, null)));
+        }
         return new PartitionGenerator(
                 List.of(new Integers("pk", new GeneratorConfig("pk", null, null, null))),
                 clustering,
@@ -36,7 +37,9 @@ class PartitionWriteTest {
 
     private static Set<String> rows(PartitionIterator iterator) {
         Set<String> rows = new TreeSet<>();
-        while (iterator.hasNext()) rows.add(Arrays.deepToString(new Object[] {iterator.next().row}));
+        while (iterator.hasNext()) {
+            rows.add(Arrays.deepToString(new Object[] {iterator.next().row}));
+        }
         return rows;
     }
 
@@ -71,7 +74,9 @@ class PartitionWriteTest {
             Set<String> written = new TreeSet<>();
             for (int visit = 0; visit < visits; visit++) {
                 PartitionIterator iterator = iterator(generator);
-                if (iterator.reset(seed, 1d, 1d, true)) written.addAll(rows(iterator));
+                if (iterator.reset(seed, 1d, 1d, true)) {
+                    written.addAll(rows(iterator));
+                }
             }
             assertEquals(read(generator, value), written, shape + " seed " + value);
         }

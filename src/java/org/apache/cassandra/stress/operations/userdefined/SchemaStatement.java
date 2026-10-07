@@ -26,7 +26,9 @@ public abstract class SchemaStatement extends PartitionOperation {
         argumentIndex = new int[bindNames.size()];
         bindBuffer = new Object[argumentIndex.length];
         int i = 0;
-        for (String name : bindNames) argumentIndex[i++] = spec.partitionGenerator.indexOf(name);
+        for (String name : bindNames) {
+            argumentIndex[i++] = spec.partitionGenerator.indexOf(name);
+        }
         this.printStatementsOnError = settings.log.printStatementsOnError;
     }
 
@@ -35,8 +37,9 @@ public abstract class SchemaStatement extends PartitionOperation {
 
         for (int i = 0; i < argumentIndex.length; i++) {
             bindBuffer[i] = row.get(argumentIndex[i]);
-            if (bindBuffer[i] == null && !spec.partitionGenerator.permitNulls(argumentIndex[i]))
+            if (bindBuffer[i] == null && !spec.partitionGenerator.permitNulls(argumentIndex[i])) {
                 throw new IllegalStateException();
+            }
         }
         return statement.bind(bindBuffer);
     }

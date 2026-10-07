@@ -84,19 +84,26 @@ public class StressSettings {
     }
 
     public StressClient getClient(boolean setKeyspace) {
-        if (client != null) return client;
+        if (client != null) {
+            return client;
+        }
 
         synchronized (clientLock) {
-            if (numFailures >= MAX_NUM_FAILURES) throw new RuntimeException("Failed to create client too many times");
+            if (numFailures >= MAX_NUM_FAILURES) {
+                throw new RuntimeException("Failed to create client too many times");
+            }
 
-            if (client != null) return client;
+            if (client != null) {
+                return client;
+            }
             StressClient c = null;
             try {
                 EncryptionOptions encOptions = transport.getEncryptionOptions();
                 c = StressClients.create(this, node.nodes, port.nativePort, encOptions);
                 c.connect(mode.compression());
-                if (setKeyspace && schema.keyspace != null)
+                if (setKeyspace && schema.keyspace != null) {
                     c.execute("USE " + CqlNames.quote(schema.keyspace), ConsistencyLevel.ONE);
+                }
 
                 client = c;
                 return c;
@@ -131,29 +138,45 @@ public class StressSettings {
     }
 
     private static StressSettings parse(String[] args, boolean daemon) {
-        if (args.length == 0) throw new InvalidSettingsException("No command provided", StressSettings::printHelp);
+        if (args.length == 0) {
+            throw new InvalidSettingsException("No command provided", StressSettings::printHelp);
+        }
         args = repairParams(args);
         final Map<String, String[]> clArgs = parseMap(args);
-        if (daemon) refuseDaemonFileAccess(clArgs);
-        if (clArgs.containsKey("legacy"))
+        if (daemon) {
+            refuseDaemonFileAccess(clArgs);
+        }
+        if (clArgs.containsKey("legacy")) {
             throw new IllegalArgumentException(
                     "Command legacy was removed. Run cassandra-stress help to see the commands.");
-        if (SettingsMisc.maybeDoSpecial(clArgs)) return null;
+        }
+        if (SettingsMisc.maybeDoSpecial(clArgs)) {
+            return null;
+        }
         return get(clArgs);
     }
 
     private static void refuseDaemonFileAccess(Map<String, String[]> clArgs) {
-        if (Command.USER.names.stream().anyMatch(clArgs::containsKey))
+        if (Command.USER.names.stream().anyMatch(clArgs::containsKey)) {
             throw new IllegalArgumentException("stressd runs the predefined commands only.");
-        if (hasValue(clArgs.get("-node"), "file="))
+        }
+        if (hasValue(clArgs.get("-node"), "file=")) {
             throw new IllegalArgumentException("stressd refuses -node file=. Pass the nodes as a list.");
-        if (hasValue(clArgs.get("-log"), "hdrfile="))
+        }
+        if (hasValue(clArgs.get("-log"), "hdrfile=")) {
             throw new IllegalArgumentException("stressd refuses -log hdrfile=.");
+        }
     }
 
     private static boolean hasValue(String[] values, String prefix) {
-        if (values == null) return false;
-        for (String value : values) if (value.toLowerCase(Locale.ROOT).startsWith(prefix)) return true;
+        if (values == null) {
+            return false;
+        }
+        for (String value : values) {
+            if (value.toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -161,7 +184,9 @@ public class StressSettings {
         StringBuilder sb = new StringBuilder();
         boolean first = true;
         for (String arg : args) {
-            if (!first) sb.append(' ');
+            if (!first) {
+                sb.append(' ');
+            }
             sb.append(arg);
             first = false;
         }
@@ -173,11 +198,14 @@ public class StressSettings {
 
     public static StressSettings get(Map<String, String[]> clArgs) {
         SettingsCommand command = SettingsCommand.get(clArgs);
-        if (command == null) throw new IllegalArgumentException("No command specified");
+        if (command == null) {
+            throw new IllegalArgumentException("No command specified");
+        }
         String sendToDaemon = SettingsMisc.getSendToDaemon(clArgs);
-        if (sendToDaemon != null && command.type == Command.USER)
+        if (sendToDaemon != null && command.type == Command.USER) {
             throw new IllegalArgumentException(
                     "-send-to runs the predefined commands only. Run the user command without -send-to.");
+        }
         SettingsPort port = SettingsPort.get(clArgs);
         SettingsRate rate = SettingsRate.get(clArgs, command);
         SettingsPopulation generate = SettingsPopulation.get(clArgs, command);
@@ -197,7 +225,9 @@ public class StressSettings {
                     new StringBuilder("Error processing command line arguments. The following were ignored:");
             for (Map.Entry<String, String[]> e : clArgs.entrySet()) {
                 message.append(System.lineSeparator()).append(e.getKey());
-                for (String v : e.getValue()) message.append(' ').append(v);
+                for (String v : e.getValue()) {
+                    message.append(' ').append(v);
+                }
             }
             throw new InvalidSettingsException(message.toString(), StressSettings::printHelp);
         }
@@ -226,10 +256,14 @@ public class StressSettings {
         List<String> params = new ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             if (i == 0 || args[i].startsWith("-")) {
-                if (i > 0) putParam(key, params.toArray(new String[0]), r);
+                if (i > 0) {
+                    putParam(key, params.toArray(new String[0]), r);
+                }
                 key = args[i].toLowerCase(Locale.ROOT);
                 params.clear();
-            } else params.add(args[i]);
+            } else {
+                params.add(args[i]);
+            }
         }
         putParam(key, params.toArray(new String[0]), r);
         return r;
@@ -237,9 +271,10 @@ public class StressSettings {
 
     private static void putParam(String key, String[] args, Map<String, String[]> clArgs) {
         String[] prev = clArgs.put(key, args);
-        if (prev != null)
+        if (prev != null) {
             throw new IllegalArgumentException(
                     key + " is defined multiple times. Each option/command can be specified at most once.");
+        }
     }
 
     public static void printHelp() {

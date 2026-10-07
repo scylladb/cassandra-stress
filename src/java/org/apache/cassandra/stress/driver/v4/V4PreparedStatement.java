@@ -20,8 +20,9 @@ final class V4PreparedStatement extends AbstractPreparedStatement {
 
     private static List<String> columnNames(PreparedStatement statement) {
         List<String> names = new ArrayList<>();
-        for (ColumnDefinition definition : statement.getVariableDefinitions())
+        for (ColumnDefinition definition : statement.getVariableDefinitions()) {
             names.add(definition.getName().asInternal());
+        }
         return names;
     }
 
@@ -34,8 +35,12 @@ final class V4PreparedStatement extends AbstractPreparedStatement {
         BoundStatementBuilder builder = statement.boundStatementBuilder(values);
         ConsistencyLevel level = consistencyOr(consistency);
         ConsistencyLevel serial = serialConsistencyOr(serialConsistency);
-        if (level != null) builder.setConsistencyLevel(V4DriverConfig.consistency(level));
-        if (serial != null) builder.setSerialConsistencyLevel(V4DriverConfig.consistency(serial));
+        if (level != null) {
+            builder.setConsistencyLevel(V4DriverConfig.consistency(level));
+        }
+        if (serial != null) {
+            builder.setSerialConsistencyLevel(V4DriverConfig.consistency(serial));
+        }
         return builder.build();
     }
 }

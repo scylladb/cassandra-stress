@@ -39,7 +39,9 @@ public final class Stress {
             final StressSettings settings;
             try {
                 settings = StressSettings.parse(arguments);
-                if (settings == null) return 0;
+                if (settings == null) {
+                    return 0;
+                }
             } catch (InvalidSettingsException e) {
                 e.printHelp();
                 System.out.println(e.getMessage());
@@ -87,13 +89,16 @@ public final class Stress {
         }
 
         if (settings.sendToDaemon != null) {
-            if (!sendToDaemon(HostAndPort.parse(settings.sendToDaemon, StressServer.DEFAULT_PORT), arguments, logout))
+            if (!sendToDaemon(HostAndPort.parse(settings.sendToDaemon, StressServer.DEFAULT_PORT), arguments, logout)) {
                 return 1;
+            }
         } else {
             StressAction stressAction = new StressAction(settings, logout);
             stressAction.run();
             logout.flush();
-            if (settings.graph.inGraphMode()) new StressGraph(settings, arguments).generateGraph();
+            if (settings.graph.inGraphMode()) {
+                new StressGraph(settings, arguments).generateGraph();
+            }
         }
 
         return 0;
@@ -115,7 +120,9 @@ public final class Stress {
                     logout.println(line);
                 }
             } catch (SocketException e) {
-                if (!stopped) throw e;
+                if (!stopped) {
+                    throw e;
+                }
             }
             return false;
         }

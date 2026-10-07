@@ -46,7 +46,9 @@ class TokenSliceTest {
     void unwrapsAsTheDriverDoes(long start, long end) {
         TokenSlice slice = new TokenSlice(start, end);
         assertEquals(driver(start, end).isWrappedAround(), slice.isWrappedAround());
-        if (start != end) assertEquals(slices(driver(start, end).unwrap()), slice.unwrap());
+        if (start != end) {
+            assertEquals(slices(driver(start, end).unwrap()), slice.unwrap());
+        }
     }
 
     @Test
@@ -63,7 +65,9 @@ class TokenSliceTest {
     @MethodSource("ranges")
     void splitsEvenlyAsTheDriverDoes(long start, long end) {
         for (int parts : new int[] {1, 2, 3, 7}) {
-            if (start == end) continue;
+            if (start == end) {
+                continue;
+            }
             assertEquals(
                     slices(driver(start, end).splitEvenly(parts)),
                     new TokenSlice(start, end).splitEvenly(parts),

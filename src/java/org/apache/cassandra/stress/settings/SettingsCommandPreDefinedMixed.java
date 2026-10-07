@@ -27,8 +27,9 @@ public class SettingsCommandPreDefinedMixed extends SettingsCommandPreDefined {
         clustering = options.clustering.get();
         ratios = options.probabilities.ratios();
         this.mixedOptions = options;
-        if (ratios.isEmpty())
+        if (ratios.isEmpty()) {
             throw new IllegalArgumentException("Must specify at least one command with a non-zero ratio");
+        }
     }
 
     @Override
@@ -48,7 +49,9 @@ public class SettingsCommandPreDefinedMixed extends SettingsCommandPreDefined {
 
         static {
             for (Command command : Command.values()) {
-                if (command.category == null || command == Command.MIXED) continue;
+                if (command.category == null || command == Command.MIXED) {
+                    continue;
+                }
                 String defaultValue = switch (command) {
                     case READ, WRITE -> "1";
                     default -> null;

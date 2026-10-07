@@ -74,20 +74,27 @@ public abstract class PartitionOperation extends Operation {
     @Override
     public int ready(WorkManager permits) {
         int partitionCount = (int) spec.partitionCount.next();
-        if (partitionCount <= 0) return 0;
+        if (partitionCount <= 0) {
+            return 0;
+        }
         partitionCount = permits.takePermits(partitionCount);
-        if (partitionCount <= 0) return 0;
+        if (partitionCount <= 0) {
+            return 0;
+        }
 
         int i = 0;
         boolean success = true;
         for (; i < partitionCount && success; i++) {
-            if (i >= partitionCache.size())
+            if (i >= partitionCache.size()) {
                 partitionCache.add(PartitionIterator.get(spec.partitionGenerator, spec.seedManager));
+            }
 
             success = false;
             while (!success) {
                 Seed seed = spec.seedManager.next(this);
-                if (seed == null) break;
+                if (seed == null) {
+                    break;
+                }
 
                 success = reset(seed, partitionCache.get(i));
             }
@@ -103,15 +110,19 @@ public abstract class PartitionOperation extends Operation {
     }
 
     protected boolean reset(Seed seed, PartitionIterator iterator) {
-        if (spec.useRatio == null)
+        if (spec.useRatio == null) {
             return iterator.reset(seed, spec.targetCount, spec.rowPopulationRatio.next(), isWrite());
-        else return iterator.reset(seed, spec.useRatio.next(), spec.rowPopulationRatio.next(), isWrite());
+        } else {
+            return iterator.reset(seed, spec.useRatio.next(), spec.rowPopulationRatio.next(), isWrite());
+        }
     }
 
     @Override
     public String key() {
         List<String> keys = new ArrayList<>();
-        for (PartitionIterator partition : partitions) keys.add(partition.getKeyAsString());
+        for (PartitionIterator partition : partitions) {
+            keys.add(partition.getKeyAsString());
+        }
         return keys.toString();
     }
 }

@@ -14,7 +14,9 @@ public class TimeUUIDSerializer extends UUIDSerializer {
 
         if (bytes.remaining() > 0) {
             slice.position(6);
-            if ((slice.get() & 0xf0) != 0x10) throw new MarshalException("Invalid version for TimeUUID type.");
+            if ((slice.get() & 0xf0) != 0x10) {
+                throw new MarshalException("Invalid version for TimeUUID type.");
+            }
         }
     }
 }

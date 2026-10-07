@@ -47,19 +47,24 @@ final class ProfileGenerators {
         add(table.clusteringColumns(), clusteringColumns, columnConfigs, unsupportedKeys);
         descendingClustering = new boolean[table.clusteringColumns().size()];
         int depth = 0;
-        for (ColumnSchema column : table.clusteringColumns()) descendingClustering[depth++] = column.descending();
+        for (ColumnSchema column : table.clusteringColumns()) {
+            descendingClustering[depth++] = column.descending();
+        }
         add(table.valueColumns(), valueColumns, columnConfigs, unsupportedValues);
 
         String tableName = table.name();
         String level = skipUnsupportedColumns ? "WARNING" : "ERROR";
-        for (ColumnInfo column : unsupportedValues)
+        for (ColumnInfo column : unsupportedValues) {
             System.err.printf(
                     Locale.ROOT, "%s: Table '%s' has column '%s' of unsupported type%n", level, tableName, column.name);
-        for (ColumnInfo column : unsupportedKeys)
+        }
+        for (ColumnInfo column : unsupportedKeys) {
             System.err.printf(
                     Locale.ROOT, "ERROR: Table '%s' has column '%s' of unsupported type%n", tableName, column.name);
-        if (!unsupportedKeys.isEmpty())
+        }
+        if (!unsupportedKeys.isEmpty()) {
             throw new IllegalArgumentException("Table '" + tableName + "' has key columns of unsupported types");
+        }
     }
 
     private static void add(
@@ -74,8 +79,11 @@ final class ProfileGenerators {
                     CqlTypes.name(metadata.type()).toLowerCase(Locale.ROOT),
                     CqlTypes.elementName(metadata.type()).toLowerCase(Locale.ROOT),
                     columnConfigs.get(name));
-            if (CqlTypes.isSupported(metadata.type())) target.add(column);
-            else unsupported.add(column);
+            if (CqlTypes.isSupported(metadata.type())) {
+                target.add(column);
+            } else {
+                unsupported.add(column);
+            }
         }
     }
 
@@ -90,7 +98,9 @@ final class ProfileGenerators {
 
     private static List<Generator> generators(List<ColumnInfo> columns) {
         List<Generator> result = new ArrayList<>(columns.size());
-        for (ColumnInfo column : columns) result.add(column.generator());
+        for (ColumnInfo column : columns) {
+            result.add(column.generator());
+        }
         return result;
     }
 

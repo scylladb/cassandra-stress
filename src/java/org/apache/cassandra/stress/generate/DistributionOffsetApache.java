@@ -37,14 +37,22 @@ public class DistributionOffsetApache extends Distribution {
 
     private long offset(long min, long delta, double val) {
         long r = (long) val;
-        if (r < 0) r = 0;
-        if (r > delta) r = delta;
+        if (r < 0) {
+            r = 0;
+        }
+        if (r > delta) {
+            r = delta;
+        }
         return min + r;
     }
 
     private double offsetDouble(long min, long delta, double r) {
-        if (r < 0) r = 0;
-        if (r > delta) r = delta;
+        if (r < 0) {
+            r = 0;
+        }
+        if (r > delta) {
+            r = delta;
+        }
         return min + r;
     }
 }

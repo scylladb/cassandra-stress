@@ -52,15 +52,19 @@ public class SchemaInsert extends SchemaStatement {
         public boolean run() throws Exception {
             if (stmts == null) {
                 List<StressBoundStatement> bound = new ArrayList<>();
-                for (PartitionIterator iterator : partitions)
-                    while (iterator.hasNext()) bound.add(bindRow(iterator.next()));
+                for (PartitionIterator iterator : partitions) {
+                    while (iterator.hasNext()) {
+                        bound.add(bindRow(iterator.next()));
+                    }
+                }
                 stmts = bound;
                 partitionCount = partitions.size();
                 rowCount = stmts.size();
             }
 
-            for (int j = 0; j < stmts.size(); j += MAX_BATCH_SIZE)
+            for (int j = 0; j < stmts.size(); j += MAX_BATCH_SIZE) {
                 client.executeBatch(stmts.subList(j, Math.min(stmts.size(), j + MAX_BATCH_SIZE)), batchType);
+            }
             return true;
         }
     }

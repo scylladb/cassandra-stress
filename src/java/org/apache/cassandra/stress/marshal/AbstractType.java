@@ -23,7 +23,9 @@ public abstract class AbstractType<T> implements Comparator<ByteBuffer> {
     }
 
     public String getString(ByteBuffer bytes) {
-        if (bytes == null) return "null";
+        if (bytes == null) {
+            return "null";
+        }
 
         TypeSerializer<T> serializer = getSerializer();
         serializer.validate(bytes);
@@ -40,10 +42,14 @@ public abstract class AbstractType<T> implements Comparator<ByteBuffer> {
     }
 
     static int compareSignedFirstByte(ByteBuffer o1, ByteBuffer o2) {
-        if (!o1.hasRemaining() || !o2.hasRemaining()) return o1.hasRemaining() ? 1 : o2.hasRemaining() ? -1 : 0;
+        if (!o1.hasRemaining() || !o2.hasRemaining()) {
+            return o1.hasRemaining() ? 1 : o2.hasRemaining() ? -1 : 0;
+        }
 
         int diff = o1.get(o1.position()) - o2.get(o2.position());
-        if (diff != 0) return diff;
+        if (diff != 0) {
+            return diff;
+        }
 
         return ByteBufferUtil.compareUnsigned(o1, o2);
     }

@@ -10,7 +10,9 @@ class UncertaintyTest {
     @Test
     void identicalMeasurementsHaveNoUncertainty() {
         Uncertainty uncertainty = new Uncertainty();
-        for (int i = 0; i < 10; i++) uncertainty.update(5.0);
+        for (int i = 0; i < 10; i++) {
+            uncertainty.update(5.0);
+        }
         assertEquals(0.0, uncertainty.getUncertainty(), 1e-9);
     }
 

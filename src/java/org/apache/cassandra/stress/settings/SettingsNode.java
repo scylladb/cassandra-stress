@@ -26,7 +26,9 @@ public class SettingsNode {
                 List<String> tmpNodes = new ArrayList<>();
                 try (BufferedReader in = Files.newBufferedReader(Paths.get(options.file.value()))) {
                     while ((node = in.readLine()) != null) {
-                        if (node.length() > 0) tmpNodes.add(node);
+                        if (node.length() > 0) {
+                            tmpNodes.add(node);
+                        }
                     }
                     nodes = Arrays.asList(tmpNodes.toArray(new String[0]));
                 }
@@ -46,8 +48,9 @@ public class SettingsNode {
         if (options.usedHostsPerRemoteDc.setByUser()) {
             try {
                 int value = Integer.parseInt(options.usedHostsPerRemoteDc.value());
-                if (value <= 0)
+                if (value <= 0) {
                     throw new IllegalArgumentException("remote-dc must be a positive integer greater than zero");
+                }
                 usedHostsPerRemoteDc = value;
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException(
@@ -94,7 +97,9 @@ public class SettingsNode {
 
     public static SettingsNode get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-node");
-        if (params == null) return new SettingsNode(new Options());
+        if (params == null) {
+            return new SettingsNode(new Options());
+        }
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
         if (options == null) {

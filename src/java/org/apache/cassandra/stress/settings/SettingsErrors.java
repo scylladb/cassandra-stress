@@ -132,7 +132,9 @@ public class SettingsErrors {
 
     public static SettingsErrors get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-errors");
-        if (params == null) return new SettingsErrors(new Options());
+        if (params == null) {
+            return new SettingsErrors(new Options());
+        }
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
         if (options == null) {

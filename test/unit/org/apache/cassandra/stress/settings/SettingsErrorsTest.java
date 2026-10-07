@@ -18,7 +18,9 @@ class SettingsErrorsTest {
 
     private static SettingsErrors.Options options(String... params) {
         SettingsErrors.Options options = new SettingsErrors.Options();
-        for (String param : params) assertTrue(options.accept(param), param);
+        for (String param : params) {
+            assertTrue(options.accept(param), param);
+        }
         return options;
     }
 

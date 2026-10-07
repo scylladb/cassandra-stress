@@ -27,15 +27,21 @@ public class Lists<T> extends Generator<List<T>> {
     @Override
     public List<T> generate() {
         int size = (int) sizeDistribution.next();
-        for (int i = 0; i < size; i++) buffer[i] = valueType.generate();
+        for (int i = 0; i < size; i++) {
+            buffer[i] = valueType.generate();
+        }
         return new ArrayList<>(Arrays.asList(Arrays.copyOf(buffer, size)));
     }
 
     @Override
     Object fromStoredValue(Object value) {
-        if (value == null) return null;
+        if (value == null) {
+            return null;
+        }
         List<Object> list = new ArrayList<>();
-        for (Object element : (List<?>) value) list.add(valueType.fromStoredValue(element));
+        for (Object element : (List<?>) value) {
+            list.add(valueType.fromStoredValue(element));
+        }
         return list;
     }
 }

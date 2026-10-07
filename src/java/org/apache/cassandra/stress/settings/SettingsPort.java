@@ -47,8 +47,9 @@ public class SettingsPort {
     private static void rejectRemovedPorts(String[] params) {
         for (String param : params) {
             for (String removed : REMOVED_PORTS) {
-                if (param.startsWith(removed))
+                if (param.startsWith(removed)) {
                     throw new IllegalArgumentException("Port option " + removed + " was removed. Use -port native=.");
+                }
             }
         }
     }

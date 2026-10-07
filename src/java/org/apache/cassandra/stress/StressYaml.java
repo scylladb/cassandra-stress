@@ -29,10 +29,12 @@ public class StressYaml {
 
         public String getConfigAsString() {
             StringBuilder output = new StringBuilder(String.format(Locale.ROOT, "CQL:%s;Fields:%s;", cql, fields));
-            if (consistencyLevel != null)
+            if (consistencyLevel != null) {
                 output.append(String.format(Locale.ROOT, "consistencyLevel:%s;", consistencyLevel));
-            if (serialConsistencyLevel != null)
+            }
+            if (serialConsistencyLevel != null) {
                 output.append(String.format(Locale.ROOT, "serialConsistencyLevel:%s;", serialConsistencyLevel));
+            }
             return output.toString();
         }
     }

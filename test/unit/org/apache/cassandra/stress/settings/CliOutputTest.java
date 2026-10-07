@@ -42,8 +42,9 @@ class CliOutputTest {
         assertNull(StressSettings.parse(new String[] {"help"}));
         String help = output();
         assertTrue(help.contains("Usage:"), help);
-        for (Command command : Command.values())
+        for (Command command : Command.values()) {
             assertTrue(help.contains(command.toString().toLowerCase(java.util.Locale.ROOT)), command.toString());
+        }
         assertFalse(help.contains("legacy"));
     }
 
@@ -133,6 +134,8 @@ class CliOutputTest {
             "Send To Daemon:",
             "Graph:",
             "TokenRange:"
-        }) assertTrue(printed.contains(group), group + " missing in\n" + printed);
+        }) {
+            assertTrue(printed.contains(group), group + " missing in\n" + printed);
+        }
     }
 }

@@ -80,10 +80,18 @@ class JavaDriverV4ClientTest {
     private static <T> T fake(Class<T> type, Map<String, Object> answers) {
         return (T) Proxy.newProxyInstance(
                 JavaDriverV4ClientTest.class.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
-                    if (answers.containsKey(method.getName())) return answers.get(method.getName());
-                    if ("toString".equals(method.getName())) return type.getSimpleName();
-                    if ("hashCode".equals(method.getName())) return System.identityHashCode(proxy);
-                    if ("equals".equals(method.getName())) return proxy == args[0];
+                    if (answers.containsKey(method.getName())) {
+                        return answers.get(method.getName());
+                    }
+                    if ("toString".equals(method.getName())) {
+                        return type.getSimpleName();
+                    }
+                    if ("hashCode".equals(method.getName())) {
+                        return System.identityHashCode(proxy);
+                    }
+                    if ("equals".equals(method.getName())) {
+                        return proxy == args[0];
+                    }
                     throw new UnsupportedOperationException(type.getSimpleName() + "." + method.getName());
                 });
     }
@@ -150,7 +158,9 @@ class JavaDriverV4ClientTest {
                 JavaDriverV4ClientTest.class.getClassLoader(),
                 new Class<?>[] {CqlSession.class},
                 (proxy, method, args) -> {
-                    if (!"prepare".equals(method.getName())) throw new UnsupportedOperationException(method.getName());
+                    if (!"prepare".equals(method.getName())) {
+                        throw new UnsupportedOperationException(method.getName());
+                    }
                     prepared.incrementAndGet();
                     return driverStatement;
                 });

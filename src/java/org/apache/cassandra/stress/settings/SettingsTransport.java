@@ -79,7 +79,9 @@ public class SettingsTransport {
 
     public static SettingsTransport get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-transport");
-        if (params == null) return new SettingsTransport(new TOptions());
+        if (params == null) {
+            return new SettingsTransport(new TOptions());
+        }
 
         GroupedOptions options = GroupedOptions.select(params, new TOptions());
         if (options == null) {

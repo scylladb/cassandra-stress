@@ -31,8 +31,9 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
     public CqlOperation(
             Command type, Timer timer, PartitionGenerator generator, SeedManager seedManager, StressSettings settings) {
         super(type, timer, generator, seedManager, settings);
-        if (settings.columns.variableColumnCount)
+        if (settings.columns.variableColumnCount) {
             throw new IllegalStateException("Variable column counts are not implemented for CQL");
+        }
     }
 
     protected CqlRunOp<V> run(final ClientWrapper client, final List<Object> queryParams, final ByteBuffer key)
@@ -44,7 +45,9 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
             if (idobj == null) {
                 id = client.createPreparedStatement(buildQuery());
                 storeCqlCache(id);
-            } else id = idobj;
+            } else {
+                id = idobj;
+            }
 
             op = buildRunOp(client, null, id, queryParams, key);
         } else {
@@ -53,7 +56,9 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
             if (qobj == null) {
                 query = buildQuery();
                 storeCqlCache(query);
-            } else query = qobj.toString();
+            } else {
+                query = qobj.toString();
+            }
 
             op = buildRunOp(client, query, null, queryParams, key);
         }
@@ -158,7 +163,11 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
                     int expectedColsPerRow = 0;
                     if (expectedRows > 0 && expect.getFirst() != null) {
                         expectedColsPerRow = expect.getFirst().size();
-                        for (List<ByteBuffer> row : expect) if (row != null) expectedBytes += totalBytes(row);
+                        for (List<ByteBuffer> row : expect) {
+                            if (row != null) {
+                                expectedBytes += totalBytes(row);
+                            }
+                        }
                     }
 
                     if (actualRows == 0) {
@@ -174,7 +183,11 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
                                 expectedColsPerRow > 0 ? expectedBytes / expectedColsPerRow : 0);
                     } else {
                         long actualBytes = 0;
-                        for (ByteBuffer[] row : result) if (row != null) actualBytes += totalBytes(row);
+                        for (ByteBuffer[] row : result) {
+                            if (row != null) {
+                                actualBytes += totalBytes(row);
+                            }
+                        }
                         validationError = String.format(
                                 Locale.ROOT,
                                 "Data returned was not validated: row count mismatch"
@@ -189,7 +202,9 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
 
                 for (int i = 0; i < result.length; i++) {
                     List<ByteBuffer> expectedRow = expect.get(i);
-                    if (expectedRow == null) continue;
+                    if (expectedRow == null) {
+                        continue;
+                    }
                     ByteBuffer[] actualRow = result[i];
 
                     if (actualRow.length != expectedRow.size()) {
@@ -216,12 +231,12 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
                             int actualSize = (actualVal != null) ? actualVal.remaining() : -1;
                             String colLabel = columnLabel(j);
                             String diff;
-                            if (actualSize < 0)
+                            if (actualSize < 0) {
                                 diff = String.format(Locale.ROOT, "got null (expected %d bytes)", expectedSize);
-                            else if (actualSize != expectedSize)
+                            } else if (actualSize != expectedSize) {
                                 diff = String.format(
                                         Locale.ROOT, "expected %d bytes, got %d bytes", expectedSize, actualSize);
-                            else
+                            } else {
                                 diff = String.format(
                                         Locale.ROOT,
                                         "same size (%d bytes) but content differs; expected[0..%d]=%s, got[0..%d]=%s",
@@ -230,6 +245,7 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
                                         hexPreview(expectedVal, 16),
                                         Math.min(15, actualSize - 1),
                                         hexPreview(actualVal, 16));
+                            }
                             validationError = String.format(
                                     Locale.ROOT, "Data returned was not validated: row %d, %s: %s", i, colLabel, diff);
                             return false;
@@ -242,15 +258,21 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
 
         private String columnLabel(int j) {
             List<String> names = settings.columns.namestrs;
-            if (names != null && j < names.size()) return String.format(Locale.ROOT, "column %d (%s)", j, names.get(j));
+            if (names != null && j < names.size()) {
+                return String.format(Locale.ROOT, "column %d (%s)", j, names.get(j));
+            }
             return String.format(Locale.ROOT, "column %d", j);
         }
 
         private String columnNamesPreview(int count) {
             List<String> names = settings.columns.namestrs;
-            if (names == null || names.isEmpty() || count <= 0) return "";
+            if (names == null || names.isEmpty() || count <= 0) {
+                return "";
+            }
             int available = Math.min(count, names.size());
-            if (available <= 4) return names.subList(0, available).toString();
+            if (available <= 4) {
+                return names.subList(0, available).toString();
+            }
             return "[" + names.getFirst() + ".." + names.get(available - 1) + "]";
         }
     }
@@ -341,7 +363,9 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
 
         @Override
         public ByteBuffer[][] apply(StressResult result) {
-            if (result == null) return EMPTY_BYTE_BUFFERS;
+            if (result == null) {
+                return EMPTY_BYTE_BUFFERS;
+            }
             return result.rows().toArray(ByteBuffer[][]::new);
         }
     }
@@ -356,21 +380,31 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
         StringBuilder result = new StringBuilder();
 
         marker = query.indexOf('?');
-        if (marker == -1 || parms.isEmpty()) return query;
+        if (marker == -1 || parms.isEmpty()) {
+            return query;
+        }
 
         for (Object parm : parms) {
             result.append(query.substring(position, marker));
 
-            if (parm instanceof ByteBuffer buffer) result.append(getUnQuotedCqlBlob(buffer));
-            else if (parm instanceof Long) result.append(parm);
-            else throw new AssertionError();
+            if (parm instanceof ByteBuffer buffer) {
+                result.append(getUnQuotedCqlBlob(buffer));
+            } else if (parm instanceof Long) {
+                result.append(parm);
+            } else {
+                throw new AssertionError();
+            }
 
             position = marker + 1;
             marker = query.indexOf('?', position + 1);
-            if (marker == -1) break;
+            if (marker == -1) {
+                break;
+            }
         }
 
-        if (position < query.length()) result.append(query.substring(position));
+        if (position < query.length()) {
+            result.append(query.substring(position));
+        }
 
         return result.toString();
     }
@@ -381,13 +415,21 @@ public abstract class CqlOperation<V> extends PredefinedOperation {
 
     private static long totalBytes(List<ByteBuffer> bufs) {
         long total = 0;
-        for (ByteBuffer bb : bufs) if (bb != null) total += bb.remaining();
+        for (ByteBuffer bb : bufs) {
+            if (bb != null) {
+                total += bb.remaining();
+            }
+        }
         return total;
     }
 
     private static long totalBytes(ByteBuffer[] bufs) {
         long total = 0;
-        for (ByteBuffer bb : bufs) if (bb != null) total += bb.remaining();
+        for (ByteBuffer bb : bufs) {
+            if (bb != null) {
+                total += bb.remaining();
+            }
+        }
         return total;
     }
 }

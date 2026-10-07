@@ -19,6 +19,8 @@ public final class InvalidSettingsException extends IllegalArgumentException {
     }
 
     public void printHelp() {
-        if (helpPrinter != null) helpPrinter.run();
+        if (helpPrinter != null) {
+            helpPrinter.run();
+        }
     }
 }

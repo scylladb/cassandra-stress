@@ -23,7 +23,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 class V4DriverConfigTest {
     private static SettingsNode node(String... params) {
         Map<String, String[]> args = new HashMap<>();
-        if (params.length > 0) args.put("-node", params);
+        if (params.length > 0) {
+            args.put("-node", params);
+        }
         return SettingsNode.get(args);
     }
 

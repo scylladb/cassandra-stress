@@ -16,7 +16,9 @@ public class DistributionQuantized extends Distribution {
         this.bounds = new long[quantas + 1];
         bounds[0] = delegate.minValue();
         bounds[quantas] = delegate.maxValue() + 1;
-        for (int i = 1; i < quantas; i++) bounds[i] = delegate.inverseCumProb(i / (double) quantas);
+        for (int i = 1; i < quantas; i++) {
+            bounds[i] = delegate.inverseCumProb(i / (double) quantas);
+        }
     }
 
     @Override
@@ -34,8 +36,12 @@ public class DistributionQuantized extends Distribution {
     public long inverseCumProb(double cumProb) {
         long val = delegate.inverseCumProb(cumProb);
         int quanta = quanta(val);
-        if (quanta < 0) return bounds[0];
-        if (quanta >= bounds.length - 1) return bounds[bounds.length - 1] - 1;
+        if (quanta < 0) {
+            return bounds[0];
+        }
+        if (quanta >= bounds.length - 1) {
+            return bounds[bounds.length - 1] - 1;
+        }
         cumProb -= (quanta / ((double) bounds.length - 1));
         cumProb *= (double) bounds.length - 1;
         return bounds[quanta] + (long) (cumProb * (bounds[quanta + 1] - bounds[quanta]));
@@ -43,7 +49,9 @@ public class DistributionQuantized extends Distribution {
 
     int quanta(long val) {
         int i = Arrays.binarySearch(bounds, val);
-        if (i < 0) return -2 - i;
+        if (i < 0) {
+            return -2 - i;
+        }
         return i - 1;
     }
 

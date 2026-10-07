@@ -56,7 +56,9 @@ public class SchemaQuery extends SchemaStatement {
 
         @Override
         public boolean run() throws Exception {
-            if (bound == null) bound = bindArgs();
+            if (bound == null) {
+                bound = bindArgs();
+            }
             rowCount = client.execute(bound, null, null).rows().size();
             partitionCount = Math.min(1, rowCount);
             return true;
@@ -69,8 +71,12 @@ public class SchemaQuery extends SchemaStatement {
         while (iterator.hasNext()) {
             Row row = iterator.next();
             Object[] randomBufferRow = randomBuffer[c++];
-            for (int i = 0; i < argumentIndex.length; i++) randomBufferRow[i] = row.get(argumentIndex[i]);
-            if (c >= randomBuffer.length) break;
+            for (int i = 0; i < argumentIndex.length; i++) {
+                randomBufferRow[i] = row.get(argumentIndex[i]);
+            }
+            if (c >= randomBuffer.length) {
+                break;
+            }
         }
         assert c > 0;
         return c;

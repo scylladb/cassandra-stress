@@ -15,8 +15,9 @@ public final class WhiteListAddresses {
 
     private static InetAddress resolve(HostAndPort contactPoint) {
         InetAddress address = contactPoint.toSocketAddress().getAddress();
-        if (address == null)
+        if (address == null) {
             throw new IllegalArgumentException("Cannot resolve the whitelisted node " + contactPoint.host());
+        }
         return address;
     }
 }

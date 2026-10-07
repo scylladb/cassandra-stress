@@ -44,7 +44,9 @@ class LoadBalanceTypeTest {
 
     private static SettingsNode node(String... params) {
         Map<String, String[]> args = new HashMap<>();
-        if (params.length > 0) args.put("-node", params);
+        if (params.length > 0) {
+            args.put("-node", params);
+        }
         return SettingsNode.get(args);
     }
 

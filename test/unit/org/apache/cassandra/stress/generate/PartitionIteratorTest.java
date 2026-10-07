@@ -51,14 +51,16 @@ class PartitionIteratorTest {
         PartitionIterator iterator = iterator(generator);
         assertTrue(iterator.reset(new Seed(seed, 1), 1d, 1d, isWrite));
         List<String> rows = new ArrayList<>();
-        while (iterator.hasNext()) rows.add(describe(generator, iterator.next()));
+        while (iterator.hasNext()) {
+            rows.add(describe(generator, iterator.next()));
+        }
         return rows;
     }
 
     @SuppressWarnings("unchecked")
     private static String describe(PartitionGenerator generator, Row row) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < row.partitionKey.length; i++)
+        for (int i = 0; i < row.partitionKey.length; i++) {
             sb.append(generator
                             .partitionKey
                             .get(i)
@@ -66,9 +68,10 @@ class PartitionIteratorTest {
                             .getString(((Generator<Object>) generator.partitionKey.get(i))
                                     .type.decompose(row.partitionKey[i])))
                     .append('|');
+        }
         List<Generator> columns = new ArrayList<>(generator.clusteringComponents);
         columns.addAll(generator.valueComponents);
-        for (int i = 0; i < row.row.length; i++)
+        for (int i = 0; i < row.row.length; i++) {
             sb.append(
                             row.row[i] == null
                                     ? "null"
@@ -76,6 +79,7 @@ class PartitionIteratorTest {
                                             .type.getString(
                                                     ((Generator<Object>) columns.get(i)).type.decompose(row.row[i])))
                     .append('|');
+        }
         return sb.toString();
     }
 
@@ -126,7 +130,9 @@ class PartitionIteratorTest {
         PartitionIterator iterator = iterator(generator);
         iterator.reset(new Seed(7, 1), 1d, 1d, true);
         List<Integer> firstComponent = new ArrayList<>();
-        while (iterator.hasNext()) firstComponent.add((Integer) iterator.next().get(0));
+        while (iterator.hasNext()) {
+            firstComponent.add((Integer) iterator.next().get(0));
+        }
         List<Integer> sorted = new ArrayList<>(firstComponent);
         sorted.sort(null);
         assertEquals(sorted, firstComponent);
@@ -181,7 +187,9 @@ class PartitionIteratorTest {
         PartitionIterator iterator = iterator(generator);
         iterator.resetToBounds(new Seed(11, 1), 0);
         List<String> validated = new ArrayList<>();
-        while (iterator.hasNext()) validated.add(describe(generator, iterator.next()));
+        while (iterator.hasNext()) {
+            validated.add(describe(generator, iterator.next()));
+        }
 
         assertEquals(
                 written.stream().sorted().toList(), validated.stream().sorted().toList());
@@ -195,7 +203,9 @@ class PartitionIteratorTest {
         assertTrue(iterator.hasNext());
         while (iterator.hasNext()) {
             Row row = iterator.next();
-            for (Object value : row.row) assertTrue(value != null, describe(generator, row));
+            for (Object value : row.row) {
+                assertTrue(value != null, describe(generator, row));
+            }
         }
     }
 }

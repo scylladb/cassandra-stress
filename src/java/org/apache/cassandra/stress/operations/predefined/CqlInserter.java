@@ -19,13 +19,16 @@ public class CqlInserter extends CqlOperation<Integer> {
     @Override
     protected String buildQuery() {
         StringBuilder query = new StringBuilder("UPDATE ").append(wrapInQuotes(type.table));
-        if (settings.columns.timestamp != null)
+        if (settings.columns.timestamp != null) {
             query.append(" USING TIMESTAMP ").append(settings.columns.timestamp);
+        }
 
         query.append(" SET ");
 
         for (int i = 0; i < settings.columns.maxColumnsPerKey; i++) {
-            if (i > 0) query.append(',');
+            if (i > 0) {
+                query.append(',');
+            }
 
             query.append(wrapInQuotes(settings.columns.namestrs.get(i))).append(" = ?");
         }

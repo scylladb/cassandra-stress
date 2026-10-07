@@ -38,8 +38,9 @@ public class SettingsColumn {
             assert count == null;
 
             List<ByteBuffer> sortedNames = new ArrayList<>();
-            for (String columnName : name.name.value().split(","))
+            for (String columnName : name.name.value().split(",")) {
                 sortedNames.add(ByteBuffer.wrap(columnName.getBytes(StandardCharsets.UTF_8)));
+            }
             this.names = sortedByUnsignedBytes(sortedNames);
             this.namestrs = decode(this.names);
 
@@ -58,8 +59,9 @@ public class SettingsColumn {
         } else {
             this.countDistribution = count.count.get();
             List<ByteBuffer> generatedNames = new ArrayList<>();
-            for (int i = 0; i < (int) countDistribution.get().maxValue(); i++)
+            for (int i = 0; i < (int) countDistribution.get().maxValue(); i++) {
                 generatedNames.add(ByteBuffer.wrap(("C" + i).getBytes(StandardCharsets.UTF_8)));
+            }
             this.names = sortedByUnsignedBytes(generatedNames);
             this.namestrs = decode(this.names);
         }
@@ -81,7 +83,9 @@ public class SettingsColumn {
 
     private static List<String> decode(List<ByteBuffer> names) {
         List<String> decoded = new ArrayList<>(names.size());
-        for (ByteBuffer columnName : names) decoded.add(new String(bytesOf(columnName), StandardCharsets.UTF_8));
+        for (ByteBuffer columnName : names) {
+            decoded.add(new String(bytesOf(columnName), StandardCharsets.UTF_8));
+        }
         return decoded;
     }
 
@@ -132,7 +136,9 @@ public class SettingsColumn {
 
     static SettingsColumn get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-col");
-        if (params == null) return new SettingsColumn(new CountOptions());
+        if (params == null) {
+            return new SettingsColumn(new CountOptions());
+        }
 
         GroupedOptions options = GroupedOptions.select(params, new NameOptions(), new CountOptions());
         if (options == null) {

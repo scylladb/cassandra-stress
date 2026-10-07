@@ -42,7 +42,9 @@ public enum Command {
     static {
         final Map<String, Command> lookup = new HashMap<>();
         for (Command cmd : values()) {
-            for (String name : cmd.names) lookup.put(name, cmd);
+            for (String name : cmd.names) {
+                lookup.put(name, cmd);
+            }
         }
         LOOKUP = lookup;
     }
@@ -81,10 +83,15 @@ public enum Command {
     }
 
     public final Runnable helpPrinter() {
-        if (this == PRINT) return SettingsMisc.printHelpPrinter();
-        if (this == HELP) return SettingsMisc.helpHelpPrinter();
-        if (category == null)
+        if (this == PRINT) {
+            return SettingsMisc.printHelpPrinter();
+        }
+        if (this == HELP) {
+            return SettingsMisc.helpHelpPrinter();
+        }
+        if (category == null) {
             return () -> System.out.println("Usage: cassandra-stress " + names.getFirst() + "\n\n" + description);
+        }
         return switch (category) {
             case USER -> SettingsCommandUser.helpPrinter();
             case BASIC -> SettingsCommandPreDefined.helpPrinter(this);

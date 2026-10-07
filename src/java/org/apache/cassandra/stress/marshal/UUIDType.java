@@ -36,16 +36,22 @@ public final class UUIDType extends AbstractType<UUID> {
 
         int version1 = (int) ((msb1 >>> 12) & 0xf);
         int version2 = (int) ((msb2 >>> 12) & 0xf);
-        if (version1 != version2) return version1 - version2;
+        if (version1 != version2) {
+            return version1 - version2;
+        }
 
         if (version1 == 1) {
             long reorder1 = TimeUUIDType.reorderTimestampBytes(msb1);
             long reorder2 = TimeUUIDType.reorderTimestampBytes(msb2);
             int c = Long.compare(reorder1, reorder2);
-            if (c != 0) return c;
+            if (c != 0) {
+                return c;
+            }
         } else {
             int c = Long.compareUnsigned(msb1, msb2);
-            if (c != 0) return c;
+            if (c != 0) {
+                return c;
+            }
         }
 
         return Long.compareUnsigned(b1.getLong(s1 + 8), b2.getLong(s2 + 8));

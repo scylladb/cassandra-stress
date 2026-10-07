@@ -82,7 +82,9 @@ class ValidationSliceTest {
     private static int compare(Object[] row, Object[] bound) {
         for (int i = 0; i < bound.length; i++) {
             int c = Integer.compare((Integer) row[i], (Integer) bound[i]);
-            if (c != 0) return c;
+            if (c != 0) {
+                return c;
+            }
         }
         return 0;
     }
@@ -119,14 +121,18 @@ class ValidationSliceTest {
             Seed seed = seeds.next(reader);
             all.resetToBounds(seed, 0);
             List<Row> partition = new ArrayList<>();
-            while (all.hasNext()) partition.add(all.next().copy());
+            while (all.hasNext()) {
+                partition.add(all.next().copy());
+            }
 
             for (int depth = 1; depth < queries.size(); depth++) {
                 for (ValidatingSchemaQuery.Slice cql : queries.get(depth)) {
                     Pair<Row, Row> bounds = slice.resetToBounds(seed, depth);
                     List<Row> expected = new ArrayList<>();
-                    for (Row row : ValidatingSchemaQuery.expectedRows(slice, cql.inclusiveStart(), cql.inclusiveEnd()))
+                    for (Row row :
+                            ValidatingSchemaQuery.expectedRows(slice, cql.inclusiveStart(), cql.inclusiveEnd())) {
                         expected.add(row.copy());
+                    }
                     List<Row> selectedByCql = partition.stream()
                             .filter(row -> selected(row.row, bounds.left().row, bounds.right().row, cql, descending))
                             .toList();

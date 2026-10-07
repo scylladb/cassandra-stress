@@ -96,7 +96,9 @@ public class StressGraph {
         try {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.startsWith("Thread count was not specified")) runningMultipleThreadCounts = true;
+                if (line.startsWith("Thread count was not specified")) {
+                    runningMultipleThreadCounts = true;
+                }
 
                 if (runningMultipleThreadCounts) {
                     Matcher tc = threadCountMessage.matcher(line);
@@ -138,10 +140,13 @@ public class StressGraph {
                     json.put(parts[0].trim().toLowerCase(Locale.ROOT), parts[1].trim());
                 } else if (mode == ReadingMode.NEXTITERATION) {
                     ArrayNode metricNames = json.putArray("metrics");
-                    for (String name : StressMetrics.HEADMETRICS) metricNames.add(name);
+                    for (String name : StressMetrics.HEADMETRICS) {
+                        metricNames.add(name);
+                    }
                     json.put("test", stressSettings.graph.operation);
-                    if (currentThreadCount == null) json.put("revision", stressSettings.graph.revision);
-                    else
+                    if (currentThreadCount == null) {
+                        json.put("revision", stressSettings.graph.revision);
+                    } else {
                         json.put(
                                 "revision",
                                 String.format(
@@ -149,6 +154,7 @@ public class StressGraph {
                                         "%s - %s threads",
                                         stressSettings.graph.revision,
                                         currentThreadCount));
+                    }
                     String command = String.join(" ", stressArguments).replaceAll("password=.*? ", "password=******* ");
                     json.put("command", command);
                     json.set("intervals", intervals);
@@ -162,7 +168,9 @@ public class StressGraph {
         } catch (IOException e) {
             throw new RuntimeException("Couldn't read from temporary stress log file", e);
         }
-        if (!json.isEmpty()) stats.add(json);
+        if (!json.isEmpty()) {
+            stats.add(json);
+        }
         return stats;
     }
 

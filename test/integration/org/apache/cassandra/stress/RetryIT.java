@@ -65,8 +65,9 @@ class RetryIT {
         Predicate<Object[]> failing = args -> args != null && args.length > 0 && isWrite(args[0]);
         return Proxy.newProxyInstance(
                 RetryIT.class.getClassLoader(), new Class<?>[] {sessionType}, (proxy, method, args) -> {
-                    if ("execute".equals(method.getName()) && failing.test(args) && calls.incrementAndGet() % 2 == 1)
+                    if ("execute".equals(method.getName()) && failing.test(args) && calls.incrementAndGet() % 2 == 1) {
                         throw new IllegalStateException("injected failure");
+                    }
                     try {
                         return method.invoke(session, args);
                     } catch (InvocationTargetException e) {
@@ -142,7 +143,8 @@ class RetryIT {
                 "user", "profile=" + profile, "ops(" + operation + "=1)", "no-warmup", "n=100", "-pop", "seq=1..100");
         assertTrue(read.succeeded(), read::toString);
         assertEquals(0L, read.totalErrors().orElseThrow(), read::toString);
-        if (!"validate".equals(operation))
+        if (!"validate".equals(operation)) {
             assertEquals(100L, read.totalPartitions().orElseThrow(), read::toString);
+        }
     }
 }

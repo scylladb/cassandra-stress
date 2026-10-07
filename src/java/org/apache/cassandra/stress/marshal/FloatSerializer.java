@@ -10,7 +10,9 @@ public class FloatSerializer implements TypeSerializer<Float> {
 
     @Override
     public Float deserialize(ByteBuffer bytes) {
-        if (bytes.remaining() == 0) return null;
+        if (bytes.remaining() == 0) {
+            return null;
+        }
 
         return ByteBufferUtil.toFloat(bytes);
     }
@@ -22,9 +24,10 @@ public class FloatSerializer implements TypeSerializer<Float> {
 
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
-        if (bytes.remaining() != 4 && bytes.remaining() != 0)
+        if (bytes.remaining() != 4 && bytes.remaining() != 0) {
             throw new MarshalException(
                     String.format(Locale.ROOT, "Expected 4 or 0 byte value for a float (%d)", bytes.remaining()));
+        }
     }
 
     @Override

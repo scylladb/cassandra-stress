@@ -59,7 +59,9 @@ public abstract class PredefinedOperation extends PartitionOperation {
         public <V> List<V> select(List<V> in) {
             List<V> out = new ArrayList<>();
             if (indices != null) {
-                for (int i : indices) out.add(in.get(i));
+                for (int i : indices) {
+                    out.add(in.get(i));
+                }
             } else {
                 out.addAll(in.subList(lb, ub));
             }
@@ -80,14 +82,19 @@ public abstract class PredefinedOperation extends PartitionOperation {
         if (settings.columns.slice) {
             int count = (int) columnCount.next();
             int start;
-            if (count == settings.columns.maxColumnsPerKey) start = 0;
-            else start = 1 + ThreadLocalRandom.current().nextInt(settings.columns.maxColumnsPerKey - count);
+            if (count == settings.columns.maxColumnsPerKey) {
+                start = 0;
+            } else {
+                start = 1 + ThreadLocalRandom.current().nextInt(settings.columns.maxColumnsPerKey - count);
+            }
             return new ColumnSelection(null, start, start + count);
         }
 
         int count = (int) columnCount.next();
         int totalCount = settings.columns.names.size();
-        if (count == settings.columns.names.size()) return new ColumnSelection(null, 0, count);
+        if (count == settings.columns.names.size()) {
+            return new ColumnSelection(null, 0, count);
+        }
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
         int[] indices = new int[count];
         int c = 0;
@@ -114,8 +121,15 @@ public abstract class PredefinedOperation extends PartitionOperation {
         Row row = partitions.getFirst().next();
         ByteBuffer[] r = new ByteBuffer[columns.count()];
         int c = 0;
-        if (columns.indices != null) for (int i : columns.indices) r[c++] = (ByteBuffer) row.get(i);
-        else for (int i = columns.lb; i < columns.ub; i++) r[c++] = (ByteBuffer) row.get(i);
+        if (columns.indices != null) {
+            for (int i : columns.indices) {
+                r[c++] = (ByteBuffer) row.get(i);
+            }
+        } else {
+            for (int i = columns.lb; i < columns.ub; i++) {
+                r[c++] = (ByteBuffer) row.get(i);
+            }
+        }
         return Arrays.asList(r);
     }
 

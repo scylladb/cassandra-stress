@@ -39,22 +39,32 @@ public class OptionRatioDistribution extends Option {
     @Override
     public boolean accept(String param) {
         Matcher m = FULL.matcher(param);
-        if (!m.matches() || !delegate.accept(m.group(1))) return false;
+        if (!m.matches() || !delegate.accept(m.group(1))) {
+            return false;
+        }
         divisor = OptionDistribution.parseLong(m.group(2));
         return true;
     }
 
     public static RatioDistributionFactory get(String spec) {
         OptionRatioDistribution opt = new OptionRatioDistribution("", "", "", true);
-        if (!opt.accept(spec)) throw new IllegalArgumentException("Invalid ratio definition: " + spec);
+        if (!opt.accept(spec)) {
+            throw new IllegalArgumentException("Invalid ratio definition: " + spec);
+        }
         return opt.get();
     }
 
     public RatioDistributionFactory get() {
-        if (delegate.setByUser()) return new DelegateFactory(delegate.get(), divisor);
-        if (defaultSpec == null) return null;
+        if (delegate.setByUser()) {
+            return new DelegateFactory(delegate.get(), divisor);
+        }
+        if (defaultSpec == null) {
+            return null;
+        }
         OptionRatioDistribution sub = new OptionRatioDistribution("", null, null, true);
-        if (!sub.accept(defaultSpec)) throw new IllegalStateException("Invalid default spec: " + defaultSpec);
+        if (!sub.accept(defaultSpec)) {
+            throw new IllegalStateException("Invalid default spec: " + defaultSpec);
+        }
         return sub.get();
     }
 

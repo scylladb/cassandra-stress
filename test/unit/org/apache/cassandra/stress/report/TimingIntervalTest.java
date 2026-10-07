@@ -27,7 +27,9 @@ class TimingIntervalTest {
         TimingInterval interval = new TimingInterval(fixed);
         interval.startNanos(startNs);
         interval.endNanos(endNs);
-        for (long nanos : serviceNanos) interval.serviceTime().recordValue(nanos);
+        for (long nanos : serviceNanos) {
+            interval.serviceTime().recordValue(nanos);
+        }
         return interval;
     }
 

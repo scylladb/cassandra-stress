@@ -13,7 +13,9 @@ public final class UTF8Serializer extends AbstractTextSerializer {
 
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
-        if (!UTF8Validator.validate(bytes)) throw new MarshalException("String didn't validate.");
+        if (!UTF8Validator.validate(bytes)) {
+            throw new MarshalException("String didn't validate.");
+        }
     }
 
     static class UTF8Validator {
@@ -29,7 +31,9 @@ public final class UTF8Serializer extends AbstractTextSerializer {
         };
 
         static boolean validate(ByteBuffer buf) {
-            if (buf == null) return false;
+            if (buf == null) {
+                return false;
+            }
 
             buf = buf.slice();
             int b;
@@ -39,47 +43,75 @@ public final class UTF8Serializer extends AbstractTextSerializer {
                 switch (state) {
                     case START -> {
                         if (b >= 0) {
-                            if (b > 127) return false;
+                            if (b > 127) {
+                                return false;
+                            }
                         } else if ((b >> 5) == -2) {
-                            if (b == (byte) 0xc0) state = State.TWO_80;
-                            else if ((b & 0x1e) == 0) return false;
-                            else state = State.TWO;
+                            if (b == (byte) 0xc0) {
+                                state = State.TWO_80;
+                            } else if ((b & 0x1e) == 0) {
+                                return false;
+                            } else {
+                                state = State.TWO;
+                            }
                         } else if ((b >> 4) == -2) {
-                            if (b == (byte) 0xe0) state = State.THREE_a0bf;
-                            else state = State.THREE_80bf_2;
+                            if (b == (byte) 0xe0) {
+                                state = State.THREE_a0bf;
+                            } else {
+                                state = State.THREE_80bf_2;
+                            }
 
                         } else if ((b >> 3) == -2) {
-                            if (b == (byte) 0xf0) state = State.FOUR_90bf;
-                            else state = State.FOUR_80bf_3;
+                            if (b == (byte) 0xf0) {
+                                state = State.FOUR_90bf;
+                            } else {
+                                state = State.FOUR_80bf_3;
+                            }
 
-                        } else return false;
+                        } else {
+                            return false;
+                        }
                     }
                     case TWO -> {
-                        if ((b & 0xc0) != 0x80) return false;
+                        if ((b & 0xc0) != 0x80) {
+                            return false;
+                        }
                         state = State.START;
                     }
                     case TWO_80 -> {
-                        if (b != (byte) 0x80) return false;
+                        if (b != (byte) 0x80) {
+                            return false;
+                        }
                         state = State.START;
                     }
                     case THREE_a0bf -> {
-                        if ((b & 0xe0) == 0x80) return false;
+                        if ((b & 0xe0) == 0x80) {
+                            return false;
+                        }
                         state = State.THREE_80bf_1;
                     }
                     case THREE_80bf_1 -> {
-                        if ((b & 0xc0) != 0x80) return false;
+                        if ((b & 0xc0) != 0x80) {
+                            return false;
+                        }
                         state = State.START;
                     }
                     case THREE_80bf_2 -> {
-                        if ((b & 0xc0) != 0x80) return false;
+                        if ((b & 0xc0) != 0x80) {
+                            return false;
+                        }
                         state = State.THREE_80bf_1;
                     }
                     case FOUR_90bf -> {
-                        if ((b & 0x30) == 0) return false;
+                        if ((b & 0x30) == 0) {
+                            return false;
+                        }
                         state = State.THREE_80bf_2;
                     }
                     case FOUR_80bf_3 -> {
-                        if ((b & 0xc0) != 0x80) return false;
+                        if ((b & 0xc0) != 0x80) {
+                            return false;
+                        }
                         state = State.THREE_80bf_2;
                     }
                 }

@@ -20,7 +20,9 @@ public final class Sleep {
                 }
             }
         } finally {
-            if (interrupted) Thread.currentThread().interrupt();
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 }

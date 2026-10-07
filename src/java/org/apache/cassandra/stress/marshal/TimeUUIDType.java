@@ -40,7 +40,9 @@ public final class TimeUUIDType extends AbstractType<UUID> {
         assert (msb2 & topbyte(0xf0L)) == topbyte(0x10L);
 
         int c = Long.compare(msb1, msb2);
-        if (c != 0) return c;
+        if (c != 0) {
+            return c;
+        }
 
         long lsb1 = signedBytesToNativeLong(b1.getLong(s1 + 8));
         long lsb2 = signedBytesToNativeLong(b2.getLong(s2 + 8));

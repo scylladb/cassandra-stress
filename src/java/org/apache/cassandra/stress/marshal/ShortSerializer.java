@@ -20,9 +20,10 @@ public class ShortSerializer implements TypeSerializer<Short> {
 
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
-        if (bytes.remaining() != 2)
+        if (bytes.remaining() != 2) {
             throw new MarshalException(
                     String.format(Locale.ROOT, "Expected 2 bytes for a smallint (%d)", bytes.remaining()));
+        }
     }
 
     @Override

@@ -93,8 +93,11 @@ public final class TimingInterval {
     }
 
     private Histogram getLatencyHistogram() {
-        if (!isFixed || responseTime.getTotalCount() == 0) return serviceTime;
-        else return responseTime;
+        if (!isFixed || responseTime.getTotalCount() == 0) {
+            return serviceTime;
+        } else {
+            return responseTime;
+        }
     }
 
     public enum TimingParameter {

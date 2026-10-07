@@ -110,7 +110,9 @@ class MultiResultLoggerTest {
     void closeWhileOtherThreadsWriteThrowsNothing() throws Exception {
         for (int round = 0; round < 50; round++) {
             MultiResultLogger logger = new MultiResultLogger(new PrintStream(OutputStream.nullOutputStream()));
-            for (int i = 0; i < 4; i++) logger.addOwnedStream(new PrintStream(OutputStream.nullOutputStream()));
+            for (int i = 0; i < 4; i++) {
+                logger.addOwnedStream(new PrintStream(OutputStream.nullOutputStream()));
+            }
             CountDownLatch writing = new CountDownLatch(4);
             List<CompletableFuture<Void>> writers = new ArrayList<>();
             for (int t = 0; t < 4; t++) {
@@ -124,7 +126,9 @@ class MultiResultLoggerTest {
             }
             writing.await();
             logger.close();
-            for (CompletableFuture<Void> writer : writers) assertDoesNotThrow(() -> writer.get());
+            for (CompletableFuture<Void> writer : writers) {
+                assertDoesNotThrow(() -> writer.get());
+            }
         }
     }
 }

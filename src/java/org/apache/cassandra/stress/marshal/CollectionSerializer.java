@@ -34,11 +34,15 @@ public abstract class CollectionSerializer<T> implements TypeSerializer<T> {
 
     public static ByteBuffer pack(Collection<ByteBuffer> buffers, int elements) {
         int size = 0;
-        for (ByteBuffer bb : buffers) size += sizeOfValue(bb);
+        for (ByteBuffer bb : buffers) {
+            size += sizeOfValue(bb);
+        }
 
         ByteBuffer result = ByteBuffer.allocate(sizeOfCollectionSize(elements) + size);
         writeCollectionSize(result, elements);
-        for (ByteBuffer bb : buffers) writeValue(result, bb);
+        for (ByteBuffer bb : buffers) {
+            writeValue(result, bb);
+        }
         return (ByteBuffer) result.flip();
     }
 
@@ -66,7 +70,9 @@ public abstract class CollectionSerializer<T> implements TypeSerializer<T> {
 
     public static ByteBuffer readValue(ByteBuffer input) {
         int size = input.getInt();
-        if (size < 0) return null;
+        if (size < 0) {
+            return null;
+        }
 
         return ByteBufferUtil.readBytes(input, size);
     }

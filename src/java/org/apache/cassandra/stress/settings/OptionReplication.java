@@ -24,8 +24,9 @@ class OptionReplication extends OptionMulti {
     public Map<String, String> getOptions() {
         Map<String, String> options = extraOptions();
         if (!options.containsKey("replication_factor")
-                && (DEFAULT_STRATEGY.equals(strategy.value()) || factor.setByUser()))
+                && (DEFAULT_STRATEGY.equals(strategy.value()) || factor.setByUser())) {
             options.put("replication_factor", factor.value());
+        }
         return options;
     }
 

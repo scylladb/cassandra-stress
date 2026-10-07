@@ -119,7 +119,9 @@ public class StressMetrics implements MeasurementSink {
             TimingInterval t, long intended, long started, long ended, long rowCnt, long partitionCnt, boolean err) {
         t.rowCount += rowCnt;
         t.partitionCount += partitionCnt;
-        if (err) t.errorCount++;
+        if (err) {
+            t.errorCount++;
+        }
         if (intended != 0) {
             t.responseTime().recordValue(ended - intended);
             t.waitTime().recordValue(started - intended);
@@ -196,7 +198,9 @@ public class StressMetrics implements MeasurementSink {
     }
 
     private void logHistograms(String opName, TimingInterval opInterval) {
-        if (hdrLog == null) return;
+        if (hdrLog == null) {
+            return;
+        }
         final long startNs = opInterval.startNanos();
         final long endNs = opInterval.endNanos();
 
@@ -327,7 +331,9 @@ public class StressMetrics implements MeasurementSink {
 
     public static void summarise(List<String> ids, List<StressMetrics> summarise, ResultLogger out) {
         int idLen = 0;
-        for (String id : ids) idLen = Math.max(id.length(), idLen);
+        for (String id : ids) {
+            idLen = Math.max(id.length(), idLen);
+        }
         String formatstr = "%" + idLen + "s, ";
         printHeader(String.format(Locale.ROOT, formatstr, "id"), out);
         for (int i = 0; i < ids.size(); i++) {

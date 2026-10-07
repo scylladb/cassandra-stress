@@ -21,8 +21,12 @@ public final class ProtocolVersion {
     }
 
     public int number() {
-        if (protocolVersion == SpecialVersions.NEWEST_SUPPORTED.index) return 5;
-        if (protocolVersion <= 0) throw new IllegalArgumentException("Invalid protocol version: " + protocolVersion);
+        if (protocolVersion == SpecialVersions.NEWEST_SUPPORTED.index) {
+            return 5;
+        }
+        if (protocolVersion <= 0) {
+            throw new IllegalArgumentException("Invalid protocol version: " + protocolVersion);
+        }
         return protocolVersion;
     }
 

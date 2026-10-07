@@ -166,7 +166,9 @@ class AbstractTypeTest {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.isBlank()) continue;
+                if (line.isBlank()) {
+                    continue;
+                }
                 String[] parts = line.split(" ");
                 expected.put(parts[0], parts[1]);
             }
@@ -201,8 +203,11 @@ class AbstractTypeTest {
     void composeReadsMasterBytes(String name) {
         Sample sample = SAMPLES.get(name);
         Object composed = sample.type().compose(ByteBuffer.wrap(HexFormat.of().parseHex(MASTER.get(name))));
-        if (sample.value() instanceof ByteBuffer expected) assertEquals(hex(expected), hex((ByteBuffer) composed));
-        else assertEquals(sample.value(), composed);
+        if (sample.value() instanceof ByteBuffer expected) {
+            assertEquals(hex(expected), hex((ByteBuffer) composed));
+        } else {
+            assertEquals(sample.value(), composed);
+        }
     }
 
     @Test

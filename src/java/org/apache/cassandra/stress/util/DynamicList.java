@@ -58,19 +58,25 @@ public class DynamicList<E> {
 
     public Node<E> append(E value, int maxSize) {
         Node<E> newTail = new Node<>(randomLevel(), value);
-        if (size >= maxSize) return null;
+        if (size >= maxSize) {
+            return null;
+        }
         size++;
 
         Node<E> tail = head;
         for (int i = maxHeight - 1; i >= newTail.height(); i--) {
             Node<E> next;
-            while ((next = tail.next(i)) != null) tail = next;
+            while ((next = tail.next(i)) != null) {
+                tail = next;
+            }
             tail.size[i]++;
         }
 
         for (int i = newTail.height() - 1; i >= 0; i--) {
             Node<E> next;
-            while ((next = tail.next(i)) != null) tail = next;
+            while ((next = tail.next(i)) != null) {
+                tail = next;
+            }
             tail.setNext(i, newTail);
             newTail.setPrev(i, tail);
         }
@@ -89,18 +95,24 @@ public class DynamicList<E> {
             Node<E> next = node.next(i);
             assert prev != null;
             prev.setNext(i, next);
-            if (next != null) next.setPrev(i, prev);
+            if (next != null) {
+                next.setPrev(i, prev);
+            }
             prev.size[i] += node.size[i] - 1;
         }
 
         for (int i = node.height(); i < maxHeight; i++) {
-            while (i == node.height()) node = node.prev(i - 1);
+            while (i == node.height()) {
+                node = node.prev(i - 1);
+            }
             node.size[i]--;
         }
     }
 
     public E get(int index) {
-        if (index >= size) return null;
+        if (index >= size) {
+            return null;
+        }
 
         index++;
         int c = 0;

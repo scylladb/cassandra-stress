@@ -44,8 +44,9 @@ public class PartitionGenerator {
             List<Generator> valueComponents,
             Order order,
             boolean[] descendingClustering) {
-        if (descendingClustering.length != clusteringComponents.size())
+        if (descendingClustering.length != clusteringComponents.size()) {
             throw new IllegalArgumentException("One clustering order is required per clustering column");
+        }
         List<Comparator<Object>> comparators = new ArrayList<>(clusteringComponents.size());
         for (int i = 0; i < clusteringComponents.size(); i++) {
             Comparator<Object> ascending = clusteringComponents.get(i)::compareStored;
@@ -58,14 +59,16 @@ public class PartitionGenerator {
         this.order = order;
         this.clusteringDescendantAverages = new int[clusteringComponents.size()];
         this.clusteringComponentAverages = new int[clusteringComponents.size()];
-        for (int i = 0; i < clusteringComponentAverages.length; i++)
+        for (int i = 0; i < clusteringComponentAverages.length; i++) {
             clusteringComponentAverages[i] =
                     (int) clusteringComponents.get(i).clusteringDistribution.average();
-        for (int i = clusteringDescendantAverages.length - 1; i >= 0; i--)
+        }
+        for (int i = clusteringDescendantAverages.length - 1; i >= 0; i--) {
             clusteringDescendantAverages[i] = (int)
                     (i < (clusteringDescendantAverages.length - 1)
                             ? clusteringComponentAverages[i + 1] * clusteringDescendantAverages[i + 1]
                             : 1);
+        }
         double maxRowCount = 1d;
         double minRowCount = 1d;
         for (Generator component : clusteringComponents) {
@@ -76,10 +79,16 @@ public class PartitionGenerator {
         this.minRowCount = minRowCount;
         this.indexMap = new LinkedHashMap<>();
         int i = 0;
-        for (Generator generator : partitionKey) indexMap.put(generator.name, --i);
+        for (Generator generator : partitionKey) {
+            indexMap.put(generator.name, --i);
+        }
         i = 0;
-        for (Generator generator : clusteringComponents) indexMap.put(generator.name, i++);
-        for (Generator generator : valueComponents) indexMap.put(generator.name, i++);
+        for (Generator generator : clusteringComponents) {
+            indexMap.put(generator.name, i++);
+        }
+        for (Generator generator : valueComponents) {
+            indexMap.put(generator.name, i++);
+        }
     }
 
     Comparator<Object> clusteringOrder(int depth) {
@@ -96,20 +105,29 @@ public class PartitionGenerator {
 
     public int indexOf(String name) {
         Integer i = indexMap.get(name);
-        if (i == null) throw new NoSuchElementException();
+        if (i == null) {
+            throw new NoSuchElementException();
+        }
         return i;
     }
 
     public ByteBuffer convert(int c, Object v) {
-        if (c < 0) return partitionKey.get(-1 - c).type.decompose(v);
-        if (c < clusteringComponents.size())
+        if (c < 0) {
+            return partitionKey.get(-1 - c).type.decompose(v);
+        }
+        if (c < clusteringComponents.size()) {
             return clusteringComponents.get(c).type.decompose(v);
+        }
         return valueComponents.get(c - clusteringComponents.size()).type.decompose(v);
     }
 
     public Object convert(int c, ByteBuffer v) {
-        if (c < 0) return partitionKey.get(-1 - c).read(v);
-        if (c < clusteringComponents.size()) return clusteringComponents.get(c).read(v);
+        if (c < 0) {
+            return partitionKey.get(-1 - c).read(v);
+        }
+        if (c < clusteringComponents.size()) {
+            return clusteringComponents.get(c).read(v);
+        }
         return valueComponents.get(c - clusteringComponents.size()).read(v);
     }
 

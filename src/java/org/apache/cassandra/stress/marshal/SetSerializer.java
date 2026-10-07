@@ -33,7 +33,9 @@ public final class SetSerializer<T> extends CollectionSerializer<Set<T>> {
     @Override
     public List<ByteBuffer> serializeValues(Set<T> values) {
         List<ByteBuffer> buffers = new ArrayList<>(values.size());
-        for (T value : values) buffers.add(elements.serialize(value));
+        for (T value : values) {
+            buffers.add(elements.serialize(value));
+        }
         Collections.sort(buffers, comparator);
         return buffers;
     }
@@ -51,8 +53,12 @@ public final class SetSerializer<T> extends CollectionSerializer<Set<T>> {
             }
             ByteBuffer input = bytes.duplicate();
             int n = readCollectionSize(input);
-            for (int i = 0; i < n; i++) elements.validate(readValue(input));
-            if (input.hasRemaining()) throw new MarshalException("Unexpected extraneous bytes after set value");
+            for (int i = 0; i < n; i++) {
+                elements.validate(readValue(input));
+            }
+            if (input.hasRemaining()) {
+                throw new MarshalException("Unexpected extraneous bytes after set value");
+            }
         } catch (BufferUnderflowException e) {
             throw new MarshalException("Not enough bytes to read a set", e);
         }
@@ -64,7 +70,9 @@ public final class SetSerializer<T> extends CollectionSerializer<Set<T>> {
             ByteBuffer input = bytes.duplicate();
             int n = readCollectionSize(input);
 
-            if (n < 0) throw new MarshalException("The data cannot be deserialized as a set");
+            if (n < 0) {
+                throw new MarshalException("The data cannot be deserialized as a set");
+            }
 
             Set<T> l = new LinkedHashSet<T>(Math.min(n, 256));
 
@@ -73,7 +81,9 @@ public final class SetSerializer<T> extends CollectionSerializer<Set<T>> {
                 elements.validate(databb);
                 l.add(elements.deserialize(databb));
             }
-            if (input.hasRemaining()) throw new MarshalException("Unexpected extraneous bytes after set value");
+            if (input.hasRemaining()) {
+                throw new MarshalException("Unexpected extraneous bytes after set value");
+            }
             return l;
         } catch (BufferUnderflowException e) {
             throw new MarshalException("Not enough bytes to read a set", e);

@@ -17,9 +17,12 @@ public final class ByteBufferUtil {
 
     public static int compareUnsigned(ByteBuffer o1, ByteBuffer o2) {
         int index = o1.mismatch(o2);
-        if (index < 0) return 0;
-        if (index < o1.remaining() && index < o2.remaining())
+        if (index < 0) {
+            return 0;
+        }
+        if (index < o1.remaining() && index < o2.remaining()) {
             return (o1.get(o1.position() + index) & 0xFF) - (o2.get(o2.position() + index) & 0xFF);
+        }
         return o1.remaining() - o2.remaining();
     }
 

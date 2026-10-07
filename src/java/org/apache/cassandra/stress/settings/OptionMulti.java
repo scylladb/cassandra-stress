@@ -17,7 +17,9 @@ abstract class OptionMulti extends Option {
     private final class Delegate extends GroupedOptions {
         @Override
         public List<? extends Option> options() {
-            if (collectAsMap == null) return OptionMulti.this.options();
+            if (collectAsMap == null) {
+                return OptionMulti.this.options();
+            }
 
             List<Option> options = new ArrayList<>(OptionMulti.this.options());
             options.add(collectAsMap);
@@ -47,12 +49,15 @@ abstract class OptionMulti extends Option {
     @Override
     public boolean accept(String param) {
         Matcher m = pattern.matcher(param);
-        if (!m.matches()) return false;
+        if (!m.matches()) {
+            return false;
+        }
         m = ARGS.matcher(m.group(1));
         int last = -1;
         while (m.find()) {
-            if (m.start() != last + 1)
+            if (m.start() != last + 1) {
                 throw new IllegalArgumentException("Invalid " + name + " specification: " + param);
+            }
             last = m.end();
             if (!delegate.accept(m.group())) {
 
@@ -110,7 +115,9 @@ abstract class OptionMulti extends Option {
     @Override
     public List<String> multiLineDisplay() {
         final List<String> r = new ArrayList<>();
-        for (Option option : options()) r.add(option.longDisplay());
+        for (Option option : options()) {
+            r.add(option.longDisplay());
+        }
         return r;
     }
 
@@ -128,7 +135,9 @@ abstract class OptionMulti extends Option {
         boolean accept(String param) {
             String[] args = param.split("=");
             if (args.length == 2 && args[1].length() > 0 && args[0].length() > 0) {
-                if (options.put(args[0], args[1]) != null) throw new IllegalArgumentException(args[0] + " set twice");
+                if (options.put(args[0], args[1]) != null) {
+                    throw new IllegalArgumentException(args[0] + " set twice");
+                }
                 return true;
             }
             return false;
@@ -176,25 +185,41 @@ abstract class OptionMulti extends Option {
 
     List<Option> optionsSetByUser() {
         List<Option> r = new ArrayList<>();
-        for (Option option : delegate.options()) if (option.setByUser()) r.add(option);
+        for (Option option : delegate.options()) {
+            if (option.setByUser()) {
+                r.add(option);
+            }
+        }
         return r;
     }
 
     List<Option> defaultOptions() {
         List<Option> r = new ArrayList<>();
-        for (Option option : delegate.options()) if (!option.setByUser() && option.present()) r.add(option);
+        for (Option option : delegate.options()) {
+            if (!option.setByUser() && option.present()) {
+                r.add(option);
+            }
+        }
         return r;
     }
 
     @Override
     boolean setByUser() {
-        for (Option option : delegate.options()) if (option.setByUser()) return true;
+        for (Option option : delegate.options()) {
+            if (option.setByUser()) {
+                return true;
+            }
+        }
         return false;
     }
 
     @Override
     boolean present() {
-        for (Option option : delegate.options()) if (option.present()) return true;
+        for (Option option : delegate.options()) {
+            if (option.present()) {
+                return true;
+            }
+        }
         return false;
     }
 }

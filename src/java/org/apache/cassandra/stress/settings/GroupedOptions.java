@@ -23,7 +23,11 @@ public abstract class GroupedOptions {
     }
 
     public boolean happy() {
-        for (Option option : options()) if (!option.happy()) return false;
+        for (Option option : options()) {
+            if (!option.happy()) {
+                return false;
+            }
+        }
         return true;
     }
 
@@ -32,10 +36,18 @@ public abstract class GroupedOptions {
     public static <G extends GroupedOptions> G select(String[] params, G... groupings) {
         for (String param : params) {
             boolean accepted = false;
-            for (GroupedOptions grouping : groupings) accepted |= grouping.accept(param);
-            if (!accepted) throw new IllegalArgumentException("Invalid parameter " + param);
+            for (GroupedOptions grouping : groupings) {
+                accepted |= grouping.accept(param);
+            }
+            if (!accepted) {
+                throw new IllegalArgumentException("Invalid parameter " + param);
+            }
         }
-        for (G grouping : groupings) if (grouping.happy() && grouping.accepted == params.length) return grouping;
+        for (G grouping : groupings) {
+            if (grouping.happy() && grouping.accepted == params.length) {
+                return grouping;
+            }
+        }
         return null;
     }
 
@@ -62,7 +74,9 @@ public abstract class GroupedOptions {
                 if (printed.add(option)) {
                     if (option.longDisplay() != null) {
                         out.println("  " + option.longDisplay());
-                        for (String row : option.multiLineDisplay()) out.println("      " + row);
+                        for (String row : option.multiLineDisplay()) {
+                            out.println("      " + row);
+                        }
                     }
                 }
             }
@@ -80,12 +94,20 @@ public abstract class GroupedOptions {
 
     public static List<? extends Option> merge(List<? extends Option>... optionss) {
         List<Option> merged = new ArrayList<>();
-        for (List<? extends Option> options : optionss)
-            for (Option option : options)
-                if (option instanceof OptionSimple simple && simple.isRequired()) merged.add(option);
-        for (List<? extends Option> options : optionss)
-            for (Option option : options)
-                if (!(option instanceof OptionSimple simple && simple.isRequired())) merged.add(option);
+        for (List<? extends Option> options : optionss) {
+            for (Option option : options) {
+                if (option instanceof OptionSimple simple && simple.isRequired()) {
+                    merged.add(option);
+                }
+            }
+        }
+        for (List<? extends Option> options : optionss) {
+            for (Option option : options) {
+                if (!(option instanceof OptionSimple simple && simple.isRequired())) {
+                    merged.add(option);
+                }
+            }
+        }
         return List.copyOf(merged);
     }
 

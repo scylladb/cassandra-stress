@@ -25,8 +25,9 @@ class OptionSimple extends Option {
 
         @Override
         public String apply(String s) {
-            if (!pattern.matcher(s).matches())
+            if (!pattern.matcher(s).matches()) {
                 throw new IllegalArgumentException("Invalid value " + s + "; must match pattern " + pattern);
+            }
             return s;
         }
     }
@@ -102,8 +103,9 @@ class OptionSimple extends Option {
     @Override
     public boolean accept(String param) {
         if (matchPrefix.matcher(param).lookingAt()) {
-            if (value != null)
+            if (value != null) {
                 throw new IllegalArgumentException("Suboption " + displayPrefix + " has been specified more than once");
+            }
             String v = param.substring(displayPrefix.length());
             value = valueAdapter.apply(v);
             assert value != null;
@@ -120,12 +122,22 @@ class OptionSimple extends Option {
     @Override
     public String shortDisplay() {
         StringBuilder sb = new StringBuilder();
-        if (!required) sb.append('[');
+        if (!required) {
+            sb.append('[');
+        }
         sb.append(displayPrefix);
-        if (displayPrefix.endsWith("=")) sb.append('?');
-        if (displayPrefix.endsWith("<")) sb.append('?');
-        if (displayPrefix.endsWith(">")) sb.append('?');
-        if (!required) sb.append(']');
+        if (displayPrefix.endsWith("=")) {
+            sb.append('?');
+        }
+        if (displayPrefix.endsWith("<")) {
+            sb.append('?');
+        }
+        if (displayPrefix.endsWith(">")) {
+            sb.append('?');
+        }
+        if (!required) {
+            sb.append(']');
+        }
         return sb.toString();
     }
 
@@ -133,13 +145,20 @@ class OptionSimple extends Option {
     public String longDisplay() {
         if ("".equals(description)
                 && defaultValue == null
-                && (valueAdapter instanceof ValueMatcher valueMatcher && "".equals(valueMatcher.pattern.pattern())))
+                && (valueAdapter instanceof ValueMatcher valueMatcher && "".equals(valueMatcher.pattern.pattern()))) {
             return null;
+        }
         StringBuilder sb = new StringBuilder();
         sb.append(displayPrefix);
-        if (displayPrefix.endsWith("=")) sb.append('?');
-        if (displayPrefix.endsWith("<")) sb.append('?');
-        if (displayPrefix.endsWith(">")) sb.append('?');
+        if (displayPrefix.endsWith("=")) {
+            sb.append('?');
+        }
+        if (displayPrefix.endsWith("<")) {
+            sb.append('?');
+        }
+        if (displayPrefix.endsWith(">")) {
+            sb.append('?');
+        }
         if (defaultValue != null) {
             sb.append(" (default=");
             sb.append(defaultValue);

@@ -20,10 +20,14 @@ public interface WorkManager {
         public int takePermits(int count) {
             while (true) {
                 long cur = permits.get();
-                if (cur == 0) return -1;
+                if (cur == 0) {
+                    return -1;
+                }
                 count = (int) Math.min(count, cur);
                 long next = cur - count;
-                if (permits.compareAndSet(cur, next)) return count;
+                if (permits.compareAndSet(cur, next)) {
+                    return count;
+                }
             }
         }
 
@@ -39,7 +43,9 @@ public interface WorkManager {
 
         @Override
         public int takePermits(int count) {
-            if (stop) return -1;
+            if (stop) {
+                return -1;
+            }
             return count;
         }
 

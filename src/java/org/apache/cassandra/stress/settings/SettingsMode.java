@@ -47,8 +47,9 @@ public class SettingsMode {
                     : Integer.valueOf(opts.maxPendingPerConnection.value());
             connectionsPerHost =
                     opts.connectionsPerHost.value().isEmpty() ? null : Integer.valueOf(opts.connectionsPerHost.value());
-            if (opts.requestTimeout.value().isEmpty()) requestTimeout = null;
-            else {
+            if (opts.requestTimeout.value().isEmpty()) {
+                requestTimeout = null;
+            } else {
                 try {
                     requestTimeout = Integer.valueOf(opts.requestTimeout.value());
                 } catch (NumberFormatException e) {
@@ -57,7 +58,9 @@ public class SettingsMode {
                 }
             }
             authProvider = new AuthProvider(opts.authProvider.value());
-        } else throw new IllegalStateException();
+        } else {
+            throw new IllegalStateException();
+        }
     }
 
     public ProtocolCompression compression() {
@@ -113,7 +116,9 @@ public class SettingsMode {
         out.printf("  Auth Provide Class: %s%n", authProvider == null ? "none" : authProvider.getClassName());
         out.printf("  Max Pending Per Connection: %d%n", maxPendingPerConnection);
         out.printf("  Connections Per Host: %d%n", connectionsPerHost);
-        if (requestTimeout != null) out.printf("  Request Timeout: %d ms%n", requestTimeout);
+        if (requestTimeout != null) {
+            out.printf("  Request Timeout: %d ms%n", requestTimeout);
+        }
         out.printf("  Compression: %s%n", compression);
     }
 
@@ -138,9 +143,10 @@ public class SettingsMode {
 
     private static void rejectRemovedModes(String[] params) {
         for (String param : params) {
-            if (REMOVED_MODES.contains(param))
+            if (REMOVED_MODES.contains(param)) {
                 throw new IllegalArgumentException(
                         "Mode " + param + " was removed. Use -mode cql3 native or -mode cql3 4x.");
+            }
         }
     }
 

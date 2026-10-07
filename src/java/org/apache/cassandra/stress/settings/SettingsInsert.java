@@ -28,14 +28,18 @@ public final class SettingsInsert {
         this.batchsize = options.partitions.get();
         this.selectRatio = options.selectRatio.get();
         this.rowPopulationRatio = options.rowPopulationRatio.get();
-        if (options.consistencyLevel.present())
+        if (options.consistencyLevel.present()) {
             this.consistencyLevel =
                     ConsistencyLevel.valueOf(options.consistencyLevel.value().toUpperCase(Locale.ROOT));
-        else this.consistencyLevel = null;
-        if (options.serialConsistencyLevel.present())
+        } else {
+            this.consistencyLevel = null;
+        }
+        if (options.serialConsistencyLevel.present()) {
             this.serialConsistencyLevel = ConsistencyLevel.valueOf(
                     options.serialConsistencyLevel.value().toUpperCase(Locale.ROOT));
-        else this.serialConsistencyLevel = null;
+        } else {
+            this.serialConsistencyLevel = null;
+        }
         this.batchType = !options.batchType.setByUser() ? null : BatchType.valueOf(options.batchType.value());
     }
 
@@ -112,7 +116,9 @@ public final class SettingsInsert {
 
     public static SettingsInsert get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-insert");
-        if (params == null) return new SettingsInsert(new InsertOptions());
+        if (params == null) {
+            return new SettingsInsert(new InsertOptions());
+        }
 
         InsertOptions options = GroupedOptions.select(params, new InsertOptions());
         if (options == null) {

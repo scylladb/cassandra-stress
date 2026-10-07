@@ -19,7 +19,9 @@ final class V3PreparedStatement extends AbstractPreparedStatement {
 
     private static List<String> columnNames(ColumnDefinitions variables) {
         List<String> names = new ArrayList<>(variables.size());
-        for (int i = 0; i < variables.size(); i++) names.add(variables.getName(i));
+        for (int i = 0; i < variables.size(); i++) {
+            names.add(variables.getName(i));
+        }
         return names;
     }
 
@@ -32,8 +34,12 @@ final class V3PreparedStatement extends AbstractPreparedStatement {
         BoundStatement bound = statement.bind(values);
         ConsistencyLevel level = consistencyOr(consistency);
         ConsistencyLevel serial = serialConsistencyOr(serialConsistency);
-        if (level != null) bound.setConsistencyLevel(V3DriverConfig.consistency(level));
-        if (serial != null) bound.setSerialConsistencyLevel(V3DriverConfig.consistency(serial));
+        if (level != null) {
+            bound.setConsistencyLevel(V3DriverConfig.consistency(level));
+        }
+        if (serial != null) {
+            bound.setSerialConsistencyLevel(V3DriverConfig.consistency(serial));
+        }
         return bound;
     }
 }

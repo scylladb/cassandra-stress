@@ -45,7 +45,9 @@ public class Seed implements Comparable<Seed> {
 
     public boolean save(DynamicList<Seed> sampleFrom, int maxSize) {
         DynamicList.Node poolNode = sampleFrom.append(this, maxSize);
-        if (poolNode == null) return false;
+        if (poolNode == null) {
+            return false;
+        }
         this.poolNode = poolNode;
         return true;
     }

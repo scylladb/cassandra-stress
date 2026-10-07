@@ -22,8 +22,9 @@ public class SettingsRate {
         String fixedOpt = options.fixed.value();
         int throttle = Integer.parseInt(throttleOpt.substring(0, throttleOpt.length() - 2));
         int fixed = Integer.parseInt(fixedOpt.substring(0, fixedOpt.length() - 2));
-        if (throttle != 0 && fixed != 0)
+        if (throttle != 0 && fixed != 0) {
             throw new IllegalArgumentException("can't have both fixed and throttle set, choose one.");
+        }
         opsPerSecond = Math.max(fixed, throttle);
         isFixed = (opsPerSecond == fixed);
 
@@ -105,9 +106,13 @@ public class SettingsRate {
             throw new InvalidSettingsException(
                     "Invalid -rate options provided, see output for valid options", SettingsRate::printHelp);
         }
-        if (options instanceof AutoOptions auto) return new SettingsRate(auto);
-        else if (options instanceof ThreadOptions threads) return new SettingsRate(threads);
-        else throw new IllegalStateException();
+        if (options instanceof AutoOptions auto) {
+            return new SettingsRate(auto);
+        } else if (options instanceof ThreadOptions threads) {
+            return new SettingsRate(threads);
+        } else {
+            throw new IllegalStateException();
+        }
     }
 
     public static void printHelp() {

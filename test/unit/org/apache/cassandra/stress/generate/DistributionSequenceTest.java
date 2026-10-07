@@ -18,7 +18,9 @@ class DistributionSequenceTest {
         assertEquals(5, dist.average());
         assertEquals(1, dist.inverseCumProb(0d));
         assertEquals(10, dist.inverseCumProb(1d));
-        for (long expected : new long[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1}) assertEquals(expected, dist.next());
+        for (long expected : new long[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1}) {
+            assertEquals(expected, dist.next());
+        }
     }
 
     @Test
@@ -27,7 +29,9 @@ class DistributionSequenceTest {
         assertEquals(-1000, dist.minValue());
         assertEquals(-10, dist.maxValue());
         assertEquals(-504, dist.average());
-        for (long expected = -1000; expected <= -10; expected++) assertEquals(expected, dist.next());
+        for (long expected = -1000; expected <= -10; expected++) {
+            assertEquals(expected, dist.next());
+        }
         assertEquals(-1000, dist.next());
     }
 

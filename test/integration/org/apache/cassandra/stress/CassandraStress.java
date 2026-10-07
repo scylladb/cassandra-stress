@@ -21,11 +21,17 @@ final class CassandraStress {
         Path log = workDir.resolve("stress-" + RUNS.incrementAndGet() + ".log");
         List<String> full = new ArrayList<>(List.of(args));
         int logIndex = full.indexOf("-log");
-        if (logIndex >= 0) full.add(logIndex + 1, "file=" + log);
-        else full.addAll(List.of("-log", "file=" + log, "interval=1s"));
-        if (!full.contains("-mode")) full.addAll(List.of("-mode", "cql3", driver()));
-        if (!full.contains("-node"))
+        if (logIndex >= 0) {
+            full.add(logIndex + 1, "file=" + log);
+        } else {
+            full.addAll(List.of("-log", "file=" + log, "interval=1s"));
+        }
+        if (!full.contains("-mode")) {
+            full.addAll(List.of("-mode", "cql3", driver()));
+        }
+        if (!full.contains("-node")) {
             full.addAll(List.of("-node", ScyllaNode.host(), "datacenter=" + ScyllaNode.DATACENTER));
+        }
         full.addAll(List.of("-port", "native=" + ScyllaNode.port()));
 
         int exitCode = Stress.run(full.toArray(String[]::new));

@@ -10,7 +10,9 @@ public class DoubleSerializer implements TypeSerializer<Double> {
 
     @Override
     public Double deserialize(ByteBuffer bytes) {
-        if (bytes.remaining() == 0) return null;
+        if (bytes.remaining() == 0) {
+            return null;
+        }
         return ByteBufferUtil.toDouble(bytes);
     }
 
@@ -21,9 +23,10 @@ public class DoubleSerializer implements TypeSerializer<Double> {
 
     @Override
     public void validate(ByteBuffer bytes) throws MarshalException {
-        if (bytes.remaining() != 8 && bytes.remaining() != 0)
+        if (bytes.remaining() != 8 && bytes.remaining() != 0) {
             throw new MarshalException(
                     String.format(Locale.ROOT, "Expected 8 or 0 byte value for a double (%d)", bytes.remaining()));
+        }
     }
 
     @Override

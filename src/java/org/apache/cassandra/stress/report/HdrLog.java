@@ -22,7 +22,9 @@ public final class HdrLog implements AutoCloseable {
     }
 
     public static HdrLog open(File file) {
-        if (file == null) return null;
+        if (file == null) {
+            return null;
+        }
         try {
             return new HdrLog(new HistogramLogWriter(file), System.currentTimeMillis());
         } catch (FileNotFoundException e) {

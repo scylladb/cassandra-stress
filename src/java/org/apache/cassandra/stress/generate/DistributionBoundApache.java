@@ -37,16 +37,28 @@ public class DistributionBoundApache extends Distribution {
 
     private static long bound(long min, long max, double val) {
         long r = (long) val;
-        if ((r >= min) && (r <= max)) return r;
-        if (r < min) return min;
-        if (r > max) return max;
+        if ((r >= min) && (r <= max)) {
+            return r;
+        }
+        if (r < min) {
+            return min;
+        }
+        if (r > max) {
+            return max;
+        }
         throw new IllegalStateException();
     }
 
     private static double boundDouble(long min, long max, double r) {
-        if ((r >= min) && (r <= max)) return r;
-        if (r < min) return min;
-        if (r > max) return max;
+        if ((r >= min) && (r <= max)) {
+            return r;
+        }
+        if (r < min) {
+            return min;
+        }
+        if (r > max) {
+            return max;
+        }
         throw new IllegalStateException();
     }
 }

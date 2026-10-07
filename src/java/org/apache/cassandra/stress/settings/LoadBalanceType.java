@@ -9,12 +9,16 @@ public enum LoadBalanceType {
     RACK_AWARE;
 
     public static LoadBalanceType of(SettingsNode node) {
-        if (node.loadBalance != null) return node.loadBalance;
+        if (node.loadBalance != null) {
+            return node.loadBalance;
+        }
         return node.rack != null ? RACK_AWARE : DC_AWARE;
     }
 
     public static LoadBalanceType fromString(String value) {
-        if (value == null) return null;
+        if (value == null) {
+            return null;
+        }
         return switch (value.toLowerCase(Locale.ROOT)) {
             case "rr", "roundrobin", "round-robin" -> ROUND_ROBIN;
             case "dc", "dc-aware" -> DC_AWARE;

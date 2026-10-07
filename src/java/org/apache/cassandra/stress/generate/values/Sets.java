@@ -24,15 +24,21 @@ public class Sets<T> extends Generator<Set<T>> {
     public Set<T> generate() {
         final Set<T> set = new HashSet<T>();
         int size = (int) sizeDistribution.next();
-        for (int i = 0; i < size; i++) set.add(valueType.generate());
+        for (int i = 0; i < size; i++) {
+            set.add(valueType.generate());
+        }
         return set;
     }
 
     @Override
     Object fromStoredValue(Object value) {
-        if (value == null) return null;
+        if (value == null) {
+            return null;
+        }
         Set<Object> set = new HashSet<>();
-        for (Object element : (Set<?>) value) set.add(valueType.fromStoredValue(element));
+        for (Object element : (Set<?>) value) {
+            set.add(valueType.fromStoredValue(element));
+        }
         return set;
     }
 }
