@@ -142,6 +142,7 @@
                 <exclusion groupId="io.netty" artifactId="*" />
                 <exclusion groupId="org.slf4j" artifactId="slf4j-api" />
                 <exclusion groupId="com.github.jnr" artifactId="*" />
+                <exclusion groupId="io.dropwizard.metrics" artifactId="metrics-core" />
                 <exclusion groupId="com.google.guava" artifactId="listenablefuture" />
                 <exclusion groupId="com.google.j2objc" artifactId="j2objc-annotations" />
                 <exclusion groupId="com.google.code.findbugs" artifactId="jsr305" />
