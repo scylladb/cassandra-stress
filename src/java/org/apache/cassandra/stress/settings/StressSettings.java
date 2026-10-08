@@ -180,20 +180,33 @@ public class StressSettings {
         return false;
     }
 
-    private static String[] repairParams(String[] args) {
-        StringBuilder sb = new StringBuilder();
-        boolean first = true;
-        for (String arg : args) {
-            if (!first) {
-                sb.append(' ');
+    static String[] repairParams(String[] args) {
+        String joined = String.join(" ", args);
+        int length = joined.length();
+        StringBuilder sb = new StringBuilder(length);
+        int i = 0;
+        while (i < length) {
+            if (!isAsciiWhitespace(joined.charAt(i))) {
+                sb.append(joined.charAt(i));
+                i++;
+                continue;
             }
-            sb.append(arg);
-            first = false;
+            int end = i;
+            while (end < length && isAsciiWhitespace(joined.charAt(end))) {
+                end++;
+            }
+            boolean beforeDelimiter = end < length && ",=()".indexOf(joined.charAt(end)) >= 0;
+            boolean afterDelimiter = !sb.isEmpty() && ",=(".indexOf(sb.charAt(sb.length() - 1)) >= 0;
+            if (!beforeDelimiter && !afterDelimiter) {
+                sb.append(joined, i, end);
+            }
+            i = end;
         }
-        return sb.toString()
-                .replaceAll("\\s+([,=()])", "$1")
-                .replaceAll("([,=(])\\s+", "$1")
-                .split(" +");
+        return sb.toString().split(" +");
+    }
+
+    private static boolean isAsciiWhitespace(char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\u000B' || c == '\f' || c == '\r';
     }
 
     public static StressSettings get(Map<String, String[]> clArgs) {

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
+import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -57,6 +61,12 @@ public class MultiResultLogger implements ResultLogger, AutoCloseable {
     public void addOwnedStream(PrintStream ownedPrintStream) {
         owned.add(ownedPrintStream);
         streams.add(ownedPrintStream);
+    }
+
+    public void addOwnedFile(Path file) throws IOException {
+        PrintStream fileStream = new PrintStream(Files.newOutputStream(file), false, StandardCharsets.UTF_8);
+        owned.add(fileStream);
+        streams.add(fileStream);
     }
 
     public void printFailureToOwnedStreams(Throwable failure) {

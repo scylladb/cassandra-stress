@@ -7,13 +7,11 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.net.Socket;
 import java.net.SocketException;
-import java.nio.file.Files;
 import java.util.Locale;
 import org.apache.cassandra.stress.settings.InvalidSettingsException;
 import org.apache.cassandra.stress.settings.StressSettings;
@@ -82,8 +80,7 @@ public final class Stress {
         }
 
         if (settings.graph.inGraphMode() && settings.sendToDaemon == null) {
-            logout.addOwnedStream(
-                    new PrintStream(Files.newOutputStream(settings.graph.temporaryLogFile), false, UTF_8));
+            logout.addOwnedFile(settings.graph.temporaryLogFile);
         }
 
         if (settings.sendToDaemon != null) {

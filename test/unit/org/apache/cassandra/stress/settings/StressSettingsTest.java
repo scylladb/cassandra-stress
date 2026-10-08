@@ -35,6 +35,28 @@ class StressSettingsTest {
                 "-send-to runs the predefined commands only. Run the user command without -send-to.", e.getMessage());
     }
 
+    @ParameterizedTest
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                "write n=10 -rate threads=4|write n=10 -rate threads=4",
+                "write n = 10 -rate threads =4|write n=10 -rate threads=4",
+                "write n=10 -pop dist=gauss( 1..10 , 5 )|write n=10 -pop dist=gauss(1..10,5)",
+                "write n=10 -col names=a , b|write n=10 -col names=a,b",
+                "write   n=10 -log interval=1s|write n=10 -log interval=1s"
+            })
+    void repairsTheSpacesAroundDelimiters(String input, String expected) {
+        assertEquals(List.of(expected.split(" ")), List.of(StressSettings.repairParams(input.split(" "))));
+    }
+
+    @Test
+    void repairsALongRunOfSpacesInLinearTime() {
+        String spaces = " ".repeat(200_000);
+        assertEquals(
+                List.of("write", "n=10"),
+                List.of(StressSettings.repairParams(new String[] {"write" + spaces + "n" + spaces + "=10"})));
+    }
+
     @Test
     void readsTheConsistencyLevelInATurkishLocale() {
         Locale previous = Locale.getDefault();

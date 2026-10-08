@@ -30,7 +30,7 @@ final class V3DriverConfig {
 
     static ProtocolVersion protocolVersion(org.apache.cassandra.stress.settings.ProtocolVersion version) {
         if (version.isDefault()) {
-            return null;
+            return ProtocolVersion.DEFAULT;
         }
         return ProtocolVersion.fromInt(version.number());
     }

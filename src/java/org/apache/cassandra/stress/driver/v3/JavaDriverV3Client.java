@@ -103,9 +103,7 @@ public final class JavaDriverV3Client
                 .withLoadBalancingPolicy(V3DriverConfig.loadBalancing(node, contactPoints))
                 .withCompression(V3DriverConfig.compression(compression))
                 .withCodecRegistry(codecRegistry());
-        if (protocolVersion != null) {
-            builder.withProtocolVersion(protocolVersion);
-        }
+        builder.withProtocolVersion(protocolVersion);
         if (encryptionOptions.enabled) {
             builder.withSSL(sslOptions());
         }
@@ -150,7 +148,15 @@ public final class JavaDriverV3Client
         return new RemoteEndpointAwareJdkSSLOptions(sslContext, encryptionOptions.cipherSuites) {
             @Override
             protected SSLEngine newSSLEngine(SocketChannel channel, InetSocketAddress remoteEndpoint) {
-                SSLEngine engine = super.newSSLEngine(channel, remoteEndpoint);
+                // The driver 4.x engine factory names the peer with getHostString(). getHostName() can do a
+                // reverse-DNS lookup, so the two drivers would check a different name against the certificate.
+                SSLEngine engine = remoteEndpoint == null
+                        ? context.createSSLEngine()
+                        : context.createSSLEngine(remoteEndpoint.getHostString(), remoteEndpoint.getPort());
+                engine.setUseClientMode(true);
+                if (cipherSuites != null) {
+                    engine.setEnabledCipherSuites(cipherSuites);
+                }
                 if (verifyHostname) {
                     SSLParameters parameters = engine.getSSLParameters();
                     parameters.setEndpointIdentificationAlgorithm("HTTPS");

@@ -2,7 +2,6 @@ package org.apache.cassandra.stress.driver.v3;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.datastax.driver.core.Cluster;
@@ -60,8 +59,10 @@ class V3DriverConfigTest {
     }
 
     @Test
-    void defaultProtocolLetsTheDriverNegotiate() {
-        assertNull(V3DriverConfig.protocolVersion(ProtocolVersion.fromInt(-1)));
+    void defaultProtocolIsTheDriverDefault() {
+        assertEquals(
+                com.datastax.driver.core.ProtocolVersion.DEFAULT,
+                V3DriverConfig.protocolVersion(ProtocolVersion.fromInt(-1)));
     }
 
     @ParameterizedTest

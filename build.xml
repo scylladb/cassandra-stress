@@ -423,6 +423,7 @@
                         <jvmarg value="-Xmx1024m" />
                         <jvmarg value="-Djava.io.tmpdir=${tmp.dir}" />
                         <jvmarg value="-Dcom.datastax.oss.driver.shaded.netty.noUnsafe=true" />
+                        <jvmarg value="-Dcom.datastax.shaded.netty.noUnsafe=true" />
                         <jvmarg line="${test.jvmargs}" />
                         <jvmarg line="@{jvmargs}" />
                     </fork>
