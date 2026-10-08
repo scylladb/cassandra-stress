@@ -1,68 +1,44 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import javax.naming.OperationNotSupportedException;
-
-import com.datastax.driver.core.PagingState;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.SimpleStatement;
-import com.datastax.driver.core.Statement;
-import org.apache.cassandra.stress.core.TableMetadata;
-import com.datastax.driver.core.Token;
-import com.datastax.driver.core.TokenRange;
-import io.netty.util.concurrent.FastThreadLocal;
+import java.util.stream.Collectors;
 import org.apache.cassandra.stress.Operation;
 import org.apache.cassandra.stress.StressYaml;
 import org.apache.cassandra.stress.WorkManager;
+import org.apache.cassandra.stress.driver.ColumnSchema;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressPage;
+import org.apache.cassandra.stress.driver.TableSchema;
+import org.apache.cassandra.stress.driver.TokenSlice;
 import org.apache.cassandra.stress.generate.TokenRangeIterator;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.stress.util.ThriftClient;
+import org.apache.cassandra.stress.util.CqlNames;
 
-public class TokenRangeQuery extends Operation
-{
-    private final FastThreadLocal<State> currentState = new FastThreadLocal<>();
+public class TokenRangeQuery extends Operation {
+    @SuppressWarnings("ThreadLocalUsage")
+    private final ThreadLocal<State> currentState = new ThreadLocal<>();
 
-    private final TableMetadata tableMetadata;
+    private final TableSchema tableMetadata;
     private final TokenRangeIterator tokenRangeIterator;
     private final String columns;
     private final int pageSize;
     private final boolean isWarmup;
 
-    public TokenRangeQuery(Timer timer,
-                           StressSettings settings,
-                           TableMetadata tableMetadata,
-                           TokenRangeIterator tokenRangeIterator,
-                           StressYaml.TokenRangeQueryDef def,
-                           boolean isWarmup)
-    {
+    public TokenRangeQuery(
+            Timer timer,
+            StressSettings settings,
+            TableSchema tableMetadata,
+            TokenRangeIterator tokenRangeIterator,
+            StressYaml.TokenRangeQueryDef def,
+            boolean isWarmup) {
         super(timer, settings);
         this.tableMetadata = tableMetadata;
         this.tokenRangeIterator = tokenRangeIterator;
@@ -71,113 +47,96 @@ public class TokenRangeQuery extends Operation
         this.isWarmup = isWarmup;
     }
 
-    /**
-     * We need to specify the columns by name because we need to add token(partition_keys) in order to count
-     * partitions. So if the user specifies '*' then replace it with a list of all columns.
-     */
-    private static String sanitizeColumns(String columns, TableMetadata tableMetadata)
-    {
-        if (!columns.equals("*"))
+    private static String sanitizeColumns(String columns, TableSchema tableMetadata) {
+        if (!"*".equals(columns)) {
             return columns;
+        }
 
-        return String.join(", ", tableMetadata.getColumnNames());
+        return tableMetadata.columns().stream()
+                .map(column -> CqlNames.quote(column.name()))
+                .collect(Collectors.joining(", "));
     }
 
-    /**
-     * The state of a token range currently being retrieved.
-     * Here we store the paging state to retrieve more pages
-     * and we keep track of which partitions have already been retrieved,
-     */
-    private final static class State
-    {
-        public final TokenRange tokenRange;
+    private static final class State {
+        public final String bounds;
         public final String query;
-        public PagingState pagingState;
-        public ByteBuffer pagingStateV4;
-        public Set<Object> partitions = new HashSet<>();
+        public Object pagingState;
+        public Set<Long> partitions = new HashSet<>();
 
-        public State(TokenRange tokenRange, String query)
-        {
-            this.tokenRange = tokenRange;
+        State(String bounds, String query) {
+            this.bounds = bounds;
             this.query = query;
         }
 
         @Override
-        public String toString()
-        {
-            return String.format("[%s, %s]", tokenRange.getStart(), tokenRange.getEnd());
+        public String toString() {
+            return bounds;
         }
     }
 
-    abstract static class Runner implements RunOp
-    {
+    abstract static class Runner implements RunOp {
         int partitionCount;
         int rowCount;
 
         @Override
-        public int partitionCount()
-        {
+        public int partitionCount() {
             return partitionCount;
         }
 
         @Override
-        public int rowCount()
-        {
+        public int rowCount() {
             return rowCount;
         }
     }
 
-    private class JavaDriverRun extends Runner
-    {
-        final JavaDriverClient client;
+    private final class JavaDriverRun extends Runner {
+        private static final Pattern TOKEN_COLUMN_NAME = Pattern.compile("(?i)(?:system\\.)?token\\(.*\\)");
 
-        private JavaDriverRun(JavaDriverClient client)
-        {
+        final StressClient client;
+
+        private JavaDriverRun(StressClient client) {
             this.client = client;
         }
 
-        public boolean run() throws Exception
-        {
-            State state = currentState.get();
-            if (state == null)
-            { // start processing a new token range
-                TokenRange range = tokenRangeIterator.next();
-                if (range == null)
-                    return true; // no more token ranges to process
+        private static int tokenColumn(List<String> columnNames) {
+            for (int i = 0; i < columnNames.size(); i++) {
+                if (TOKEN_COLUMN_NAME.matcher(columnNames.get(i)).matches()) {
+                    return i;
+                }
+            }
+            throw new IllegalStateException("Unable to locate token(...) column in result set. "
+                    + "This query must project token(partition_key) without aliasing.");
+        }
 
-                state = new State(range, buildQuery(range));
+        @Override
+        public boolean run() throws Exception {
+            State state = currentState.get();
+            if (state == null) {
+                TokenSlice range = tokenRangeIterator.next();
+                if (range == null) {
+                    return true;
+                }
+
+                state = new State(range.format(), buildQuery(range));
                 currentState.set(state);
             }
 
-            ResultSet results;
-            Statement statement = new SimpleStatement(state.query);
-            statement.setFetchSize(pageSize);
+            StressPage page = client.executePage(state.query, pageSize, state.pagingState);
+            state.pagingState = page.pagingState();
 
-            if (state.pagingState != null)
-                statement.setPagingState(state.pagingState);
+            List<ByteBuffer[]> rows = page.result().rows();
+            rowCount += rows.size();
 
-            results = client.getSession().execute(statement);
-            state.pagingState = results.getExecutionInfo().getPagingState();
-
-            int remaining = results.getAvailableWithoutFetching();
-            rowCount += remaining;
-
-            for (Row row : results)
-            {
-                // this call will only succeed if we've added token(partition keys) to the query
-                Object partition = row.getPartitionKeyToken();
-                if (!state.partitions.contains(partition))
-                {
-                    partitionCount += 1;
-                    state.partitions.add(partition);
+            if (!rows.isEmpty()) {
+                int token = tokenColumn(page.result().columnNames());
+                for (ByteBuffer[] row : rows) {
+                    if (state.partitions.add(row[token].getLong(row[token].position()))) {
+                        partitionCount += 1;
+                    }
                 }
-
-                if (--remaining == 0)
-                    break;
             }
 
-            if (results.isExhausted() || isWarmup)
-            { // no more pages to fetch or just warming up, ready to move on to another token range
+            if (page.fullyFetched() || isWarmup) {
                 currentState.set(null);
             }
 
@@ -185,163 +144,39 @@ public class TokenRangeQuery extends Operation
         }
     }
 
-    private class JavaDriverV4Run extends Runner
-    {
-        final JavaDriverV4Client client;
-        // v4 exposes the token(...) column name as something like "system.token(pk)" or "token(pk)".
-        // Match case-insensitively and allow optional "system." prefix.
-        private final Pattern TOKEN_COLUMN_NAME = Pattern.compile("(?i)(?:system\\.)?token\\(.*\\)");
+    private String buildQuery(TokenSlice tokenRange) {
+        List<String> pkColumns = tableMetadata.partitionKey().stream()
+                .map(ColumnSchema::name)
+                .map(CqlNames::quote)
+                .toList();
+        String tokenStatement = String.format(Locale.ROOT, "token(%s)", String.join(", ", pkColumns));
 
-        private JavaDriverV4Run(JavaDriverV4Client client)
-        {
-            this.client = client;
-        }
-
-        private shaded.com.datastax.oss.driver.api.core.metadata.token.Token getPartitionKeyToken(shaded.com.datastax.oss.driver.api.core.cql.Row row)
-        {
-            shaded.com.datastax.oss.driver.api.core.cql.ColumnDefinitions metadata = row.getColumnDefinitions();
-            for (int i = 0; i < metadata.size(); i++)
-            {
-                String colName = metadata.get(i).getName().asInternal();
-                if (TOKEN_COLUMN_NAME.matcher(colName).matches())
-                    return row.getToken(i);
-            }
-            throw new IllegalStateException("Unable to locate token(...) column in result set. " +
-                                            "This query must project token(partition_key) without aliasing.");
-        }
-
-        public boolean run() throws Exception
-        {
-            State state = currentState.get();
-            if (state == null)
-            { // start processing a new token range
-                TokenRange range = tokenRangeIterator.next();
-                if (range == null)
-                    return true; // no more token ranges to process
-
-                state = new State(range, buildQuery(range));
-                currentState.set(state);
-            }
-
-            shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder statement = new shaded.com.datastax.oss.driver.api.core.cql.SimpleStatementBuilder(state.query);
-            statement.setFetchSize(pageSize);
-
-            if (state.pagingStateV4 != null)
-                statement.setPagingState(state.pagingStateV4);
-
-            shaded.com.datastax.oss.driver.api.core.cql.ResultSet results = client.getSession().execute(statement.build());
-            state.pagingStateV4 = results.getExecutionInfo().getPagingState();
-
-            int remaining = results.getAvailableWithoutFetching();
-            rowCount += remaining;
-
-            for (shaded.com.datastax.oss.driver.api.core.cql.Row row : results)
-            {
-                // this call will only succeed if we've added token(partition keys) to the query
-                Object partition = getPartitionKeyToken(row);
-                if (!state.partitions.contains(partition))
-                {
-                    partitionCount += 1;
-                    state.partitions.add(partition);
-                }
-
-                if (--remaining == 0)
-                    break;
-            }
-
-            if (results.isFullyFetched() || isWarmup)
-            { // no more pages to fetch or just warming up, ready to move on to another token range
-                currentState.set(null);
-            }
-
-            return true;
-        }
+        String query = "SELECT " + tokenStatement + ", " + columns + " FROM "
+                + CqlNames.quote(tableMetadata.name())
+                + " WHERE " + tokenStatement + " > " + tokenRange.start();
+        return tokenRange.endsAtRingEnd() ? query : query + " AND " + tokenStatement + " <= " + tokenRange.end();
     }
-
-    private String buildQuery(TokenRange tokenRange)
-    {
-        Token start = tokenRange.getStart();
-        Token end = tokenRange.getEnd();
-        List<String> pkColumns = tableMetadata.getPartitionKeyNames();
-        String tokenStatement = String.format("token(%s)", String.join(", ", pkColumns));
-
-        StringBuilder ret = new StringBuilder();
-        ret.append("SELECT ");
-        ret.append(tokenStatement); // add the token(pk) statement so that we can count partitions
-        ret.append(", ");
-        ret.append(columns);
-        ret.append(" FROM ");
-        ret.append(tableMetadata.getName());
-        if (start != null || end != null)
-            ret.append(" WHERE ");
-        if (start != null)
-        {
-            ret.append(tokenStatement);
-            ret.append(" > ");
-            ret.append(start.toString());
-        }
-
-        if (start != null && end != null)
-            ret.append(" AND ");
-
-        if (end != null)
-        {
-            ret.append(tokenStatement);
-            ret.append(" <= ");
-            ret.append(end.toString());
-        }
-
-        return ret.toString();
-    }
-
-    private static class ThriftRun extends Runner
-    {
-        final ThriftClient client;
-
-        private ThriftRun(ThriftClient client)
-        {
-            this.client = client;
-        }
-
-        public boolean run() throws Exception
-        {
-            throw new OperationNotSupportedException("Bulk read over thrift not supported");
-        }
-    }
-
 
     @Override
-    public void run(JavaDriverClient client) throws IOException
-    {
+    public void run(StressClient client) throws IOException {
         timeWithRetry(new JavaDriverRun(client));
     }
 
     @Override
-    public void run(JavaDriverV4Client client) throws IOException
-    {
-        timeWithRetry(new JavaDriverV4Run(client));
-    }
-
-    @Override
-    public void run(ThriftClient client) throws IOException
-    {
-        timeWithRetry(new ThriftRun(client));
-    }
-
-    public int ready(WorkManager workManager)
-    {
+    public int ready(WorkManager workManager) {
         tokenRangeIterator.update();
 
-        if (tokenRangeIterator.exhausted() && currentState.get() == null)
+        if (tokenRangeIterator.exhausted() && currentState.get() == null) {
             return 0;
+        }
 
         int numLeft = workManager.takePermits(1);
 
         return numLeft > 0 ? 1 : 0;
     }
 
-    public String key()
-    {
+    @Override
+    public String key() {
         State state = currentState.get();
         return state == null ? "-" : state.toString();
     }

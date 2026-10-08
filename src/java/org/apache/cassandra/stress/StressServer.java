@@ -1,135 +1,201 @@
-/**
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.commons.cli.*;
-
-import org.apache.cassandra.concurrent.NamedThreadFactory;
 import org.apache.cassandra.stress.settings.StressSettings;
+import org.apache.cassandra.stress.util.HostAndPort;
 import org.apache.cassandra.stress.util.MultiResultLogger;
-import org.apache.cassandra.stress.util.ResultLogger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class StressServer
-{
-    private static final Options availableOptions = new Options();
+public final class StressServer {
+    private StressServer() {}
 
-    static
-    {
-        availableOptions.addOption("h", "host", true, "Host to listen for connections.");
-    }
+    public static final int DEFAULT_PORT = 2159;
 
-    private static final AtomicInteger threadCounter = new AtomicInteger(1);
+    private static final Logger LOGGER = LoggerFactory.getLogger(StressServer.class);
 
-    public static void main(String[] args) throws Exception
-    {
-        ServerSocket serverSocket = null;
-        CommandLineParser parser  = new PosixParser();
+    static final int MAX_ARGUMENTS = 1024;
 
-        InetAddress address = InetAddress.getByName("127.0.0.1");
+    static final int MAX_CLIENTS = 16;
 
-        try
-        {
-            CommandLine cmd = parser.parse(availableOptions, args);
+    private static final int COMMAND_TIMEOUT_MILLIS = 30_000;
 
-            if (cmd.hasOption("h"))
-            {
-                address = InetAddress.getByName(cmd.getOptionValue("h"));
+    private static final long CANCEL_GRACE_MILLIS = 5_000;
+
+    static final Semaphore CLIENTS = new Semaphore(MAX_CLIENTS);
+
+    private static final AtomicInteger THREAD_COUNTER = new AtomicInteger(1);
+
+    public static void main(String[] args) throws IOException {
+        HostAndPort listen;
+        try {
+            listen = listenAddress(args);
+        } catch (IllegalArgumentException e) {
+            listen = null;
+        }
+        if (listen == null) {
+            System.err.println("Usage: ./bin/stressd start|stop|status [-h <host>] [-p <port>]");
+            System.exit(1);
+        }
+        InetAddress address = InetAddress.getByName(listen.host());
+
+        ServerSocket serverSocket;
+        try {
+            serverSocket = new ServerSocket(listen.port(), 0, address);
+        } catch (IOException e) {
+            System.err.printf(
+                    Locale.ROOT, "Could not listen on port: %s:%d.%n", address.getHostAddress(), listen.port());
+            System.exit(1);
+            return;
+        }
+
+        try (serverSocket) {
+            for (; ; ) {
+                accept(serverSocket.accept());
             }
         }
-        catch (ParseException e)
-        {
-            System.err.printf("Usage: ./bin/stressd start|stop|status [-h <host>]");
-            System.exit(1);
-        }
-
-        try
-        {
-            serverSocket = new ServerSocket(2159, 0, address);
-        }
-        catch (IOException e)
-        {
-            System.err.printf("Could not listen on port: %s:2159.%n", address.getHostAddress());
-            System.exit(1);
-        }
-
-        for (;;)
-            new StressThread(serverSocket.accept()).start();
     }
 
-    public static class StressThread extends Thread
-    {
+    static void accept(Socket socket) throws IOException {
+        if (!CLIENTS.tryAcquire()) {
+            try (socket;
+                    PrintStream out = new PrintStream(socket.getOutputStream(), true, StandardCharsets.UTF_8)) {
+                out.println("stressd serves " + MAX_CLIENTS + " clients at a time. Try again later.");
+                out.println("FAILURE");
+            }
+            return;
+        }
+        new StressThread(socket).start();
+    }
+
+    static HostAndPort listenAddress(String[] args) {
+        String host = "127.0.0.1";
+        int port = DEFAULT_PORT;
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+            if ("-h".equals(arg) || "--host".equals(arg)) {
+                if (i + 1 == args.length) {
+                    return null;
+                }
+                host = args[++i];
+            } else if (arg.startsWith("--host=")) {
+                host = arg.substring("--host=".length());
+            } else if ("-p".equals(arg) || "--port".equals(arg)) {
+                if (i + 1 == args.length) {
+                    return null;
+                }
+                port = HostAndPort.parsePort(args[++i]);
+            } else if (arg.startsWith("--port=")) {
+                port = HostAndPort.parsePort(arg.substring("--port=".length()));
+            } else if (arg.startsWith("-")) {
+                return null;
+            }
+        }
+        return new HostAndPort(host, port);
+    }
+
+    static void writeCommand(DataOutputStream out, String[] arguments) throws IOException {
+        out.writeInt(arguments.length);
+        for (String argument : arguments) {
+            out.writeUTF(argument);
+        }
+        out.flush();
+    }
+
+    static String[] readCommand(DataInputStream in) throws IOException {
+        int count = in.readInt();
+        if (count < 0 || count > MAX_ARGUMENTS) {
+            throw new IOException("Invalid argument count: " + count);
+        }
+        String[] arguments = new String[count];
+        for (int i = 0; i < count; i++) {
+            arguments[i] = in.readUTF();
+        }
+        return arguments;
+    }
+
+    static String failureMessage(Exception e) {
+        return e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    static void serve(Socket socket) throws IOException, InterruptedException {
+        try (socket;
+                DataInputStream in = new DataInputStream(socket.getInputStream());
+                PrintStream out = new PrintStream(socket.getOutputStream(), true, StandardCharsets.UTF_8)) {
+            StressSettings settings;
+            try {
+                socket.setSoTimeout(COMMAND_TIMEOUT_MILLIS);
+                settings = StressSettings.parseForDaemon(readCommand(in));
+                socket.setSoTimeout(0);
+            } catch (RuntimeException | SocketTimeoutException e) {
+                out.println(failureMessage(e));
+                out.println("FAILURE");
+                return;
+            }
+            if (settings == null) {
+                out.println("FAILURE");
+                return;
+            }
+
+            MultiResultLogger log = new MultiResultLogger(out);
+            settings.setOutput(log);
+            Thread actionThread = Thread.ofPlatform()
+                    .name("stress-" + THREAD_COUNTER.incrementAndGet())
+                    .start(new StressAction(settings, log));
+            Thread canceller = Thread.ofVirtual().start(() -> cancelOnRequest(in, actionThread));
+            try {
+                actionThread.join();
+                canceller.join(CANCEL_GRACE_MILLIS);
+            } finally {
+                settings.graph.deleteTemporaryLogFile();
+            }
+        }
+    }
+
+    private static void cancelOnRequest(DataInputStream in, Thread actionThread) {
+        try {
+            int signal;
+            do {
+                signal = in.readInt();
+            } while (signal != 1);
+        } catch (IOException e) {
+            LOGGER.debug("The client closed the connection", e);
+        }
+        actionThread.interrupt();
+    }
+
+    public static class StressThread extends Thread {
         private final Socket socket;
 
-        public StressThread(Socket client)
-        {
+        public StressThread(Socket client) {
             this.socket = client;
         }
 
-        public void run()
-        {
-            try
-            {
-                ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-                PrintStream out = new PrintStream(socket.getOutputStream());
-                ResultLogger log = new MultiResultLogger(out);
-
-                StressAction action = new StressAction((StressSettings) in.readObject(), log);
-                Thread actionThread = NamedThreadFactory.createThread(action, "stress-" + threadCounter.incrementAndGet());
-                actionThread.start();
-
-                while (actionThread.isAlive())
-                {
-                    try
-                    {
-                        if (in.readInt() == 1)
-                        {
-                            actionThread.interrupt();
-                            break;
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        // continue without problem
-                    }
-                }
-
-                out.close();
-                in.close();
-                socket.close();
-            }
-            catch (IOException e)
-            {
-                throw new RuntimeException(e.getMessage(), e);
-            }
-            catch (Exception e)
-            {
+        @SuppressWarnings("CatchAndPrintStackTrace")
+        @Override
+        public void run() {
+            try {
+                serve(socket);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
                 e.printStackTrace();
+            } finally {
+                CLIENTS.release();
             }
         }
-
     }
-
 }

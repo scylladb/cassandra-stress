@@ -1,194 +1,103 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
-
-import com.datastax.driver.core.ResultSet;
-import org.apache.cassandra.db.ConsistencyLevel;
-import org.apache.cassandra.stress.core.BoundStatement;
-import org.apache.cassandra.stress.core.PreparedStatement;
-import org.apache.cassandra.stress.generate.*;
+import org.apache.cassandra.stress.driver.StressBoundStatement;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressPreparedStatement;
+import org.apache.cassandra.stress.generate.DistributionFixed;
+import org.apache.cassandra.stress.generate.PartitionGenerator;
+import org.apache.cassandra.stress.generate.PartitionIterator;
+import org.apache.cassandra.stress.generate.Row;
+import org.apache.cassandra.stress.generate.SeedManager;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.thrift.CqlResult;
-import org.apache.cassandra.thrift.ThriftConversion;
 
-public class SchemaQuery extends SchemaStatement
-{
-    public static enum ArgSelect
-    {
-        MULTIROW, SAMEROW;
-        //TODO: FIRSTROW, LASTROW
+public class SchemaQuery extends SchemaStatement {
+    public enum ArgSelect {
+        MULTIROW,
+        SAMEROW;
     }
 
     final ArgSelect argSelect;
     final Object[][] randomBuffer;
     final Random random = new Random();
 
-    public SchemaQuery(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, Integer thriftId, PreparedStatement statement, ArgSelect argSelect)
-    {
-        super(timer,
-            settings,
-            new DataSpec(generator, seedManager, new DistributionFixed(1), settings.insert.rowPopulationRatio.get(), argSelect == ArgSelect.MULTIROW ? statement.getVariables().size() : 1),
-            statement, statement.getColumnNames(), thriftId);
+    public SchemaQuery(
+            Timer timer,
+            StressSettings settings,
+            PartitionGenerator generator,
+            SeedManager seedManager,
+            StressPreparedStatement statement,
+            ArgSelect argSelect) {
+        super(
+                timer,
+                settings,
+                new DataSpec(
+                        generator,
+                        seedManager,
+                        new DistributionFixed(1),
+                        settings.insert.rowPopulationRatio.get(),
+                        argSelect == ArgSelect.MULTIROW ? statement.variableCount() : 1),
+                statement,
+                statement.getColumnNames());
         this.argSelect = argSelect;
         randomBuffer = new Object[argumentIndex.length][argumentIndex.length];
     }
 
-    private class JavaDriverRun extends Runner
-    {
-        final JavaDriverClient client;
+    private final class JavaDriverRun extends Runner {
+        final StressClient client;
+        private StressBoundStatement bound;
 
-        private JavaDriverRun(JavaDriverClient client)
-        {
+        private JavaDriverRun(StressClient client) {
             this.client = client;
         }
 
-        public boolean run() throws Exception
-        {
-            ResultSet rs = client.getSession().execute(bindArgs().ToV3Value());
-            rowCount = rs.all().size();
+        @Override
+        public boolean run() throws Exception {
+            if (bound == null) {
+                bound = bindArgs();
+            }
+            rowCount = client.executeCount(bound, null, null);
             partitionCount = Math.min(1, rowCount);
             return true;
         }
     }
 
-    private class JavaDriverV4Run extends Runner
-    {
-        final JavaDriverV4Client client;
-
-        private JavaDriverV4Run(JavaDriverV4Client client)
-        {
-            this.client = client;
-        }
-
-        public boolean run() throws Exception
-        {
-            shaded.com.datastax.oss.driver.api.core.cql.ResultSet rs = client.getSession().execute(bindArgs().ToV4Value());
-            rowCount = rs.all().size();
-            partitionCount = Math.min(1, rowCount);
-            return true;
-        }
-    }
-
-    private class ThriftRun extends Runner
-    {
-        final ThriftClient client;
-
-        private ThriftRun(ThriftClient client)
-        {
-            this.client = client;
-        }
-
-        public boolean run() throws Exception
-        {
-            CqlResult rs = client.execute_prepared_cql3_query(thriftId, partitions.get(0).getToken(), thriftArgs(), ThriftConversion.toThrift(ConsistencyLevel.valueOf(statement.getConsistencyLevel().toString())));
-            rowCount = rs.getRowsSize();
-            partitionCount = Math.min(1, rowCount);
-            return true;
-        }
-    }
-
-    private int fillRandom()
-    {
+    private int fillRandom() {
         int c = 0;
-        PartitionIterator iterator = partitions.get(0);
-        while (iterator.hasNext())
-        {
+        PartitionIterator iterator = partitions.getFirst();
+        while (iterator.hasNext()) {
             Row row = iterator.next();
             Object[] randomBufferRow = randomBuffer[c++];
-            for (int i = 0 ; i < argumentIndex.length ; i++)
+            for (int i = 0; i < argumentIndex.length; i++) {
                 randomBufferRow[i] = row.get(argumentIndex[i]);
-            if (c >= randomBuffer.length)
+            }
+            if (c >= randomBuffer.length) {
                 break;
+            }
         }
         assert c > 0;
         return c;
     }
 
-    BoundStatement bindArgs()
-    {
-        switch (argSelect)
-        {
-            case MULTIROW:
+    StressBoundStatement bindArgs() {
+        return switch (argSelect) {
+            case MULTIROW -> {
                 int c = fillRandom();
-                for (int i = 0 ; i < argumentIndex.length ; i++)
-                {
+                for (int i = 0; i < argumentIndex.length; i++) {
                     int argIndex = argumentIndex[i];
                     bindBuffer[i] = randomBuffer[argIndex < 0 ? 0 : random.nextInt(c)][i];
                 }
-                return statement.bind(bindBuffer);
-            case SAMEROW:
-                return bindRow(partitions.get(0).next());
-            default:
-                throw new IllegalStateException();
-        }
-    }
-
-    List<ByteBuffer> thriftArgs()
-    {
-        switch (argSelect)
-        {
-            case MULTIROW:
-                List<ByteBuffer> args = new ArrayList<>();
-                int c = fillRandom();
-                for (int i = 0 ; i < argumentIndex.length ; i++)
-                {
-                    int argIndex = argumentIndex[i];
-                    args.add(spec.partitionGenerator.convert(argIndex, randomBuffer[argIndex < 0 ? 0 : random.nextInt(c)][i]));
-                }
-                return args;
-            case SAMEROW:
-                return thriftRowArgs(partitions.get(0).next());
-            default:
-                throw new IllegalStateException();
-        }
+                yield statement.bind(bindBuffer);
+            }
+            case SAMEROW -> bindRow(partitions.getFirst().next());
+        };
     }
 
     @Override
-    public void run(JavaDriverClient client) throws IOException
-    {
+    public void run(StressClient client) throws IOException {
         timeWithRetry(new JavaDriverRun(client));
     }
-
-    @Override
-    public void run(JavaDriverV4Client client) throws IOException
-    {
-        timeWithRetry(new JavaDriverV4Run(client));
-    }
-
-    @Override
-    public void run(ThriftClient client) throws IOException
-    {
-        timeWithRetry(new ThriftRun(client));
-    }
-
 }

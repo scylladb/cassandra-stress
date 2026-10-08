@@ -1,100 +1,65 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.predefined;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-
-import com.google.common.base.Function;
-
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import org.apache.cassandra.stress.core.PreparedStatement;
+import java.util.Locale;
+import org.apache.cassandra.stress.driver.StressBoundStatement;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressPreparedStatement;
+import org.apache.cassandra.stress.driver.StressResult;
 import org.apache.cassandra.stress.generate.PartitionGenerator;
 import org.apache.cassandra.stress.generate.SeedManager;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.Command;
 import org.apache.cassandra.stress.settings.ConnectionStyle;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.thrift.Compression;
-import org.apache.cassandra.thrift.CqlResult;
-import org.apache.cassandra.thrift.CqlRow;
-import org.apache.cassandra.thrift.ThriftConversion;
-import org.apache.cassandra.transport.SimpleClient;
-import org.apache.cassandra.transport.messages.ResultMessage;
-import org.apache.cassandra.utils.ByteBufferUtil;
-import org.apache.thrift.TException;
+import org.apache.cassandra.stress.util.ByteBufferUtil;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
 
-public abstract class CqlOperation<V> extends PredefinedOperation
-{
+public abstract class CqlOperation<V> extends PredefinedOperation {
 
     public static final ByteBuffer[][] EMPTY_BYTE_BUFFERS = new ByteBuffer[0][];
-    public static final byte[][] EMPTY_BYTE_ARRAYS = new byte[0][];
 
     protected abstract List<Object> getQueryParameters(byte[] key);
-    protected abstract String buildQuery();
-    protected abstract CqlRunOp<V> buildRunOp(ClientWrapper client, String query, Object queryId, List<Object> params, ByteBuffer key);
 
-    public CqlOperation(Command type, Timer timer, PartitionGenerator generator, SeedManager seedManager, StressSettings settings)
-    {
+    protected abstract String buildQuery();
+
+    protected abstract CqlRunOp<V> buildRunOp(
+            ClientWrapper client, String query, Object queryId, List<Object> params, ByteBuffer key);
+
+    public CqlOperation(
+            Command type, Timer timer, PartitionGenerator generator, SeedManager seedManager, StressSettings settings) {
         super(type, timer, generator, seedManager, settings);
-        if (settings.columns.variableColumnCount)
+        if (settings.columns.variableColumnCount) {
             throw new IllegalStateException("Variable column counts are not implemented for CQL");
+        }
     }
 
-    protected CqlRunOp<V> run(final ClientWrapper client, final List<Object> queryParams, final ByteBuffer key) throws IOException
-    {
+    protected CqlRunOp<V> run(final ClientWrapper client, final List<Object> queryParams, final ByteBuffer key)
+            throws IOException {
         final CqlRunOp<V> op;
-        if (settings.mode.style == ConnectionStyle.CQL_PREPARED)
-        {
+        if (settings.mode.style == ConnectionStyle.CQL_PREPARED) {
             final Object id;
             Object idobj = getCqlCache();
-            if (idobj == null)
-            {
-                try
-                {
-                    id = client.createPreparedStatement(buildQuery());
-                } catch (TException e)
-                {
-                    throw new RuntimeException(e);
-                }
+            if (idobj == null) {
+                id = client.createPreparedStatement(buildQuery());
                 storeCqlCache(id);
-            }
-            else
+            } else {
                 id = idobj;
+            }
 
             op = buildRunOp(client, null, id, queryParams, key);
-        }
-        else
-        {
+        } else {
             final String query;
             Object qobj = getCqlCache();
-            if (qobj == null)
-                storeCqlCache(query = buildQuery());
-            else
+            if (qobj == null) {
+                query = buildQuery();
+                storeCqlCache(query);
+            } else {
                 query = qobj.toString();
+            }
 
             op = buildRunOp(client, query, null, queryParams, key);
         }
@@ -103,189 +68,187 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         return op;
     }
 
-    protected void run(final ClientWrapper client) throws IOException
-    {
+    protected void run(final ClientWrapper client) throws IOException {
         final byte[] key = getKey().array();
         final List<Object> queryParams = getQueryParameters(key);
         run(client, queryParams, ByteBuffer.wrap(key));
     }
 
-    // Classes to process Cql results
-
-    // Always succeeds so long as the query executes without error; provides a keyCount to increment on instantiation
-    protected final class CqlRunOpAlwaysSucceed extends CqlRunOp<Integer>
-    {
+    protected static final class CqlRunOpAlwaysSucceed extends CqlRunOp<Integer> {
 
         final int keyCount;
 
-        protected CqlRunOpAlwaysSucceed(ClientWrapper client, String query, Object queryId, List<Object> params, ByteBuffer key, int keyCount)
-        {
+        CqlRunOpAlwaysSucceed(
+                ClientWrapper client, String query, Object queryId, List<Object> params, ByteBuffer key, int keyCount) {
             super(client, query, queryId, RowCountHandler.INSTANCE, params, key);
             this.keyCount = keyCount;
         }
 
         @Override
-        public boolean validate(Integer result)
-        {
+        public boolean validate(Integer result) {
             return true;
         }
 
         @Override
-        public int partitionCount()
-        {
+        public int partitionCount() {
             return keyCount;
         }
 
         @Override
-        public int rowCount()
-        {
+        public int rowCount() {
             return keyCount;
         }
     }
 
-    // Succeeds so long as the result set is nonempty, and the query executes without error
-    protected final class CqlRunOpTestNonEmpty extends CqlRunOp<Integer>
-    {
+    protected static final class CqlRunOpTestNonEmpty extends CqlRunOp<Integer> {
 
-        protected CqlRunOpTestNonEmpty(ClientWrapper client, String query, Object queryId, List<Object> params, ByteBuffer key)
-        {
+        CqlRunOpTestNonEmpty(ClientWrapper client, String query, Object queryId, List<Object> params, ByteBuffer key) {
             super(client, query, queryId, RowCountHandler.INSTANCE, params, key);
         }
 
         @Override
-        public boolean validate(Integer result)
-        {
+        public boolean validate(Integer result) {
             return result > 0;
         }
 
         @Override
-        public int partitionCount()
-        {
+        public int partitionCount() {
             return result;
         }
 
         @Override
-        public int rowCount()
-        {
+        public int rowCount() {
             return result;
         }
     }
 
-    protected final class CqlRunOpMatchResults extends CqlRunOp<ByteBuffer[][]>
-    {
+    protected final class CqlRunOpMatchResults extends CqlRunOp<ByteBuffer[][]> {
 
         final List<List<ByteBuffer>> expect;
         private String validationError;
 
-        // a null value for an item in expect means we just check the row is present
-        protected CqlRunOpMatchResults(ClientWrapper client, String query, Object queryId, List<Object> params, ByteBuffer key, List<List<ByteBuffer>> expect)
-        {
+        CqlRunOpMatchResults(
+                ClientWrapper client,
+                String query,
+                Object queryId,
+                List<Object> params,
+                ByteBuffer key,
+                List<List<ByteBuffer>> expect) {
             super(client, query, queryId, RowsHandler.INSTANCE, params, key);
             this.expect = expect;
         }
 
         @Override
-        public int partitionCount()
-        {
+        public int partitionCount() {
             return result == null ? 0 : result.length;
         }
 
         @Override
-        public int rowCount()
-        {
+        public int rowCount() {
             return result == null ? 0 : result.length;
         }
 
         @Override
-        public String validationErrorMessage()
-        {
+        public String validationErrorMessage() {
             return validationError;
         }
 
-        // keep every validationError message single-line: SCT captures the whole matched log line as one event,
-        // so an embedded %n would silently split off part of the diagnostic detail.
-        public boolean validate(ByteBuffer[][] result)
-        {
-            if (!settings.errors.skipReadValidation)
-            {
+        @Override
+        public boolean validate(ByteBuffer[][] result) {
+            if (!settings.errors.skipReadValidation) {
                 int expectedRows = expect.size();
                 int actualRows = result.length;
 
-                if (actualRows != expectedRows)
-                {
+                if (actualRows != expectedRows) {
                     long expectedBytes = 0;
                     int expectedColsPerRow = 0;
-                    if (expectedRows > 0 && expect.get(0) != null)
-                    {
-                        expectedColsPerRow = expect.get(0).size();
-                        for (List<ByteBuffer> row : expect)
-                            if (row != null) expectedBytes += totalBytes(row);
+                    if (expectedRows > 0 && expect.getFirst() != null) {
+                        expectedColsPerRow = expect.getFirst().size();
+                        for (List<ByteBuffer> row : expect) {
+                            if (row != null) {
+                                expectedBytes += totalBytes(row);
+                            }
+                        }
                     }
 
-                    if (actualRows == 0)
-                    {
+                    if (actualRows == 0) {
                         validationError = String.format(
-                            "Data returned was not validated: row empty/missing" +
-                            " (expected %d row(s) with %d column(s) %s, %d bytes total (%dx%d); got 0 rows)",
-                            expectedRows, expectedColsPerRow,
-                            columnNamesPreview(expectedColsPerRow),
-                            expectedBytes, expectedColsPerRow,
-                            expectedColsPerRow > 0 ? expectedBytes / expectedColsPerRow : 0);
-                    }
-                    else
-                    {
+                                Locale.ROOT,
+                                "Data returned was not validated: row empty/missing (expected %d row(s) with %d"
+                                        + " column(s) %s, %d bytes total (%dx%d); got 0 rows)",
+                                expectedRows,
+                                expectedColsPerRow,
+                                columnNamesPreview(expectedColsPerRow),
+                                expectedBytes,
+                                expectedColsPerRow,
+                                expectedColsPerRow > 0 ? expectedBytes / expectedColsPerRow : 0);
+                    } else {
                         long actualBytes = 0;
-                        for (ByteBuffer[] row : result)
-                            if (row != null) actualBytes += totalBytes(row);
+                        for (ByteBuffer[] row : result) {
+                            if (row != null) {
+                                actualBytes += totalBytes(row);
+                            }
+                        }
                         validationError = String.format(
-                            "Data returned was not validated: row count mismatch" +
-                            " (expected %d row(s) / %d bytes total; got %d row(s) / %d bytes total)",
-                            expectedRows, expectedBytes, actualRows, actualBytes);
+                                Locale.ROOT,
+                                "Data returned was not validated: row count mismatch"
+                                        + " (expected %d row(s) / %d bytes total; got %d row(s) / %d bytes total)",
+                                expectedRows,
+                                expectedBytes,
+                                actualRows,
+                                actualBytes);
                     }
                     return false;
                 }
 
-                for (int i = 0; i < result.length; i++)
-                {
+                for (int i = 0; i < result.length; i++) {
                     List<ByteBuffer> expectedRow = expect.get(i);
-                    if (expectedRow == null)
+                    if (expectedRow == null) {
                         continue;
+                    }
                     ByteBuffer[] actualRow = result[i];
 
-                    if (actualRow.length != expectedRow.size())
-                    {
+                    if (actualRow.length != expectedRow.size()) {
                         long expectedRowBytes = totalBytes(expectedRow);
                         long actualRowBytes = totalBytes(actualRow);
                         validationError = String.format(
-                            "Data returned was not validated: row %d column count mismatch" +
-                            " (expected %d column(s) %s / %d bytes; got %d column(s) / %d bytes)",
-                            i, expectedRow.size(), columnNamesPreview(expectedRow.size()),
-                            expectedRowBytes, actualRow.length, actualRowBytes);
+                                Locale.ROOT,
+                                "Data returned was not validated: row %d column count mismatch"
+                                        + " (expected %d column(s) %s / %d bytes; got %d column(s) / %d bytes)",
+                                i,
+                                expectedRow.size(),
+                                columnNamesPreview(expectedRow.size()),
+                                expectedRowBytes,
+                                actualRow.length,
+                                actualRowBytes);
                         return false;
                     }
 
-                    for (int j = 0; j < expectedRow.size(); j++)
-                    {
+                    for (int j = 0; j < expectedRow.size(); j++) {
                         ByteBuffer expectedVal = expectedRow.get(j);
                         ByteBuffer actualVal = actualRow[j];
-                        if (expectedVal != null && !expectedVal.equals(actualVal))
-                        {
+                        if (expectedVal != null && !expectedVal.equals(actualVal)) {
                             int expectedSize = expectedVal.remaining();
                             int actualSize = (actualVal != null) ? actualVal.remaining() : -1;
                             String colLabel = columnLabel(j);
                             String diff;
-                            if (actualSize < 0)
-                                diff = String.format("got null (expected %d bytes)", expectedSize);
-                            else if (actualSize != expectedSize)
-                                diff = String.format("expected %d bytes, got %d bytes", expectedSize, actualSize);
-                            else
-                                diff = String.format("same size (%d bytes) but content differs; expected[0..%d]=%s, got[0..%d]=%s",
-                                    expectedSize,
-                                    Math.min(15, expectedSize - 1), hexPreview(expectedVal, 16),
-                                    Math.min(15, actualSize - 1),   hexPreview(actualVal, 16));
+                            if (actualSize < 0) {
+                                diff = String.format(Locale.ROOT, "got null (expected %d bytes)", expectedSize);
+                            } else if (actualSize != expectedSize) {
+                                diff = String.format(
+                                        Locale.ROOT, "expected %d bytes, got %d bytes", expectedSize, actualSize);
+                            } else {
+                                diff = String.format(
+                                        Locale.ROOT,
+                                        "same size (%d bytes) but content differs; expected[0..%d]=%s, got[0..%d]=%s",
+                                        expectedSize,
+                                        Math.min(15, expectedSize - 1),
+                                        hexPreview(expectedVal, 16),
+                                        Math.min(15, actualSize - 1),
+                                        hexPreview(actualVal, 16));
+                            }
                             validationError = String.format(
-                                "Data returned was not validated: row %d, %s: %s",
-                                i, colLabel, diff);
+                                    Locale.ROOT, "Data returned was not validated: row %d, %s: %s", i, colLabel, diff);
                             return false;
                         }
                     }
@@ -294,40 +257,44 @@ public abstract class CqlOperation<V> extends PredefinedOperation
             return true;
         }
 
-        private String columnLabel(int j)
-        {
+        private String columnLabel(int j) {
             List<String> names = settings.columns.namestrs;
-            if (names != null && j < names.size())
-                return String.format("column %d (%s)", j, names.get(j));
-            return String.format("column %d", j);
+            if (names != null && j < names.size()) {
+                return String.format(Locale.ROOT, "column %d (%s)", j, names.get(j));
+            }
+            return String.format(Locale.ROOT, "column %d", j);
         }
 
-        private String columnNamesPreview(int count)
-        {
+        private String columnNamesPreview(int count) {
             List<String> names = settings.columns.namestrs;
-            if (names == null || names.isEmpty() || count <= 0)
+            if (names == null || names.isEmpty() || count <= 0) {
                 return "";
+            }
             int available = Math.min(count, names.size());
-            if (available <= 4)
+            if (available <= 4) {
                 return names.subList(0, available).toString();
-            return "[" + names.get(0) + ".." + names.get(available - 1) + "]";
+            }
+            return "[" + names.getFirst() + ".." + names.get(available - 1) + "]";
         }
     }
 
-    // Cql
-    protected abstract class CqlRunOp<V> implements RunOp
-    {
+    protected abstract static class CqlRunOp<R> implements RunOp {
 
         final ClientWrapper client;
         final String query;
         final Object queryId;
         final List<Object> params;
         final ByteBuffer key;
-        final ResultHandler<V> handler;
-        V result;
+        final ResultHandler<R> handler;
+        R result;
 
-        private CqlRunOp(ClientWrapper client, String query, Object queryId, ResultHandler<V> handler, List<Object> params, ByteBuffer key)
-        {
+        private CqlRunOp(
+                ClientWrapper client,
+                String query,
+                Object queryId,
+                ResultHandler<R> handler,
+                List<Object> params,
+                ByteBuffer key) {
             this.client = client;
             this.query = query;
             this.queryId = queryId;
@@ -337,546 +304,155 @@ public abstract class CqlOperation<V> extends PredefinedOperation
         }
 
         @Override
-        public boolean run() throws Exception
-        {
-            return queryId != null
-            ? validate(result = client.execute(queryId, key, params, handler))
-            : validate(result = client.execute(query, key, params, handler));
+        public boolean run() throws Exception {
+            result = queryId != null
+                    ? client.execute(queryId, key, params, handler)
+                    : client.execute(query, key, params, handler);
+            return validate(result);
         }
 
-        public abstract boolean validate(V result);
-
-    }
-
-
-    /// LOTS OF WRAPPING/UNWRAPPING NONSENSE
-
-
-    @Override
-    public void run(final ThriftClient client) throws IOException
-    {
-        run(wrap(client));
+        public abstract boolean validate(R result);
     }
 
     @Override
-    public void run(SimpleClient client) throws IOException
-    {
-        run(wrap(client));
+    public void run(StressClient client) throws IOException {
+        run(new ClientWrapper(client, settings));
     }
 
-    @Override
-    public void run(JavaDriverClient client) throws IOException
-    {
-        run(wrap(client));
-    }
+    protected static final class ClientWrapper {
+        private final StressClient client;
+        private final StressSettings settings;
 
-    @Override
-    public void run(JavaDriverV4Client client) throws IOException
-    {
-        run(wrap(client));
-    }
-
-    public ClientWrapper wrap(ThriftClient client)
-    {
-        return new Cql3CassandraClientWrapper(client);
-    }
-
-    public ClientWrapper wrap(JavaDriverClient client)
-    {
-        return new JavaDriverWrapper(client);
-    }
-
-    public ClientWrapper wrap(JavaDriverV4Client client)
-    {
-        return new JavaDriverV4Wrapper(client);
-    }
-
-    public ClientWrapper wrap(SimpleClient client)
-    {
-        return new SimpleClientWrapper(client);
-    }
-
-    protected interface ClientWrapper
-    {
-        Object createPreparedStatement(String cqlQuery) throws TException;
-        <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler) throws TException;
-        <V> V execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler) throws TException;
-    }
-
-    private final class JavaDriverWrapper implements ClientWrapper
-    {
-        final JavaDriverClient client;
-        private JavaDriverWrapper(JavaDriverClient client)
-        {
+        private ClientWrapper(StressClient client, StressSettings settings) {
             this.client = client;
+            this.settings = settings;
         }
 
-        @Override
-        public <V> V execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
-        {
-            String formattedQuery = formatCqlQuery(query, queryParams);
-            return handler.javaDriverHandler().apply(client.execute(formattedQuery, settings.command.consistencyLevel, settings.command.serialConsistencyLevel));
+        <R> R execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
+            String cql = formatCqlQuery(query, queryParams);
+            ConsistencyLevel consistency = settings.command.consistencyLevel;
+            ConsistencyLevel serial = settings.command.serialConsistencyLevel;
+            return handler.countsOnly()
+                    ? handler.fromCount(client.executeCount(cql, consistency, serial))
+                    : handler.fromRows(client.execute(cql, consistency, serial));
         }
 
-        @Override
-        public <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
-        {
-            return handler.javaDriverHandler().apply(
-                    client.executePrepared(
-                            (PreparedStatement) stmt,
-                            queryParams,
-                            settings.command.consistencyLevel,
-                            settings.command.serialConsistencyLevel));
+        <R> R execute(Object statement, ByteBuffer key, List<Object> queryParams, ResultHandler<R> handler) {
+            StressBoundStatement bound = ((StressPreparedStatement) statement).bind(queryParams.toArray());
+            ConsistencyLevel consistency = settings.command.consistencyLevel;
+            ConsistencyLevel serial = settings.command.serialConsistencyLevel;
+            return handler.countsOnly()
+                    ? handler.fromCount(client.executeCount(bound, consistency, serial))
+                    : handler.fromRows(client.execute(bound, consistency, serial));
         }
 
-        @Override
-        public Object createPreparedStatement(String cqlQuery)
-        {
+        Object createPreparedStatement(String cqlQuery) {
             return client.prepare(cqlQuery);
         }
     }
 
-    private final class JavaDriverV4Wrapper implements ClientWrapper
-    {
-        final JavaDriverV4Client client;
-        private JavaDriverV4Wrapper(JavaDriverV4Client client)
-        {
-            this.client = client;
+    @SuppressWarnings("PMD.ImplicitFunctionalInterface")
+    protected interface ResultHandler<V> {
+        V fromRows(StressResult result);
+
+        default boolean countsOnly() {
+            return false;
         }
 
-        @Override
-        public <V> V execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
-        {
-            String formattedQuery = formatCqlQuery(query, queryParams);
-            return handler.javaDriverV4Handler().apply(client.execute(formattedQuery, settings.command.consistencyLevel, settings.command.serialConsistencyLevel));
-        }
-
-        @Override
-        public <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
-        {
-            return handler.javaDriverV4Handler().apply(
-                client.executePrepared(
-                    (PreparedStatement) stmt,
-                    queryParams,
-                    settings.command.consistencyLevel,
-                    settings.command.serialConsistencyLevel));
-        }
-
-        @Override
-        public Object createPreparedStatement(String cqlQuery)
-        {
-            return client.prepare(cqlQuery);
+        default V fromCount(int count) {
+            throw new UnsupportedOperationException("This handler reads the rows");
         }
     }
 
-    private final class SimpleClientWrapper implements ClientWrapper
-    {
-        final SimpleClient client;
-        private SimpleClientWrapper(SimpleClient client)
-        {
-            this.client = client;
-        }
-
-        @Override
-        public <V> V execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
-        {
-            String formattedQuery = formatCqlQuery(query, queryParams);
-            return handler.thriftHandler().apply(client.execute(formattedQuery, settings.command.consistencyLevel));
-        }
-
-        @Override
-        public <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler)
-        {
-            return handler.thriftHandler().apply(
-                    client.executePrepared(
-                            (byte[]) stmt,
-                            toByteBufferParams(queryParams),
-                            settings.command.consistencyLevel));
-        }
-
-        @Override
-        public Object createPreparedStatement(String cqlQuery)
-        {
-            return client.prepare(cqlQuery).statementId.bytes;
-        }
-    }
-
-    // client wrapper for Cql3
-    private final class Cql3CassandraClientWrapper implements ClientWrapper
-    {
-        final ThriftClient client;
-        private Cql3CassandraClientWrapper(ThriftClient client)
-        {
-            this.client = client;
-        }
-
-        @Override
-        public <V> V execute(String query, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler) throws TException
-        {
-            String formattedQuery = formatCqlQuery(query, queryParams);
-            return handler.simpleNativeHandler().apply(
-                    client.execute_cql3_query(formattedQuery, key, Compression.NONE, ThriftConversion.toThrift(settings.command.consistencyLevel))
-            );
-        }
-
-        @Override
-        public <V> V execute(Object stmt, ByteBuffer key, List<Object> queryParams, ResultHandler<V> handler) throws TException
-        {
-            Integer id = (Integer) stmt;
-            return handler.simpleNativeHandler().apply(
-                    client.execute_prepared_cql3_query(id, key, toByteBufferParams(queryParams), ThriftConversion.toThrift(settings.command.consistencyLevel))
-            );
-        }
-
-        @Override
-        public Object createPreparedStatement(String cqlQuery) throws TException
-        {
-            return client.prepare_cql3_query(cqlQuery, Compression.NONE);
-        }
-    }
-
-    // interface for building functions to standardise results from each client
-    protected static interface ResultHandler<V>
-    {
-        Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, V> javaDriverV4Handler();
-        Function<ResultSet, V> javaDriverHandler();
-        Function<ResultMessage, V> thriftHandler();
-        Function<CqlResult, V> simpleNativeHandler();
-    }
-
-    protected static class RowCountHandler implements ResultHandler<Integer>
-    {
+    protected static final class RowCountHandler implements ResultHandler<Integer> {
         static final RowCountHandler INSTANCE = new RowCountHandler();
 
         @Override
-        public Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, Integer> javaDriverV4Handler() {
-            return new Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, Integer>()
-            {
-                @Override
-                public Integer apply(shaded.com.datastax.oss.driver.api.core.cql.ResultSet rows)
-                {
-                    if (rows == null)
-                        return 0;
-                    return rows.all().size();
-                }
-            };
+        public Integer fromRows(StressResult rows) {
+            return rows == null ? 0 : rows.rows().size();
         }
 
         @Override
-        public Function<ResultSet, Integer> javaDriverHandler()
-        {
-            return new Function<ResultSet, Integer>()
-            {
-                @Override
-                public Integer apply(ResultSet rows)
-                {
-                    if (rows == null)
-                        return 0;
-                    return rows.all().size();
-                }
-            };
+        public boolean countsOnly() {
+            return true;
         }
 
         @Override
-        public Function<ResultMessage, Integer> thriftHandler()
-        {
-            return new Function<ResultMessage, Integer>()
-            {
-                @Override
-                public Integer apply(ResultMessage result)
-                {
-                    return result instanceof ResultMessage.Rows ? ((ResultMessage.Rows) result).result.size() : 0;
-                }
-            };
+        public Integer fromCount(int count) {
+            return count;
         }
-
-        @Override
-        public Function<CqlResult, Integer> simpleNativeHandler()
-        {
-            return new Function<CqlResult, Integer>()
-            {
-
-                @Override
-                public Integer apply(CqlResult result)
-                {
-                    switch (result.getType())
-                    {
-                        case ROWS:
-                            return result.getRows().size();
-                        default:
-                            return 1;
-                    }
-                }
-            };
-        }
-
     }
 
-    // Processes results from each client into an array of all key bytes returned
-    protected static final class RowsHandler implements ResultHandler<ByteBuffer[][]>
-    {
+    protected static final class RowsHandler implements ResultHandler<ByteBuffer[][]> {
         static final RowsHandler INSTANCE = new RowsHandler();
 
         @Override
-        public Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, ByteBuffer[][]> javaDriverV4Handler() {
-            {
-                return new Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, ByteBuffer[][]>() {
-
-                    @Override
-                    public ByteBuffer[][] apply(shaded.com.datastax.oss.driver.api.core.cql.ResultSet result) {
-                        if (result == null)
-                            return EMPTY_BYTE_BUFFERS;
-                        List<shaded.com.datastax.oss.driver.api.core.cql.Row> rows = result.all();
-
-                        ByteBuffer[][] r = new ByteBuffer[rows.size()][];
-                        for (int i = 0; i < r.length; i++) {
-                            shaded.com.datastax.oss.driver.api.core.cql.Row row = rows.get(i);
-                            r[i] = new ByteBuffer[row.getColumnDefinitions().size()];
-                            for (int j = 0; j < row.getColumnDefinitions().size(); j++)
-                                r[i][j] = row.getByteBuffer(j);
-                        }
-                        return r;
-                    }
-                };
+        public ByteBuffer[][] fromRows(StressResult result) {
+            if (result == null) {
+                return EMPTY_BYTE_BUFFERS;
             }
+            return result.rows().toArray(ByteBuffer[][]::new);
         }
-
-
-        @Override
-        public Function<ResultSet, ByteBuffer[][]> javaDriverHandler()
-        {
-            return new Function<ResultSet, ByteBuffer[][]>()
-            {
-
-                @Override
-                public ByteBuffer[][] apply(ResultSet result)
-                {
-                    if (result == null)
-                        return EMPTY_BYTE_BUFFERS;
-                    List<Row> rows = result.all();
-
-                    ByteBuffer[][] r = new ByteBuffer[rows.size()][];
-                    for (int i = 0 ; i < r.length ; i++)
-                    {
-                        Row row = rows.get(i);
-                        r[i] = new ByteBuffer[row.getColumnDefinitions().size()];
-                        for (int j = 0 ; j < row.getColumnDefinitions().size() ; j++)
-                            r[i][j] = row.getBytes(j);
-                    }
-                    return r;
-                }
-            };
-        }
-
-        @Override
-        public Function<ResultMessage, ByteBuffer[][]> thriftHandler()
-        {
-            return new Function<ResultMessage, ByteBuffer[][]>()
-            {
-
-                @Override
-                public ByteBuffer[][] apply(ResultMessage result)
-                {
-                    if (!(result instanceof ResultMessage.Rows))
-                        return EMPTY_BYTE_BUFFERS;
-
-                    ResultMessage.Rows rows = ((ResultMessage.Rows) result);
-                    ByteBuffer[][] r = new ByteBuffer[rows.result.size()][];
-                    for (int i = 0 ; i < r.length ; i++)
-                    {
-                        List<ByteBuffer> row = rows.result.rows.get(i);
-                        r[i] = new ByteBuffer[row.size()];
-                        for (int j = 0 ; j < row.size() ; j++)
-                            r[i][j] = row.get(j);
-                    }
-                    return r;
-                }
-            };
-        }
-
-        @Override
-        public Function<CqlResult, ByteBuffer[][]> simpleNativeHandler()
-        {
-            return new Function<CqlResult, ByteBuffer[][]>()
-            {
-
-                @Override
-                public ByteBuffer[][] apply(CqlResult result)
-                {
-                    ByteBuffer[][] r = new ByteBuffer[result.getRows().size()][];
-                    for (int i = 0 ; i < r.length ; i++)
-                    {
-                        CqlRow row = result.getRows().get(i);
-                        r[i] = new ByteBuffer[row.getColumns().size()];
-                        for (int j = 0 ; j < r[i].length ; j++)
-                            r[i][j] = ByteBuffer.wrap(row.getColumns().get(j).getValue());
-                    }
-                    return r;
-                }
-            };
-        }
-
-    }
-    // Processes results from each client into an array of all key bytes returned
-    protected static final class KeysHandler implements ResultHandler<byte[][]>
-    {
-        static final KeysHandler INSTANCE = new KeysHandler();
-
-        @Override
-        public Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, byte[][]> javaDriverV4Handler() {
-            return new Function<shaded.com.datastax.oss.driver.api.core.cql.ResultSet, byte[][]>() {
-
-                @Override
-                public byte[][] apply(shaded.com.datastax.oss.driver.api.core.cql.ResultSet result) {
-
-                    if (result == null)
-                        return EMPTY_BYTE_ARRAYS;
-                    List<shaded.com.datastax.oss.driver.api.core.cql.Row> rows = result.all();
-                    byte[][] r = new byte[rows.size()][];
-                    for (int i = 0; i < r.length; i++)
-                        r[i] = rows.get(i).getByteBuffer(0).array();
-                    return r;
-                }
-            };
-        }
-
-        @Override
-        public Function<ResultSet, byte[][]> javaDriverHandler()
-        {
-            return new Function<ResultSet, byte[][]>()
-            {
-
-                @Override
-                public byte[][] apply(ResultSet result)
-                {
-
-                    if (result == null)
-                        return EMPTY_BYTE_ARRAYS;
-                    List<Row> rows = result.all();
-                    byte[][] r = new byte[rows.size()][];
-                    for (int i = 0 ; i < r.length ; i++)
-                        r[i] = rows.get(i).getBytes(0).array();
-                    return r;
-                }
-            };
-        }
-
-        @Override
-        public Function<ResultMessage, byte[][]> thriftHandler()
-        {
-            return new Function<ResultMessage, byte[][]>()
-            {
-
-                @Override
-                public byte[][] apply(ResultMessage result)
-                {
-                    if (result instanceof ResultMessage.Rows)
-                    {
-                        ResultMessage.Rows rows = ((ResultMessage.Rows) result);
-                        byte[][] r = new byte[rows.result.size()][];
-                        for (int i = 0 ; i < r.length ; i++)
-                            r[i] = rows.result.rows.get(i).get(0).array();
-                        return r;
-                    }
-                    return null;
-                }
-            };
-        }
-
-        @Override
-        public Function<CqlResult, byte[][]> simpleNativeHandler()
-        {
-            return new Function<CqlResult, byte[][]>()
-            {
-
-                @Override
-                public byte[][] apply(CqlResult result)
-                {
-                    byte[][] r = new byte[result.getRows().size()][];
-                    for (int i = 0 ; i < r.length ; i++)
-                        r[i] = result.getRows().get(i).getKey();
-                    return r;
-                }
-            };
-        }
-
     }
 
-    private static String getUnQuotedCqlBlob(ByteBuffer term)
-    {
+    private static String getUnQuotedCqlBlob(ByteBuffer term) {
         return "0x" + ByteBufferUtil.bytesToHex(term);
     }
 
-    /**
-     * Constructs a CQL query string by replacing instances of the character
-     * '?', with the corresponding parameter.
-     *
-     * @param query base query string to format
-     * @param parms sequence of string query parameters
-     * @return formatted CQL query string
-     */
-    private static String formatCqlQuery(String query, List<Object> parms)
-    {
-        int marker, position = 0;
+    private static String formatCqlQuery(String query, List<Object> parms) {
+        int marker;
+        int position = 0;
         StringBuilder result = new StringBuilder();
 
-        if (-1 == (marker = query.indexOf('?')) || parms.size() == 0)
+        marker = query.indexOf('?');
+        if (marker == -1 || parms.isEmpty()) {
             return query;
-
-        for (Object parm : parms)
-        {
-            result.append(query.substring(position, marker));
-
-            if (parm instanceof ByteBuffer)
-                result.append(getUnQuotedCqlBlob((ByteBuffer) parm));
-            else if (parm instanceof Long)
-                result.append(parm);
-            else throw new AssertionError();
-
-            position = marker + 1;
-            if (-1 == (marker = query.indexOf('?', position + 1)))
-                break;
         }
 
-        if (position < query.length())
+        for (Object parm : parms) {
+            result.append(query.substring(position, marker));
+
+            switch (parm) {
+                case ByteBuffer buffer -> result.append(getUnQuotedCqlBlob(buffer));
+                case Long number -> result.append(number.longValue());
+                default -> throw new IllegalArgumentException("Cannot write a CQL literal for " + parm);
+            }
+
+            position = marker + 1;
+            marker = query.indexOf('?', position + 1);
+            if (marker == -1) {
+                break;
+            }
+        }
+
+        if (position < query.length()) {
             result.append(query.substring(position));
+        }
 
         return result.toString();
     }
 
-    private static List<ByteBuffer> toByteBufferParams(List<Object> params)
-    {
-        List<ByteBuffer> r = new ArrayList<>();
-        for (Object param : params)
-        {
-            if (param instanceof ByteBuffer)
-                r.add((ByteBuffer) param);
-            else if (param instanceof Long)
-                r.add(ByteBufferUtil.bytes((Long) param));
-            else throw new AssertionError();
-        }
-        return r;
-    }
-
-    protected String wrapInQuotes(String string)
-    {
+    protected String wrapInQuotes(String string) {
         return "\"" + string + "\"";
     }
 
-    private static long totalBytes(List<ByteBuffer> bufs)
-    {
+    private static long totalBytes(List<ByteBuffer> bufs) {
         long total = 0;
-        for (ByteBuffer bb : bufs)
-            if (bb != null) total += bb.remaining();
+        for (ByteBuffer bb : bufs) {
+            if (bb != null) {
+                total += bb.remaining();
+            }
+        }
         return total;
     }
 
-    private static long totalBytes(ByteBuffer[] bufs)
-    {
+    private static long totalBytes(ByteBuffer[] bufs) {
         long total = 0;
-        for (ByteBuffer bb : bufs)
-            if (bb != null) total += bb.remaining();
+        for (ByteBuffer bb : bufs) {
+            if (bb != null) {
+                total += bb.remaining();
+            }
+        }
         return total;
     }
-
 }

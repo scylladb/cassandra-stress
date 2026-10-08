@@ -1,50 +1,21 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
 
-
-import java.io.Serializable;
-import java.util.*;
-
-import com.datastax.driver.core.Metadata;
-
-import com.google.common.collect.ImmutableMap;
-
-import org.apache.cassandra.config.EncryptionOptions;
-import org.apache.cassandra.stress.core.TableMetadata;
-import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressClients;
+import org.apache.cassandra.stress.util.ConsistencyLevel;
+import org.apache.cassandra.stress.util.CqlNames;
+import org.apache.cassandra.stress.util.EncryptionOptions;
+import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.apache.cassandra.stress.util.ResultLogger;
-import org.apache.cassandra.stress.util.SimpleThriftClient;
-import org.apache.cassandra.stress.util.SmartThriftClient;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.thrift.AuthenticationRequest;
-import org.apache.cassandra.thrift.Cassandra;
-import org.apache.cassandra.thrift.InvalidRequestException;
-import org.apache.cassandra.transport.SimpleClient;
-import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.transport.TTransport;
 
-public class StressSettings implements Serializable
-{
+public class StressSettings {
     public final SettingsCommand command;
     public final SettingsRate rate;
     public final SettingsPopulation generate;
@@ -61,22 +32,22 @@ public class StressSettings implements Serializable
     public final SettingsGraph graph;
     public final SettingsTokenRange tokenRange;
 
-    public StressSettings(SettingsCommand command,
-                          SettingsRate rate,
-                          SettingsPopulation generate,
-                          SettingsInsert insert,
-                          SettingsColumn columns,
-                          SettingsErrors errors,
-                          SettingsLog log,
-                          SettingsMode mode,
-                          SettingsNode node,
-                          SettingsSchema schema,
-                          SettingsTransport transport,
-                          SettingsPort port,
-                          String sendToDaemon,
-                          SettingsGraph graph,
-                          SettingsTokenRange tokenRange)
-    {
+    public StressSettings(
+            SettingsCommand command,
+            SettingsRate rate,
+            SettingsPopulation generate,
+            SettingsInsert insert,
+            SettingsColumn columns,
+            SettingsErrors errors,
+            SettingsLog log,
+            SettingsMode mode,
+            SettingsNode node,
+            SettingsSchema schema,
+            SettingsTransport transport,
+            SettingsPort port,
+            String sendToDaemon,
+            SettingsGraph graph,
+            SettingsTokenRange tokenRange) {
         this.command = command;
         this.rate = rate;
         this.insert = insert;
@@ -94,223 +65,160 @@ public class StressSettings implements Serializable
         this.tokenRange = tokenRange;
     }
 
-    private SmartThriftClient tclient;
-
-    /**
-     * Thrift client connection
-     *
-     * @return cassandra client connection
-     */
-    public synchronized ThriftClient getThriftClient()
-    {
-        if (mode.api != ConnectionAPI.THRIFT_SMART)
-            return getSimpleThriftClient();
-
-        if (tclient == null)
-            tclient = getSmartThriftClient();
-
-        return tclient;
-    }
-
-    private SmartThriftClient getSmartThriftClient()
-    {
-        Metadata metadata = getJavaDriverClient().getCluster().getMetadata();
-        return new SmartThriftClient(this, schema.keyspace, metadata);
-    }
-
-    /**
-     * Thrift client connection
-     *
-     * @return cassandra client connection
-     */
-    private SimpleThriftClient getSimpleThriftClient()
-    {
-        return new SimpleThriftClient(getRawThriftClient(node.randomNode(), true));
-    }
-
-    public Cassandra.Client getRawThriftClient(boolean setKeyspace)
-    {
-        return getRawThriftClient(node.randomNode(), setKeyspace);
-    }
-
-    public Cassandra.Client getRawThriftClient(String host)
-    {
-        return getRawThriftClient(host, true);
-    }
-
-    public Cassandra.Client getRawThriftClient(String host, boolean setKeyspace)
-    {
-        Cassandra.Client client;
-
-        try
-        {
-            TTransport transport = this.transport.getFactory().openTransport(host, port.thriftPort);
-
-            client = new Cassandra.Client(new TBinaryProtocol(transport));
-
-            if (mode.cqlVersion.isCql())
-                client.set_cql_version(mode.cqlVersion.connectVersion);
-
-            if (setKeyspace)
-                client.set_keyspace(schema.keyspace);
-
-            if (mode.username != null)
-                client.login(new AuthenticationRequest(ImmutableMap.of("username", mode.username, "password", mode.password)));
-        }
-        catch (InvalidRequestException e)
-        {
-            throw new RuntimeException(e.getWhy());
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
-
-        return client;
-    }
-
-
-    public SimpleClient getSimpleNativeClient()
-    {
-        try
-        {
-            String currentNode = node.randomNode();
-            SimpleClient client = new SimpleClient(currentNode, port.nativePort);
-            client.connect(false);
-            if (schema.keyspace != null)
-                client.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.db.ConsistencyLevel.ONE);
-            return client;
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e.getMessage());
-        }
-    }
-
-    private static volatile JavaDriverClient client;
-    private static volatile int numFailures;
+    private volatile ResultLogger output = new MultiResultLogger(System.out);
+    private volatile StressClient client;
+    private final Object clientLock = new Object();
+    private int numFailures;
     private static int MAX_NUM_FAILURES = 10;
 
-    public JavaDriverClient getJavaDriverClient()
-    {
-        return getJavaDriverClient(true);
+    public ResultLogger output() {
+        return output;
     }
 
-    public JavaDriverClient getJavaDriverClient(boolean setKeyspace)
-    {
-        if (client != null)
+    public void setOutput(ResultLogger output) {
+        this.output = Objects.requireNonNull(output);
+    }
+
+    public StressClient getClient() {
+        return getClient(true);
+    }
+
+    public StressClient getClient(boolean setKeyspace) {
+        if (client != null) {
             return client;
+        }
 
-        synchronized (this)
-        {
-            if (numFailures >= MAX_NUM_FAILURES)
+        synchronized (clientLock) {
+            if (numFailures >= MAX_NUM_FAILURES) {
                 throw new RuntimeException("Failed to create client too many times");
-
-            try
-            {
-                if (client != null)
-                    return client;
-
-                EncryptionOptions.ClientEncryptionOptions encOptions = transport.getEncryptionOptions();
-                JavaDriverClient c = new JavaDriverClient(this, node.nodes, port.nativePort, encOptions);
-                c.connect(mode.compression());
-                if (setKeyspace && schema.keyspace != null)
-                    c.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.db.ConsistencyLevel.ONE);
-
-                return client = c;
             }
-            catch (Exception e)
-            {
+
+            if (client != null) {
+                return client;
+            }
+            StressClient c = null;
+            try {
+                EncryptionOptions encOptions = transport.getEncryptionOptions();
+                c = StressClients.create(this, node.nodes, port.nativePort, encOptions);
+                c.connect(mode.compression());
+                if (setKeyspace && schema.keyspace != null) {
+                    c.execute("USE " + CqlNames.quote(schema.keyspace), ConsistencyLevel.ONE);
+                }
+
+                client = c;
+                return c;
+            } catch (Exception e) {
                 numFailures += 1;
+                if (c != null) {
+                    try {
+                        c.disconnect();
+                    } catch (RuntimeException suppressed) {
+                        e.addSuppressed(suppressed);
+                    }
+                }
                 throw new RuntimeException(e);
             }
         }
     }
 
-    private static volatile JavaDriverV4Client v4Client;
-
-    public JavaDriverV4Client getJavaDriverV4Client()
-    {
-        return getJavaDriverV4Client(true);
-    }
-
-    public JavaDriverV4Client getJavaDriverV4Client(boolean setKeyspace)
-    {
-        if (v4Client != null)
-            return v4Client;
-
-        synchronized (this)
-        {
-            if (numFailures >= MAX_NUM_FAILURES)
-                throw new RuntimeException("Failed to create client too many times");
-
-            try
-            {
-                if (v4Client != null)
-                    return v4Client;
-
-                EncryptionOptions.ClientEncryptionOptions encOptions = transport.getEncryptionOptions();
-                JavaDriverV4Client c = new JavaDriverV4Client(this, node.nodes, port.nativePort, encOptions);
-                c.connect(mode.compression());
-                if (setKeyspace && schema.keyspace != null)
-                    c.execute("USE \"" + schema.keyspace + "\";", org.apache.cassandra.db.ConsistencyLevel.ONE);
-
-                return v4Client = c;
-            }
-            catch (Exception e)
-            {
-                numFailures +=1;
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
-    public void maybeCreateKeyspaces()
-    {
-        if (command.type == Command.WRITE || command.type == Command.COUNTER_WRITE)
-        {
+    public void maybeCreateKeyspaces() {
+        if (command.type == Command.WRITE || command.type == Command.COUNTER_WRITE) {
             schema.createKeySpaces(this);
-        }
-        else if (command.type == Command.USER)
-        {
+        } else if (command.type == Command.USER) {
             ((SettingsCommandUser) command).profiles.forEach((k, v) -> v.maybeCreateSchema(this));
         }
     }
 
-    public static StressSettings parse(String[] args)
-    {
+    public static StressSettings parse(String[] args) {
+        return parse(args, false);
+    }
+
+    public static StressSettings parseForDaemon(String[] args) {
+        return parse(args, true);
+    }
+
+    private static StressSettings parse(String[] args, boolean daemon) {
+        if (args.length == 0) {
+            throw new InvalidSettingsException("No command provided", StressSettings::printHelp);
+        }
         args = repairParams(args);
         final Map<String, String[]> clArgs = parseMap(args);
-        if (clArgs.containsKey("legacy"))
-            return Legacy.build(Arrays.copyOfRange(args, 1, args.length));
-        if (SettingsMisc.maybeDoSpecial(clArgs))
+        if (daemon) {
+            refuseDaemonFileAccess(clArgs);
+        }
+        if (clArgs.containsKey("legacy")) {
+            throw new IllegalArgumentException(
+                    "Command legacy was removed. Run cassandra-stress help to see the commands.");
+        }
+        if (SettingsMisc.maybeDoSpecial(clArgs)) {
             return null;
+        }
         return get(clArgs);
     }
 
-    private static String[] repairParams(String[] args)
-    {
-        StringBuilder sb = new StringBuilder();
-        boolean first = true;
-        for (String arg : args)
-        {
-            if (!first)
-                sb.append(" ");
-            sb.append(arg);
-            first = false;
+    private static void refuseDaemonFileAccess(Map<String, String[]> clArgs) {
+        if (Command.USER.names.stream().anyMatch(clArgs::containsKey)) {
+            throw new IllegalArgumentException("stressd runs the predefined commands only.");
         }
-        return sb.toString()
-                 .replaceAll("\\s+([,=()])", "$1")
-                 .replaceAll("([,=(])\\s+", "$1")
-                 .split(" +");
+        if (hasValue(clArgs.get("-node"), "file=")) {
+            throw new IllegalArgumentException("stressd refuses -node file=. Pass the nodes as a list.");
+        }
+        if (hasValue(clArgs.get("-log"), "hdrfile=")) {
+            throw new IllegalArgumentException("stressd refuses -log hdrfile=.");
+        }
     }
 
-    public static StressSettings get(Map<String, String[]> clArgs)
-    {
+    private static boolean hasValue(String[] values, String prefix) {
+        if (values == null) {
+            return false;
+        }
+        for (String value : values) {
+            if (value.toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static String[] repairParams(String[] args) {
+        String joined = String.join(" ", args);
+        int length = joined.length();
+        StringBuilder sb = new StringBuilder(length);
+        int i = 0;
+        while (i < length) {
+            if (!isAsciiWhitespace(joined.charAt(i))) {
+                sb.append(joined.charAt(i));
+                i++;
+                continue;
+            }
+            int end = i;
+            while (end < length && isAsciiWhitespace(joined.charAt(end))) {
+                end++;
+            }
+            boolean beforeDelimiter = end < length && ",=()".indexOf(joined.charAt(end)) >= 0;
+            boolean afterDelimiter = !sb.isEmpty() && ",=(".indexOf(sb.charAt(sb.length() - 1)) >= 0;
+            if (!beforeDelimiter && !afterDelimiter) {
+                sb.append(joined, i, end);
+            }
+            i = end;
+        }
+        return sb.toString().split(" +");
+    }
+
+    private static boolean isAsciiWhitespace(char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\u000B' || c == '\f' || c == '\r';
+    }
+
+    public static StressSettings get(Map<String, String[]> clArgs) {
         SettingsCommand command = SettingsCommand.get(clArgs);
-        if (command == null)
+        if (command == null) {
             throw new IllegalArgumentException("No command specified");
+        }
         String sendToDaemon = SettingsMisc.getSendToDaemon(clArgs);
+        if (sendToDaemon != null && command.type == Command.USER) {
+            throw new IllegalArgumentException(
+                    "-send-to runs the predefined commands only. Run the user command without -send-to.");
+        }
         SettingsPort port = SettingsPort.get(clArgs);
         SettingsRate rate = SettingsRate.get(clArgs, command);
         SettingsPopulation generate = SettingsPopulation.get(clArgs, command);
@@ -324,70 +232,70 @@ public class StressSettings implements Serializable
         SettingsSchema schema = SettingsSchema.get(clArgs, command);
         SettingsTransport transport = SettingsTransport.get(clArgs);
         SettingsGraph graph = SettingsGraph.get(clArgs, command);
-        if (!clArgs.isEmpty())
-        {
-            printHelp();
-            System.out.println("Error processing command line arguments. The following were ignored:");
-            for (Map.Entry<String, String[]> e : clArgs.entrySet())
-            {
-                System.out.print(e.getKey());
-                for (String v : e.getValue())
-                {
-                    System.out.print(" ");
-                    System.out.print(v);
+        if (!clArgs.isEmpty()) {
+            graph.deleteTemporaryLogFile();
+            StringBuilder message =
+                    new StringBuilder("Error processing command line arguments. The following were ignored:");
+            for (Map.Entry<String, String[]> e : clArgs.entrySet()) {
+                message.append(System.lineSeparator()).append(e.getKey());
+                for (String v : e.getValue()) {
+                    message.append(' ').append(v);
                 }
-                System.out.println();
             }
-            System.exit(1);
+            throw new InvalidSettingsException(message.toString(), StressSettings::printHelp);
         }
 
-        return new StressSettings(command, rate, generate, insert, columns, errors, log, mode, node, schema, transport, port, sendToDaemon, graph, tokenRange);
+        return new StressSettings(
+                command,
+                rate,
+                generate,
+                insert,
+                columns,
+                errors,
+                log,
+                mode,
+                node,
+                schema,
+                transport,
+                port,
+                sendToDaemon,
+                graph,
+                tokenRange);
     }
 
-    private static Map<String, String[]> parseMap(String[] args)
-    {
-        // first is the main command/operation, so specified without a -
-        if (args.length == 0)
-        {
-            System.out.println("No command provided");
-            printHelp();
-            System.exit(1);
-        }
+    private static Map<String, String[]> parseMap(String[] args) {
         final LinkedHashMap<String, String[]> r = new LinkedHashMap<>();
         String key = null;
         List<String> params = new ArrayList<>();
-        for (int i = 0; i < args.length; i++)
-        {
-            if (i == 0 || args[i].startsWith("-"))
-            {
-                if (i > 0)
+        for (int i = 0; i < args.length; i++) {
+            if (i == 0 || args[i].startsWith("-")) {
+                if (i > 0) {
                     putParam(key, params.toArray(new String[0]), r);
-                key = args[i].toLowerCase();
+                }
+                key = args[i].toLowerCase(Locale.ROOT);
                 params.clear();
-            }
-            else
+            } else {
                 params.add(args[i]);
+            }
         }
         putParam(key, params.toArray(new String[0]), r);
         return r;
     }
 
-    private static void putParam(String key, String[] args, Map<String, String[]> clArgs)
-    {
+    private static void putParam(String key, String[] args, Map<String, String[]> clArgs) {
         String[] prev = clArgs.put(key, args);
-        if (prev != null)
-            throw new IllegalArgumentException(key + " is defined multiple times. Each option/command can be specified at most once.");
+        if (prev != null) {
+            throw new IllegalArgumentException(
+                    key + " is defined multiple times. Each option/command can be specified at most once.");
+        }
     }
 
-    public static void printHelp()
-    {
+    public static void printHelp() {
         SettingsMisc.printHelp();
     }
 
-    public void printSettings(ResultLogger out)
-    {
+    public void printSettings(ResultLogger out) {
         out.println("******************** Stress Settings ********************");
-        // done
         out.println("Command:");
         command.printSettings(out);
         out.println("Rate:");
@@ -396,8 +304,7 @@ public class StressSettings implements Serializable
         generate.printSettings(out);
         out.println("Insert:");
         insert.printSettings(out);
-        if (command.type != Command.USER)
-        {
+        if (command.type != Command.USER) {
             out.println("Columns:");
             columns.printSettings(out);
         }
@@ -422,9 +329,7 @@ public class StressSettings implements Serializable
         out.println("TokenRange:");
         tokenRange.printSettings(out);
 
-
-        if (command.type == Command.USER)
-        {
+        if (command.type == Command.USER) {
             out.println();
             out.println("******************** Profile ********************");
             out.println("******************** Profile(s) ********************");
@@ -434,12 +339,12 @@ public class StressSettings implements Serializable
         out.println();
     }
 
-    public synchronized void disconnect()
-    {
-        if (client == null)
-            return;
-
-        client.disconnect();
-        client = null;
+    public void disconnect() {
+        synchronized (clientLock) {
+            if (client != null) {
+                client.disconnect();
+                client = null;
+            }
+        }
     }
 }
