@@ -315,7 +315,7 @@ stays in every plan built from a spec.
 - Create: `S/report/HdrLog.java`, `T/StressTest.java`, `T/report/HdrLogTest.java`
 - Modify: `S/util/MultiResultLogger.java`, `S/Stress.java`, `S/StressServer.java`, `S/StressAction.java`, `S/report/StressMetrics.java`, `S/settings/SettingsLog.java`, `S/settings/SettingsGraph.java`, `T/util/MultiResultLoggerTest.java`, `T/StressServerTest.java`
 
-**Internals:** `MultiResultLogger.addOwnedStream` takes ownership, and `close` flushes every stream and closes the owned ones. `Stress.run(StressSettings, String[])` opens the logger with try-with-resources and deletes the graph log in its `finally`. `StressAction.run` opens one `HdrLog` and passes it to each non-warmup `StressMetrics`.
+**Internals:** `MultiResultLogger.addOwnedStream` and `addOwnedFile` take ownership, and `close` flushes every stream and closes the owned ones. `Stress.run(StressSettings, String[])` opens the logger with try-with-resources and deletes the graph log in its `finally`. `StressAction.run` opens one `HdrLog` and passes it to each non-warmup `StressMetrics`.
 
 - [x] Write the failing tests: concurrent close, owned and borrowed streams, the failure in the log file, the graph log deletion and the stressd cancel join.
 - [x] Make `MultiResultLogger` closeable with copy-on-write lists and explicit ownership.
