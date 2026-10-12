@@ -1,38 +1,16 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.settings;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
 
-
-import java.io.*;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
-import java.util.*;
-
-import com.datastax.driver.core.Host;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.apache.cassandra.stress.util.ResultLogger;
-import shaded.com.datastax.oss.driver.api.core.metadata.Node;
 
-public class SettingsNode implements Serializable
-{
+public class SettingsNode {
     public final List<String> nodes;
     public final boolean isWhiteList;
     public final String datacenter;
@@ -40,149 +18,74 @@ public class SettingsNode implements Serializable
     public final LoadBalanceType loadBalance;
     public final Integer usedHostsPerRemoteDc;
 
-    public SettingsNode(Options options)
-    {
-        if (options.file.setByUser())
-        {
-            try
-            {
+    public SettingsNode(Options options) {
+        if (options.file.setByUser()) {
+            try {
                 String node;
                 List<String> tmpNodes = new ArrayList<>();
-                try (BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(options.file.value()))))
-                {
-                    while ((node = in.readLine()) != null)
-                    {
-                        if (node.length() > 0)
+                try (BufferedReader in = Files.newBufferedReader(Paths.get(options.file.value()))) {
+                    while ((node = in.readLine()) != null) {
+                        if (node.length() > 0) {
                             tmpNodes.add(node);
+                        }
                     }
-                    nodes = Arrays.asList(tmpNodes.toArray(new String[tmpNodes.size()]));
+                    nodes = List.copyOf(tmpNodes);
                 }
-            }
-            catch(IOException ioe)
-            {
+            } catch (IOException ioe) {
                 throw new RuntimeException(ioe);
             }
 
-        }
-        else
-        {
-            nodes = Arrays.asList(options.list.value().split(","));
+        } else {
+            nodes = List.of(options.list.value().split(","));
         }
 
         isWhiteList = options.whitelist.setByUser();
         datacenter = options.datacenter.value();
         rack = options.rack.value();
         loadBalance = LoadBalanceType.fromString(options.loadBalance.value());
-        
-        if (options.usedHostsPerRemoteDc.setByUser())
-        {
-            try
-            {
+
+        if (options.usedHostsPerRemoteDc.setByUser()) {
+            try {
                 int value = Integer.parseInt(options.usedHostsPerRemoteDc.value());
-                if (value <= 0)
+                if (value <= 0) {
                     throw new IllegalArgumentException("remote-dc must be a positive integer greater than zero");
+                }
                 usedHostsPerRemoteDc = value;
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(
+                        "remote-dc must be a valid integer: " + options.usedHostsPerRemoteDc.value(), e);
             }
-            catch (NumberFormatException e)
-            {
-                throw new IllegalArgumentException("remote-dc must be a valid integer: " + options.usedHostsPerRemoteDc.value(), e);
-            }
-        }
-        else
-        {
+        } else {
             usedHostsPerRemoteDc = null;
         }
     }
 
-    public Set<String> resolveAllPermitted(StressSettings settings)
-    {
-        Set<String> r = new HashSet<>();
-        switch (settings.mode.api)
-        {
-            case JAVA_DRIVER4_NATIVE:
-                for (Node host : settings.getJavaDriverV4Client().getSession().getMetadata().getNodes().values())
-                    r.add(host.getBroadcastRpcAddress().get().getHostName());
-                break;
-            case THRIFT_SMART:
-            case JAVA_DRIVER_NATIVE:
-                if (!isWhiteList)
-                {
-                    for (Host host : settings.getJavaDriverClient().getCluster().getMetadata().getAllHosts())
-                        r.add(host.getAddress().getHostName());
-                    break;
-                }
-            case THRIFT:
-            case SIMPLE_NATIVE:
-                for (InetAddress address : resolveAllSpecified())
-                    r.add(address.getHostName());
-        }
-        return r;
-    }
-
-    public Set<InetAddress> resolveAllSpecified()
-    {
-        Set<InetAddress> r = new HashSet<>();
-        for (String node : nodes)
-        {
-            try
-            {
-                r.add(InetAddress.getByName(node));
-            }
-            catch (UnknownHostException e)
-            {
-                throw new RuntimeException(e);
-            }
-        }
-        return r;
-    }
-
-    public Set<InetSocketAddress> resolveAll(int port)
-    {
-        Set<InetSocketAddress> r = new HashSet<>();
-        for (String node : nodes)
-        {
-            try
-            {
-                r.add(new InetSocketAddress(InetAddress.getByName(node), port));
-            }
-            catch (UnknownHostException e)
-            {
-                throw new RuntimeException(e);
-            }
-        }
-        return r;
-    }
-
-    public String randomNode()
-    {
-        int index = (int) (Math.random() * nodes.size());
-        if (index >= nodes.size())
-            index = nodes.size() - 1;
-        return nodes.get(index);
-    }
-
-    // Option Declarations
-
-    public static final class Options extends GroupedOptions
-    {
-        final OptionSimple datacenter = new OptionSimple("datacenter=", ".*", null, "Datacenter used for DCAwareRoundRobinLoadPolicy", false);
-        final OptionSimple rack = new OptionSimple("rack=", ".*", null, "Rack used for RackAwareRoundRobinLoadPolicy", false); 
-        final OptionSimple whitelist = new OptionSimple("whitelist", "", null, "Limit communications to the provided nodes", false);
+    public static final class Options extends GroupedOptions {
+        final OptionSimple datacenter = new OptionSimple(
+                "datacenter=", ".*", null, "Local datacenter for dc-aware and rack-aware load balancing", false);
+        final OptionSimple rack =
+                new OptionSimple("rack=", ".*", null, "Local rack for rack-aware load balancing", false);
+        final OptionSimple whitelist =
+                new OptionSimple("whitelist", "", null, "Limit communications to the provided nodes", false);
         final OptionSimple file = new OptionSimple("file=", ".*", null, "Node file (one per line)", false);
-        final OptionSimple list = new OptionSimple("", "[^=,]+(,[^=,]+)*", "localhost", "comma delimited list of nodes", false);
-        final OptionSimple loadBalance = new OptionSimple("loadbalance=", ".*", null, "Load balancing strategy: round-robin, dc-aware, or rack-aware", false);
-        final OptionSimple usedHostsPerRemoteDc = new OptionSimple("remote-dc=", "[1-9][0-9]*", null, "Number of hosts from remote DCs to use for failover (used with dc-aware load balancing)", false);
+        final OptionSimple list =
+                new OptionSimple("", "[^=,]+(,[^=,]+)*", "localhost", "comma delimited list of nodes", false);
+        final OptionSimple loadBalance = new OptionSimple(
+                "loadbalance=", ".*", null, "Load balancing strategy: round-robin, dc-aware, or rack-aware", false);
+        final OptionSimple usedHostsPerRemoteDc = new OptionSimple(
+                "remote-dc=",
+                "[1-9][0-9]*",
+                null,
+                "Number of hosts from remote DCs to use for failover (used with dc-aware load balancing)",
+                false);
 
         @Override
-        public List<? extends Option> options()
-        {
-            return Arrays.asList(datacenter, rack, whitelist, file, loadBalance, usedHostsPerRemoteDc, list);
+        public List<? extends Option> options() {
+            return List.of(datacenter, rack, whitelist, file, loadBalance, usedHostsPerRemoteDc, list);
         }
     }
 
-    // CLI Utility Methods
-    public void printSettings(ResultLogger out)
-    {
+    public void printSettings(ResultLogger out) {
         out.println("  Nodes: " + nodes);
         out.println("  Is White List: " + isWhiteList);
         out.println("  Datacenter: " + datacenter);
@@ -191,29 +94,25 @@ public class SettingsNode implements Serializable
         out.println("  Remote DC Hosts: " + (usedHostsPerRemoteDc != null ? usedHostsPerRemoteDc : "disabled"));
     }
 
-    public static SettingsNode get(Map<String, String[]> clArgs)
-    {
+    public static SettingsNode get(Map<String, String[]> clArgs) {
         String[] params = clArgs.remove("-node");
-        if (params == null)
+        if (params == null) {
             return new SettingsNode(new Options());
+        }
 
         GroupedOptions options = GroupedOptions.select(params, new Options());
-        if (options == null)
-        {
-            printHelp();
-            System.out.println("Invalid -node options provided, see output for valid options");
-            System.exit(1);
+        if (options == null) {
+            throw new InvalidSettingsException(
+                    "Invalid -node options provided, see output for valid options", SettingsNode::printHelp);
         }
         return new SettingsNode((Options) options);
     }
 
-    public static void printHelp()
-    {
+    public static void printHelp() {
         GroupedOptions.printOptions(System.out, "-node", new Options());
     }
 
-    public static Runnable helpPrinter()
-    {
+    public static Runnable helpPrinter() {
         return SettingsNode::printHelp;
     }
 }

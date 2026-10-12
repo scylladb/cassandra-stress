@@ -1,31 +1,13 @@
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
-public class StressYaml
-{
+@SuppressWarnings("checkstyle:MemberName")
+public class StressYaml {
     public String specname;
     public String keyspace;
     public String keyspace_definition;
@@ -39,31 +21,30 @@ public class StressYaml
     public Map<String, String> insert;
     public Map<String, TokenRangeQueryDef> token_range_queries = new HashMap<>();
 
-    public static class QueryDef
-    {
+    public static class QueryDef {
         public String cql;
         public String fields;
         public String consistencyLevel;
         public String serialConsistencyLevel;
-        public String getConfigAsString()
-        {
-            String output = String.format("CQL:%s;Fields:%s;", cql, fields);
-            if (consistencyLevel != null)
-                output += String.format("consistencyLevel:%s;", consistencyLevel);
-            if (serialConsistencyLevel != null)
-                output += String.format("serialConsistencyLevel:%s;", serialConsistencyLevel);
-            return output;
+
+        public String getConfigAsString() {
+            StringBuilder output = new StringBuilder(String.format(Locale.ROOT, "CQL:%s;Fields:%s;", cql, fields));
+            if (consistencyLevel != null) {
+                output.append(String.format(Locale.ROOT, "consistencyLevel:%s;", consistencyLevel));
+            }
+            if (serialConsistencyLevel != null) {
+                output.append(String.format(Locale.ROOT, "serialConsistencyLevel:%s;", serialConsistencyLevel));
+            }
+            return output.toString();
         }
     }
 
-    public static class TokenRangeQueryDef
-    {
+    public static class TokenRangeQueryDef {
         public String columns;
         public int page_size = 5000;
-        public String getConfigAsString()
-        {
-            return String.format("Columns:%s;", columns);
+
+        public String getConfigAsString() {
+            return String.format(Locale.ROOT, "Columns:%s;", columns);
         }
     }
-
 }
