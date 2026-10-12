@@ -1,6 +1,3 @@
-Dockerfile
-.idea/
-dist/
-ide/
-lib/
-scripts/
+# The image holds only the tree that ./gradlew installDist writes.
+*
+!build/install/cassandra-stress/

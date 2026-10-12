@@ -16,81 +16,60 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-find_all_jars() {
-  find "$1" -name '*.jar' -print 2>/dev/null | paste -sd ":" -
-}
+set -o pipefail
 
 DESC="Cassandra Stress"
+PACKAGE_HOME="/usr/share/cassandra-stress"
+MIN_JAVA_VERSION=21
 
-if [ -n "$JAVA_HOME" ]; then
-    if [ -x "$JAVA_HOME/bin/java" ]; then
-      JAVA="$JAVA_HOME/bin/java"
+has_jars() {
+  [ -n "$(find "$1" -maxdepth 1 -name '*.jar' -print -quit 2>/dev/null)" ]
+}
+
+# Prints the major version of the java binary $1. The release file of the JDK
+# holds the version, so a JVM starts only when that file is missing.
+java_major_version() {
+  local home version=""
+  home="$(dirname "$(dirname "$(realpath "$1")")")"
+  if [ -r "$home/release" ]; then
+    version=$(awk -F'"' '/^JAVA_VERSION=/ { print $2 }' "$home/release")
+  fi
+  if [ -z "$version" ]; then
+    version=$("$1" -XshowSettings:properties -version 2>&1 | awk '/java.specification.version/ { print $3 }')
+  fi
+  version="${version#1.}"
+  echo "${version%%.*}"
+}
+
+# Sets JAVA and JAVA_MAJOR. JAVA_HOME wins. Otherwise use java from PATH, and
+# when it is too old, the newest supported runtime in /usr/lib/jvm, where the
+# system packages put it.
+find_java() {
+  local candidate major
+
+  if [ -n "$JAVA_HOME" ]; then
+    JAVA="$JAVA_HOME/bin/java"
+    [ -x "$JAVA" ] && JAVA_MAJOR=$(java_major_version "$JAVA")
+    return
+  fi
+
+  JAVA="$(command -v java)"
+  if [ -n "$JAVA" ]; then
+    JAVA_MAJOR=$(java_major_version "$JAVA")
+    if [ -n "$JAVA_MAJOR" ] && [ "$JAVA_MAJOR" -ge "$MIN_JAVA_VERSION" ]; then
+      return
     fi
-else
-  JAVA=java
-fi
+  fi
 
-if [ -z "$JAVA" ]; then
-  echo Unable to find java executable. Check JAVA_HOME and PATH environment variables. >&2
-  exit 1
-fi
-
-java_ver_output=$("${JAVA:-java}" -version 2>&1)
-jvmver=$(echo "$java_ver_output" | grep '[openjdk|java] version' | awk -F'"' 'NR==1 {print $2}' | cut -d. -f1)
-if [ "$jvmver" -lt "11" ]; then
-  echo "Cassandra-Stress requires Java 11 (or newer)."
-  exit 1
-fi
-
-if [ -d "/usr/share/cassandra-stress" ]; then
-  CASSANDRA_STRESS_HOME="/usr/share/cassandra-stress"
-else
-  CASSANDRA_STRESS_HOME="$(realpath "$(dirname "$0")")"
-fi
-
-if [ -d "/etc/cassandra-stress" ]; then
-  CASSANDRA_STRESS_CONFIG="/etc/cassandra-stress"
-else
-  while [ "$CASSANDRA_STRESS_HOME" != "/" ]; do
-    if [ -d "$CASSANDRA_STRESS_HOME/conf" ]; then
-      break
+  for candidate in /usr/lib/jvm/*/bin/java; do
+    [ -x "$candidate" ] || continue
+    major=$(java_major_version "$candidate")
+    if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA_VERSION" ] && [ "$major" -gt "${JAVA_MAJOR:-0}" ]; then
+      JAVA="$candidate"
+      JAVA_MAJOR="$major"
     fi
-    CASSANDRA_STRESS_HOME="$(dirname "$CASSANDRA_STRESS_HOME")"
   done
-
-  if [ "$CASSANDRA_STRESS_HOME" = "/" ]; then
-    echo "Error: 'conf' directory not found in any parent directory."
-    exit 1
-  fi
-
-  if [ "$CASSANDRA_STRESS_CONFIG" = "" ]; then
-    CASSANDRA_STRESS_CONFIG="$CASSANDRA_STRESS_HOME/conf"
-  fi
-fi
-
-
-if [ -d "$CASSANDRA_STRESS_HOME/build" ]; then
-  classes="$CASSANDRA_STRESS_HOME/build/classes"
-  CLASSPATH="$classes/main:$(find_all_jars "$CASSANDRA_STRESS_HOME/build/lib")"
-
-  CLASSPATH="${CLASSPATH#:}"
-fi
-
-if [ "$CASSANDRA_STRESS_STORAGE_DIR" = "" ]; then
-  CASSANDRA_STRESS_STORAGE_DIR="$CASSANDRA_STRESS_HOME/data"
-fi
-
-CLASSPATH="${CLASSPATH}:$(find_all_jars "$CASSANDRA_STRESS_HOME/lib")"
-CLASSPATH="${CLASSPATH#:}"
-
-if [ "$CLASSPATH" = "" ]; then
-    echo "You must set the CLASSPATH var" >&2
-    exit 1
-fi
-
-while read -r opt; do
-  JVM_OPTS="$JVM_OPTS $opt"
-done < <(grep "^-" "$CASSANDRA_STRESS_CONFIG/jvm-clients.options")
+}
 
 case "$1" in
   usage)
@@ -98,50 +77,125 @@ case "$1" in
     echo "Cassandra-Stress Usage: $0 [options]"
     exit 1
   ;;
-  start)
-    echo "Starting $DESC: "
-    # shellcheck disable=SC2086,SC2068
-    "$JAVA" $JVM_OPTS \
-      -server \
-      -cp "$CLASSPATH" \
-      -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \
-      -Dcassandra.logdir="$CASSANDRA_STRESS_STORAGE_DIR/logs" \
-      -Dlogback.configurationFile="$CASSANDRA_STRESS_CONFIG/logback.xml" \
-      org.apache.cassandra.stress.StressServer \
-      $@ 1> $CASSANDRA_STRESS_STORAGE_DIR/logs/stressd.out.log 2> $CASSANDRA_STRESS_STORAGE_DIR/logs/stressd.err.log &
-    echo $! > ./stressd.pid
-    echo "done."
-  ;;
-
   stop)
     PID="$(cat ./stressd.pid 2> /dev/null)"
-
-    if [ "$PID" = "" ]; then
+    if [ -z "$PID" ]; then
       echo "$DESC is not running."
     else
       kill -9 "$PID"
       rm ./stressd.pid
       echo "$DESC is stopped."
     fi
+    exit 0
   ;;
-
   status)
     PID="$(cat ./stressd.pid 2> /dev/null)"
-
-    if [ "$PID" = "" ]; then
+    if [ -z "$PID" ]; then
       echo "$DESC is not running."
     else
       echo "$DESC is running with pid $PID."
     fi
+    exit 0
+  ;;
+esac
+
+find_java
+
+if [ ! -x "$JAVA" ]; then
+  echo "Unable to find the java executable. Check the JAVA_HOME and PATH environment variables." >&2
+  exit 1
+fi
+
+if [ -z "$JAVA_MAJOR" ] || [ "$JAVA_MAJOR" -lt "$MIN_JAVA_VERSION" ]; then
+  echo "Cassandra-Stress requires Java $MIN_JAVA_VERSION or newer. $JAVA is Java ${JAVA_MAJOR:-of an unknown version}." >&2
+  exit 1
+fi
+
+# The home is the parent of the real bin directory. A package links
+# /usr/bin/cassandra-stress to $PACKAGE_HOME/bin/cassandra-stress.
+if [ -z "$CASSANDRA_STRESS_HOME" ]; then
+  CASSANDRA_STRESS_HOME="$(cd "$(dirname "$(realpath "$0")")/.." && pwd)"
+fi
+
+if [ -z "$CASSANDRA_STRESS_CONFIG" ]; then
+  CASSANDRA_STRESS_CONFIG="$CASSANDRA_STRESS_HOME/conf"
+fi
+
+if [ ! -d "$CASSANDRA_STRESS_CONFIG" ]; then
+  echo "Error: the configuration directory $CASSANDRA_STRESS_CONFIG does not exist." >&2
+  exit 1
+fi
+
+# A package installs into a read-only directory, so it keeps the logs in the
+# state directory of the user. Without HOME, as under some service managers,
+# the logs go to a directory of the user in TMPDIR.
+if [ -z "$CASSANDRA_STRESS_STORAGE_DIR" ]; then
+  if [ "$CASSANDRA_STRESS_HOME" != "$PACKAGE_HOME" ]; then
+    CASSANDRA_STRESS_STORAGE_DIR="$CASSANDRA_STRESS_HOME/data"
+  elif [ -n "$XDG_STATE_HOME" ]; then
+    CASSANDRA_STRESS_STORAGE_DIR="$XDG_STATE_HOME/cassandra-stress"
+  elif [ -n "$HOME" ]; then
+    CASSANDRA_STRESS_STORAGE_DIR="$HOME/.local/state/cassandra-stress"
+  else
+    CASSANDRA_STRESS_STORAGE_DIR="${TMPDIR:-/tmp}/cassandra-stress-$(id -u)"
+  fi
+fi
+
+# A home that the user cannot write, such as a Docker image run with --user or
+# a tarball that root unpacked, keeps the logs in a directory of the user in TMPDIR.
+LOG_DIR="$CASSANDRA_STRESS_STORAGE_DIR/logs"
+if ! mkdir -p "$LOG_DIR" 2>/dev/null; then
+  FALLBACK_STORAGE_DIR="${TMPDIR:-/tmp}/cassandra-stress-$(id -u)"
+  echo "Warning: cannot create $LOG_DIR. The logs go to $FALLBACK_STORAGE_DIR/logs. Set CASSANDRA_STRESS_STORAGE_DIR to choose another directory." >&2
+  CASSANDRA_STRESS_STORAGE_DIR="$FALLBACK_STORAGE_DIR"
+  LOG_DIR="$CASSANDRA_STRESS_STORAGE_DIR/logs"
+  mkdir -p "$LOG_DIR" 2>/dev/null
+fi
+
+# Every jar in lib is a module. A source checkout runs the tree that
+# ./gradlew installDist writes.
+MODULE_PATH="$CASSANDRA_STRESS_HOME/lib"
+if ! has_jars "$MODULE_PATH"; then
+  MODULE_PATH="$CASSANDRA_STRESS_HOME/build/install/cassandra-stress/lib"
+fi
+
+if ! has_jars "$MODULE_PATH"; then
+  echo "Found no jar files in $CASSANDRA_STRESS_HOME/lib. Run ./gradlew installDist in a source checkout." >&2
+  exit 1
+fi
+
+MAIN_MODULE="org.apache.cassandra.stress"
+
+JVM_OPTS="${JVM_OPTS:-}"
+while read -r opt; do
+  JVM_OPTS="$JVM_OPTS $opt"
+done < <(grep "^-" "$CASSANDRA_STRESS_CONFIG/jvm-clients.options")
+
+case "$1" in
+  start)
+    echo "Starting $DESC: "
+    # shellcheck disable=SC2086
+    "$JAVA" $JVM_OPTS \
+      -server \
+      --module-path "$MODULE_PATH" \
+      --add-modules ALL-MODULE-PATH \
+      -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \
+      -Dcassandra.logdir="$LOG_DIR" \
+      -Dlogback.configurationFile="$CASSANDRA_STRESS_CONFIG/logback.xml" \
+      -m "$MAIN_MODULE/org.apache.cassandra.stress.StressServer" \
+      "$@" 1> "$LOG_DIR/stressd.out.log" 2> "$LOG_DIR/stressd.err.log" &
+    echo $! > ./stressd.pid
+    echo "done."
   ;;
 
   *)
-    # shellcheck disable=SC2086,SC2068
-    "$JAVA" $JVM_OPTS \
-      -cp $CLASSPATH \
+    # shellcheck disable=SC2086
+    exec "$JAVA" $JVM_OPTS \
+      --module-path "$MODULE_PATH" \
+      --add-modules ALL-MODULE-PATH \
       -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \
-      -Dcassandra.logdir="$CASSANDRA_STRESS_STORAGE_DIR/logs" \
+      -Dcassandra.logdir="$LOG_DIR" \
       -Dlogback.configurationFile="$CASSANDRA_STRESS_CONFIG/logback.xml" \
-        org.apache.cassandra.stress.Stress $@
+      -m "$MAIN_MODULE/org.apache.cassandra.stress.Stress" "$@"
   ;;
 esac
