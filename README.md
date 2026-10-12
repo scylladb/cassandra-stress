@@ -146,9 +146,9 @@ If you prefer a Dockerized build, follow these steps:
     docker build -t cassandra-stress --compress .
     ```
 
-    To build with custom driver jar, put jar into root repo directory and run build command:
+    To build with another version of the Scylla Java driver, set the version in `BUILD_OPTS`:
     ```shell
-    docker build -t cassandra-stress --build-args BUILD_OPTS=-Dlib.override.com.scylladb.scylla-driver-core=/app/<jar-file-name>.jar --compress .
+    docker build -t cassandra-stress --build-arg BUILD_OPTS=-Dbase.javaDriverVersion=<version> --compress .
     ```
 
 Once built, you can run the image locally using:
@@ -202,7 +202,6 @@ There are several operation types:
   See <http://www.datastax.com/dev/blog/improved-cassandra-2-1-stress-tool-benchmark-any-schema>
 * help: Print help for a command or option
 * print: Inspect the output of a distribution definition
-* legacy: Legacy support mode
 
 ### Primary Options
 
@@ -210,7 +209,7 @@ There are several operation types:
 * `-insert`: Insert specific options relating to various methods for batching and splitting partition updates
 * `-col`: Column details such as size and count distribution, data generator, names, comparator and if super columns should be used
 * `-rate`: Thread count, rate limit or automatic mode (default is auto)
-* `-mode`: Thrift or CQL with options
+* `-mode`: CQL driver and connection options
 * `-errors`: How to handle errors when encountered during stress
 * `-sample`: Specify the number of samples to collect for measuring latency
 * `-schema`: Replication settings, compression, compaction, etc.
@@ -218,7 +217,7 @@ There are several operation types:
 * `-log`: Where to log progress to, and the interval at which to do it
 * `-transport`: Custom transport factories
 * `-port`: The port to connect to cassandra nodes on
-* `-sendto`: Specify a stress server to send this command to
+* `-sendto`: Send this command to a stress server at `host` or `host:port` (the default port is 2159)
 * `-graph`: Graph recorded metrics
 * `-tokenrange`: Token range settings
 
