@@ -1,32 +1,12 @@
-FROM eclipse-temurin:21.0.12_8-jdk-noble AS build
+# ./gradlew dockerImage builds this image from the tree that ./gradlew installDist
+# writes, so the image holds the same jars as the archives and the packages.
+FROM eclipse-temurin:21.0.12_8-jre-noble
 
-ENV LD_LIBRARY_PATH="/lib/x86_64-linux-gnu:/usr/local/lib:/usr/lib:/lib:/lib64:/usr/local/lib/x86_64-linux-gnu"
-ENV DEBIAN_FRONTEND="noninteractive"
-ENV TZ="UTC"
-
-WORKDIR /app
-
-RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
-    && echo "$TZ" > /etc/timezone \
-    && apt update \
-    && apt install -y ant
-
-COPY . .
-
-ARG CASSANDRA_STRESS_VERSION=666.development
-ARG BUILD_OPTS
-
-RUN --mount=type=cache,target=/root/.m2 ant realclean \
-    && ant ${BUILD_OPTS} \
-    && ant ${BUILD_OPTS} -Drelease=true -Drelease.version=21 -Dversion="${CASSANDRA_STRESS_VERSION}" artifacts \
-    && chmod +x build/dist/bin/cassandra-stress
-
-
-FROM eclipse-temurin:21.0.12_8-jre-noble AS production
+ARG CASSANDRA_STRESS_VERSION
 
 LABEL org.opencontainers.image.source="https://github.com/scylladb/cassandra-stress"
 LABEL org.opencontainers.image.title="ScyllaDB Cassandra Stress"
-
+LABEL org.opencontainers.image.version="${CASSANDRA_STRESS_VERSION}"
 
 ENV CASSANDRA_STRESS_HOME="/usr/local/share/cassandra-stress"
 ENV PATH="$PATH:$CASSANDRA_STRESS_HOME/bin"
@@ -35,8 +15,6 @@ ENV DEBIAN_FRONTEND="noninteractive"
 ENV TZ="UTC"
 
 WORKDIR $CASSANDRA_STRESS_HOME
-
-COPY --from=build /app/build/dist .
 
 RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && echo "$TZ" > /etc/timezone \
@@ -50,6 +28,8 @@ RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+COPY build/install/cassandra-stress .
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENTRYPOINT ["cassandra-stress"]

@@ -23,20 +23,22 @@ void removedOptionsAreRejected(String param) {
 
 ### Test location
 
-Put the test for `src/java/<package>/<Class>.java` in
-`test/unit/<package>/<Class>Test.java`. The test class uses the same
-package as the class under test.
+Put the test for `<module>/src/main/java/<package>/<Class>.java` in
+`<module>/src/test/java/<package>/<Class>Test.java`, in the same module. The
+test class uses the same package as the class under test. A core test that
+needs a driver client uses the driver module as a test dependency.
 
 ### Integration tests
 
-Put a test that needs ScyllaDB in `test/integration/<package>/<Name>IT.java`.
+Put a test that needs ScyllaDB in
+`src/core/src/integrationTest/java/<package>/<Name>IT.java`.
 Get the node from `ScyllaNode`. It starts one Testcontainers ScyllaDB
 container for the whole run, and `-Dscylla.image=` selects the image. Run
 stress in-process with `CassandraStress`, which adds `-node`, `-port` and
 `-log file=`. Check the outcome on the returned `StressResult`.
 Give each test its own keyspace, and drop it before the run.
-`ant integration-test` runs every class on both drivers. Select one driver
-with `-Dtest.integration.driver=native` or `-Dtest.integration.driver=4x`.
+`./gradlew integrationTest` runs every class on both drivers. Select one
+driver with `-PintegrationDriver=native` or `-PintegrationDriver=4x`.
 The run sets `-Dstress.skipSleeps=true`, which skips the fixed sleeps of
 stress. CI runs these tests on a pull request with the `testcontainers`
 label, and on each push to `master`.
@@ -46,6 +48,16 @@ StressResult write = new CassandraStress(dir).run("write", "n=2000", "-schema", 
 assertTrue(write.succeeded(), write::toString);
 assertEquals(2000, ScyllaNode.count(keyspace, "standard1"));
 ```
+
+### Distribution and package tests
+
+`DistributionIT` runs `bin/cassandra-stress` from the tree that
+`./gradlew installDist` writes, so it tests the launcher and the module path.
+Put a workload that a user starts from the command line there.
+`PackageIT` installs the deb or the rpm with a Temurin runtime in a clean
+distribution image and runs `cassandra-stress version`.
+`-Dstress.package.images=` and `-Dstress.package.java=` select the images and
+the Java versions. The `integrationTest` tasks skip both classes.
 
 ### Regression tests
 
@@ -62,11 +74,15 @@ decision, because stored data from an older release stops validating.
 
 ### Running the tests
 
-Run all unit tests with `ant test`. Run one class with its simple name.
-Run `ant integration-test` to run the integration tests. It needs Docker.
-Run `ant coverage` for a JaCoCo report of the unit tests, or `ant
-coverage-all` for one report of the unit and integration tests. The report
-goes to `build/coverage/html`. CI runs `ant test` and `ant coverage-all` on
-JDK 21 and 25, and uploads the report as an artifact.
+Run all unit tests with `./gradlew test`. Run one class with its simple name
+in the module that holds it.
+Run `./gradlew integrationTest` to run the integration tests. It needs Docker.
+Run `./gradlew distributionTest` and `./gradlew packageTest` for the launcher
+and the packages.
+Run `./gradlew jacocoTestReport` for a JaCoCo report of the unit tests, or
+`./gradlew jacocoFullReport` for one report of the unit and integration tests.
+The reports go to `build/reports/jacoco`. CI runs `./gradlew test` and
+`./gradlew jacocoFullReport` on JDK 21 and 25, and uploads the report as an
+artifact.
 
-    ant test -Dtest.name=CqlNamesTest
+    ./gradlew :util:test --tests CqlNamesTest
