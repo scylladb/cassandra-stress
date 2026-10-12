@@ -1,2 +1,0 @@
-rule com.datastax.** shaded.com.datastax.@1
-rule com.scylladb.** shaded.com.scylladb.@1
