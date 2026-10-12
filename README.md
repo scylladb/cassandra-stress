@@ -10,10 +10,9 @@ your actual schema.
 
 ## Installation
 
-The latest version of `cassandra-stress` at the time of
-writing this document is **3.17.0**. Please check the latest version on
-the [GitHub releases
-page](https://github.com/scylladb/cassandra-stress/releases)
+The [GitHub releases
+page](https://github.com/scylladb/cassandra-stress/releases) lists every
+version of `cassandra-stress`.
 
 There are multiple ways to install [cassandra-stress]{.title-ref}
 provided by ScyllaDB. Choose the method that best suits your
@@ -36,8 +35,7 @@ You can pull the latest Docker image from Docker Hub:
 docker pull scylladb/cassandra-stress:latest
 ```
 
-The latest tag is always paired with the version tag on
-GitHub, such as **3.17.0**. To check all available tags, visit:
+The latest tag is the image of the latest release on GitHub. To check all available tags, visit:
 
 [Docker Hub Cassandra-Stress
 Tags](https://hub.docker.com/r/scylladb/cassandra-stress/tags)
@@ -52,8 +50,8 @@ If you need to use a specific version, replace [latest]{.title-ref} with
 the desired version tag:
 
 ``` shell
-docker pull scylladb/cassandra-stress:3.17.0
-docker run --rm scylladb/cassandra-stress:3.17.0 <commands>
+docker pull scylladb/cassandra-stress:3.21.1
+docker run --rm scylladb/cassandra-stress:3.21.1 <commands>
 ```
 
 #### Performance Penalty
@@ -70,91 +68,112 @@ docker run --rm --network=host --security-opt seccomp=unconfined scylladb/cassan
 You can download the prebuilt binaries directly from our GitHub
 releases.
 
-**Prerequisite**: Ensure that Java Runtime Environment (JRE) version 11
-or newer is installed on your system.
+**Prerequisite**: Ensure that Java Runtime Environment (JRE) version 21
+or a later LTS release, such as 25, is installed on your system.
 
 **Using `curl`:**
 
 ``` shell
-curl -LO https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz
-curl -LO https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz.sha256
+curl -LO https://github.com/scylladb/cassandra-stress/releases/latest/download/cassandra-stress-bin-java21.tar.gz
+curl -LO https://github.com/scylladb/cassandra-stress/releases/latest/download/cassandra-stress-bin-java21.tar.gz.sha256
 ```
 
 **Using `wget`:**
 
 ``` shell
-wget https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz
-wget https://github.com/scylladb/cassandra-stress/releases/download/v3.17.0/cassandra-stress-3.17.0-bin.tar.gz.sha256
+wget https://github.com/scylladb/cassandra-stress/releases/latest/download/cassandra-stress-bin-java21.tar.gz
+wget https://github.com/scylladb/cassandra-stress/releases/latest/download/cassandra-stress-bin-java21.tar.gz.sha256
 ```
+
+To get an earlier release, replace `latest/download` with `download/v<version>`,
+for example `download/v3.21.1`.
 
 **Verify the download using `sha256sum`:**
 
+The `.sha256` file holds only the checksum.
+
 ``` shell
-sha256sum -c cassandra-stress-3.17.0-bin.tar.gz.sha256
+echo "$(cat cassandra-stress-bin-java21.tar.gz.sha256)  cassandra-stress-bin-java21.tar.gz" | sha256sum -c
 ```
 
 If the verification is successful, you will see:
 
 ``` text
-cassandra-stress-3.17.0-bin.tar.gz: OK
+cassandra-stress-bin-java21.tar.gz: OK
 ```
+
+**Unpack the archive:**
+
+``` shell
+tar -xzf cassandra-stress-bin-java21.tar.gz
+cassandra-stress/bin/cassandra-stress version
+```
+
+Unpack a new release into an empty directory. The launcher puts every jar in
+`lib/` on the module path, and the jars of two releases in one `lib/` stop
+the JVM.
+
+The releases also have a deb and an rpm package.
 
 ### Build from Source
 
-To build [cassandra-stress]{.title-ref} from source, ensure you have the
-following prerequisites installed: - **Java JDK**: Version 11 or newer -
-**Apache Ant**: Build tool
+To build [cassandra-stress]{.title-ref} from source, install JDK 21 or a
+later LTS release, such as JDK 25. The Gradle wrapper in the repository
+downloads Gradle.
 
 Follow these steps:
 
 1. Clone the repository:
 
     ``` shell
-    git clone --depth=1 https://github.com/scylladb/cassandra-stress.git
-    ```
-
-2. Checkout the specific version (3.17.0):
-
-    ``` shell
+    git clone https://github.com/scylladb/cassandra-stress.git
     cd cassandra-stress
-    git checkout tags/3.17.0
     ```
 
-3. Build the binaries using Apache Ant:
+2. Build the archives and the packages:
 
     ``` shell
-    ant -Drelease=true artifacts
+    ./gradlew assemble
     ```
 
-The compiled binaries will be located in the [build]{.title-ref}
-directory.
+The build takes the version from the latest `v<major>.<minor>.<patch>` git
+tag. A checkout of a tag builds that version. A later commit builds the next
+patch version with a `-SNAPSHOT` suffix. Set `-Pversion=<version>` to build
+another version. The source archive has no git history, so it holds the
+version in a `VERSION` file.
+
+The archives, the checksums, the deb and the rpm are in
+[build/distributions]{.title-ref}. To run cassandra-stress from the
+checkout, run `./gradlew installDist`, then `bin/cassandra-stress`.
 
 ### Build Docker Image from Source
 
-If you prefer a Dockerized build, follow these steps:
+Gradle builds the Docker image from the same jars as the archives and the
+packages. It needs Docker with buildx.
 
 1. Clone the repository:
 
     ``` shell
-    git clone --depth=1 https://github.com/scylladb/cassandra-stress.git
+    git clone https://github.com/scylladb/cassandra-stress.git
+    cd cassandra-stress
     ```
 
-2. Build the Docker image:
+2. Build the image:
 
     ``` shell
-    cd cassandra-stress
-    docker build -t cassandra-stress --compress .
+    ./gradlew dockerImage
     ```
 
-    To build with another version of the Scylla Java driver, set the version in `BUILD_OPTS`:
-    ```shell
-    docker build -t cassandra-stress --build-arg BUILD_OPTS=-Dbase.javaDriverVersion=<version> --compress .
-    ```
+    The image is `scylladb/cassandra-stress:<version>`, also tagged `latest`.
+    Set `-PdockerImage=<repository>` to use another repository name.
+    To build with another version of a Scylla Java driver, add
+    `-PscyllaDriver3Version=<version>` for driver 3.x or
+    `-PscyllaDriver4Version=<version>` for driver 4.x.
 
 Once built, you can run the image locally using:
 
 ``` shell
-docker run --rm cassandra-stress <commands>
+docker run --rm scylladb/cassandra-stress:latest <commands>
 ```
 
 

@@ -8,17 +8,22 @@
 
 ## Build and check
 
-Use Ant 1.10.17 or later and JDK 21 or JDK 25.
+Use JDK 21 or a later LTS release, such as JDK 25. The Gradle wrapper downloads Gradle.
 
 | Command | Result |
 |---|---|
-| `ant build-test` | Compiles the main and the test code |
-| `ant test` | Runs the unit tests |
-| `ant integration-test` | Runs the integration tests against ScyllaDB in Docker |
-| `ant format` | Formats the Java code with palantir-java-format |
-| `ant lint` | Runs the format check, Error Prone, Checkstyle, PMD and SpotBugs |
+| `./gradlew testClasses integrationTestClasses` | Compiles the main and the test code |
+| `./gradlew test` | Runs the unit tests |
+| `./gradlew integrationTest` | Runs the integration tests against ScyllaDB in Docker |
+| `./gradlew distributionTest` | Runs `bin/cassandra-stress` of the installed distribution against ScyllaDB in Docker |
+| `./gradlew packageTest` | Installs the deb and the rpm in Docker and runs `cassandra-stress version` |
+| `./gradlew format` | Formats the Java code with palantir-java-format |
+| `./gradlew lint` | Runs the format check, Error Prone, Checkstyle, PMD and SpotBugs |
+| `./gradlew dockerImage` | Builds the Docker image from the installed distribution |
+| `./gradlew installDist` | Writes a runnable tree to `build/install/cassandra-stress` |
+| `./gradlew assemble` | Writes the archives, the checksums, the deb and the rpm to `build/distributions`. The version comes from the latest `v*` git tag, or from `-Pversion=<version>` |
 
-Run `ant format`, `ant lint` and `ant test` before each commit.
+Run `./gradlew format`, `./gradlew lint` and `./gradlew test` before each commit.
 
 ## Code style
 
