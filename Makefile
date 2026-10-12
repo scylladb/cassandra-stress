@@ -33,7 +33,6 @@ docker-run:
 .PHONY: setup
 setup:
 	@echo "Setting up environment..."
-	@ant generate-idea-files
 	@ant build
 
 .PHONY: clean

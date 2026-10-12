@@ -1,40 +1,21 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.generate;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
-
 
 import java.nio.ByteBuffer;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import com.google.common.collect.Iterables;
-
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import org.apache.cassandra.stress.generate.values.Generator;
 
-public class PartitionGenerator
-{
+public class PartitionGenerator {
 
-    public static enum Order
-    {
-        ARBITRARY, SHUFFLED, SORTED
+    public enum Order {
+        ARBITRARY,
+        SHUFFLED,
+        SORTED
     }
 
     public final double maxRowCount;
@@ -47,23 +28,50 @@ public class PartitionGenerator
 
     private final Map<String, Integer> indexMap;
     final Order order;
+    private final List<Comparator<Object>> clusteringOrder;
 
-    public PartitionGenerator(List<Generator> partitionKey, List<Generator> clusteringComponents, List<Generator> valueComponents, Order order)
-    {
+    public PartitionGenerator(
+            List<Generator> partitionKey,
+            List<Generator> clusteringComponents,
+            List<Generator> valueComponents,
+            Order order) {
+        this(partitionKey, clusteringComponents, valueComponents, order, new boolean[clusteringComponents.size()]);
+    }
+
+    public PartitionGenerator(
+            List<Generator> partitionKey,
+            List<Generator> clusteringComponents,
+            List<Generator> valueComponents,
+            Order order,
+            boolean[] descendingClustering) {
+        if (descendingClustering.length != clusteringComponents.size()) {
+            throw new IllegalArgumentException("One clustering order is required per clustering column");
+        }
+        List<Comparator<Object>> comparators = new ArrayList<>(clusteringComponents.size());
+        for (int i = 0; i < clusteringComponents.size(); i++) {
+            Comparator<Object> ascending = clusteringComponents.get(i)::compareStored;
+            comparators.add(descendingClustering[i] ? ascending.reversed() : ascending);
+        }
+        this.clusteringOrder = List.copyOf(comparators);
         this.partitionKey = partitionKey;
         this.clusteringComponents = clusteringComponents;
         this.valueComponents = valueComponents;
         this.order = order;
         this.clusteringDescendantAverages = new int[clusteringComponents.size()];
         this.clusteringComponentAverages = new int[clusteringComponents.size()];
-        for (int i = 0 ; i < clusteringComponentAverages.length ; i++)
-            clusteringComponentAverages[i] = (int) clusteringComponents.get(i).clusteringDistribution.average();
-        for (int i = clusteringDescendantAverages.length - 1 ; i >= 0 ; i--)
-            clusteringDescendantAverages[i] = (int) (i < (clusteringDescendantAverages.length - 1) ? clusteringComponentAverages[i + 1] * clusteringDescendantAverages[i + 1] : 1);
+        for (int i = 0; i < clusteringComponentAverages.length; i++) {
+            clusteringComponentAverages[i] =
+                    (int) clusteringComponents.get(i).clusteringDistribution.average();
+        }
+        for (int i = clusteringDescendantAverages.length - 1; i >= 0; i--) {
+            clusteringDescendantAverages[i] = (int)
+                    (i < (clusteringDescendantAverages.length - 1)
+                            ? clusteringComponentAverages[i + 1] * clusteringDescendantAverages[i + 1]
+                            : 1);
+        }
         double maxRowCount = 1d;
         double minRowCount = 1d;
-        for (Generator component : clusteringComponents)
-        {
+        for (Generator component : clusteringComponents) {
             maxRowCount *= component.clusteringDistribution.maxValue();
             minRowCount *= component.clusteringDistribution.minValue();
         }
@@ -71,46 +79,59 @@ public class PartitionGenerator
         this.minRowCount = minRowCount;
         this.indexMap = new LinkedHashMap<>();
         int i = 0;
-        for (Generator generator : partitionKey)
+        for (Generator generator : partitionKey) {
             indexMap.put(generator.name, --i);
+        }
         i = 0;
-        for (Generator generator : Iterables.concat(clusteringComponents, valueComponents))
+        for (Generator generator : clusteringComponents) {
             indexMap.put(generator.name, i++);
+        }
+        for (Generator generator : valueComponents) {
+            indexMap.put(generator.name, i++);
+        }
     }
 
-    public boolean permitNulls(int index)
-    {
+    Comparator<Object> clusteringOrder(int depth) {
+        return clusteringOrder.get(depth);
+    }
+
+    public boolean permitNulls(int index) {
         return !(index < 0 || index < clusteringComponents.size());
     }
 
-    public int indexOf(String name)
-    {
+    public boolean contains(String name) {
+        return indexMap.containsKey(name);
+    }
+
+    public int indexOf(String name) {
         Integer i = indexMap.get(name);
-        if (i == null)
+        if (i == null) {
             throw new NoSuchElementException();
+        }
         return i;
     }
 
-    public ByteBuffer convert(int c, Object v)
-    {
-        if (c < 0)
-            return partitionKey.get(-1-c).type.decompose(v);
-        if (c < clusteringComponents.size())
+    public ByteBuffer convert(int c, Object v) {
+        if (c < 0) {
+            return partitionKey.get(-1 - c).type.decompose(v);
+        }
+        if (c < clusteringComponents.size()) {
             return clusteringComponents.get(c).type.decompose(v);
+        }
         return valueComponents.get(c - clusteringComponents.size()).type.decompose(v);
     }
 
-    public Object convert(int c, ByteBuffer v)
-    {
-        if (c < 0)
-            return partitionKey.get(-1-c).type.compose(v);
-        if (c < clusteringComponents.size())
-            return clusteringComponents.get(c).type.compose(v);
-        return valueComponents.get(c - clusteringComponents.size()).type.compose(v);
+    public Object convert(int c, ByteBuffer v) {
+        if (c < 0) {
+            return partitionKey.get(-1 - c).read(v);
+        }
+        if (c < clusteringComponents.size()) {
+            return clusteringComponents.get(c).read(v);
+        }
+        return valueComponents.get(c - clusteringComponents.size()).read(v);
     }
 
-    public List<String> getColumnNames()
-    {
-        return indexMap.keySet().stream().collect(Collectors.toList());
+    public List<String> getColumnNames() {
+        return indexMap.keySet().stream().toList();
     }
 }

@@ -1,78 +1,87 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.util;
 
+import java.io.IOException;
 import java.io.PrintStream;
-import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-public class MultiResultLogger implements ResultLogger
-{
-    private final List<PrintStream> streams = new ArrayList<>();
+@SuppressWarnings("PMD.CloseResource")
+public class MultiResultLogger implements ResultLogger, AutoCloseable {
+    private final List<PrintStream> streams = new CopyOnWriteArrayList<>();
+    private final List<PrintStream> owned = new CopyOnWriteArrayList<>();
 
-    public MultiResultLogger(PrintStream printStream)
-    {
+    public MultiResultLogger(PrintStream printStream) {
         streams.add(printStream);
     }
 
-    public void println(String line)
-    {
-        for (PrintStream stream : streams)
-        {
+    @Override
+    public void println(String line) {
+        for (PrintStream stream : streams) {
             stream.println(line);
         }
     }
 
-    public void println()
-    {
-        for (PrintStream stream : streams)
-        {
+    @Override
+    public void println() {
+        for (PrintStream stream : streams) {
             stream.println();
         }
     }
 
-    public void printException(Exception e)
-    {
-        for (PrintStream stream : streams)
-        {
+    @Override
+    public void printException(Exception e) {
+        for (PrintStream stream : streams) {
             e.printStackTrace(stream);
         }
     }
 
-    public void flush()
-    {
-        for (PrintStream stream : streams)
-        {
+    @Override
+    public void flush() {
+        for (PrintStream stream : streams) {
             stream.flush();
         }
     }
 
-    public void printf(String s, Object... args)
-    {
-        for (PrintStream stream : streams)
-        {
-            stream.printf(s, args);
+    @Override
+    public void printf(String s, Object... args) {
+        for (PrintStream stream : streams) {
+            stream.printf(Locale.ROOT, s, args);
         }
     }
 
-    public void addStream(PrintStream additionalPrintStream)
-    {
+    public void addStream(PrintStream additionalPrintStream) {
         streams.add(additionalPrintStream);
+    }
+
+    public void addOwnedStream(PrintStream ownedPrintStream) {
+        owned.add(ownedPrintStream);
+        streams.add(ownedPrintStream);
+    }
+
+    public void addOwnedFile(Path file) throws IOException {
+        PrintStream fileStream = new PrintStream(Files.newOutputStream(file), false, StandardCharsets.UTF_8);
+        owned.add(fileStream);
+        streams.add(fileStream);
+    }
+
+    public void printFailureToOwnedStreams(Throwable failure) {
+        for (PrintStream stream : owned) {
+            failure.printStackTrace(stream);
+        }
+    }
+
+    @Override
+    public void close() {
+        flush();
+        streams.removeAll(owned);
+        for (PrintStream stream : owned) {
+            stream.close();
+        }
+        owned.clear();
     }
 }

@@ -1,12 +1,22 @@
 ## Commands
 
 ```bash
-# Compile check (compile main and tests, as CI does)
+# Compile check (compile main and tests)
 ant build-test
-# Test (stress unit tests)
-ant testold -Dtest.name='stress/**/*Test'
+# Test (all unit tests, as CI does)
+ant test
 # One test class
-ant testsome -Dtest.name=<FQCN>
+ant test -Dtest.name=<SimpleClassName>
+# Coverage report (build/coverage/html)
+ant coverage
+# Integration tests against ScyllaDB in Docker (Testcontainers)
+ant integration-test
+# One report for unit and integration tests
+ant coverage-all
+# Format all Java sources (palantir-java-format)
+ant format
+# Format check, Error Prone, Checkstyle, PMD and SpotBugs
+ant lint
 ```
 
 <!-- qatools-sdlc:begin -->

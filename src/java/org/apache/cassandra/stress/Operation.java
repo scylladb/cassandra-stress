@@ -1,149 +1,87 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HexFormat;
+import java.util.Locale;
 import java.util.NoSuchElementException;
-
-import com.datastax.driver.core.exceptions.OverloadedException;
-
+import org.apache.cassandra.stress.driver.OverloadedException;
+import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.SettingsLog;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.thrift.InvalidRequestException;
-import org.apache.cassandra.transport.SimpleClient;
 
-public abstract class Operation
-{
+public abstract class Operation {
     public final StressSettings settings;
     private final Timer timer;
 
-    public Operation(Timer timer, StressSettings settings)
-    {
+    public Operation(Timer timer, StressSettings settings) {
         this.timer = timer;
         this.settings = settings;
     }
 
-    public interface RunOp
-    {
-        public boolean run() throws Exception;
-        public int partitionCount();
-        public int rowCount();
-        default String validationErrorMessage() { return null; }
+    public interface RunOp {
+        boolean run() throws Exception;
+
+        int partitionCount();
+
+        int rowCount();
+
+        default String validationErrorMessage() {
+            return null;
+        }
     }
 
     public abstract int ready(WorkManager permits);
 
-    // shared hex-dump preview used by validation diagnostics: caps at maxBytes and appends "..." if truncated
-    protected static String hexPreview(ByteBuffer bb, int maxBytes)
-    {
-        if (bb == null) return "null";
-        ByteBuffer dup = bb.duplicate();
-        int len = Math.min(dup.remaining(), maxBytes);
-        StringBuilder sb = new StringBuilder("0x");
-        for (int i = 0; i < len; i++)
-            sb.append(String.format("%02x", dup.get() & 0xFF));
-        if (dup.hasRemaining())
-            sb.append("...");
-        return sb.toString();
+    protected static String hexPreview(ByteBuffer bb, int maxBytes) {
+        if (bb == null) {
+            return "null";
+        }
+        byte[] head = new byte[Math.min(bb.remaining(), maxBytes)];
+        bb.duplicate().get(head);
+        return "0x" + HexFormat.of().formatHex(head) + (bb.remaining() > maxBytes ? "..." : "");
     }
 
-    public boolean isWrite()
-    {
+    public boolean isWrite() {
         return false;
     }
 
-    /**
-     * Run operation
-     * @param client Cassandra Thrift client connection
-     * @throws IOException on any I/O error.
-     */
-    public abstract void run(ThriftClient client) throws IOException;
+    public abstract void run(StressClient client) throws IOException;
 
-    public void run(SimpleClient client) throws IOException
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    public void run(JavaDriverClient client) throws IOException
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    public void run(JavaDriverV4Client client) throws IOException
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    public final void timeWithRetry(RunOp run) throws IOException
-    {
+    @SuppressWarnings("EmptyCatch")
+    public final void timeWithRetry(RunOp run) throws IOException {
         timer.start();
 
         boolean success = false;
         String exceptionMessage = null;
 
         int tries = 0;
-        for (; tries < settings.errors.tries; tries++)
-        {
-            try
-            {
+        for (; tries < settings.errors.tries; tries++) {
+            try {
                 success = run.run();
                 break;
-            }
-            catch (NoSuchElementException e) {
-                // Pass thru iterator exhaustion exception
+            } catch (NoSuchElementException e) {
                 throw e;
-            }
-            catch (OverloadedException e) {
-                // The number of in-flight hints currently being written on the
-                // coordinator exceeds the limit, so we need to back off
-                try
-                {
+            } catch (OverloadedException e) {
+                exceptionMessage = getExceptionMessage(e);
+                if (tries + 1 >= settings.errors.tries) {
+                    continue;
+                }
+                try {
                     if (settings.log.level.compareTo(SettingsLog.Level.MINIMAL) > 0) {
-                        System.err.println(String.format("Server is overloaded, retry %d/%d times",
-                                                         tries, settings.errors.tries));
+                        System.err.println(String.format(
+                                Locale.ROOT, "Server is overloaded, retry %d/%d times", tries, settings.errors.tries));
                     }
                     Thread.sleep(settings.errors.nextDelay(tries).toMillis());
+                } catch (InterruptedException ignored) {
                 }
-                catch (InterruptedException ie) { }
-            }
-            catch (Exception e)
-            {
-                switch (settings.log.level)
-                {
-                    case MINIMAL:
-                        break;
-
-                    case NORMAL:
-                        System.err.println(e);
-                        break;
-
-                    case VERBOSE:
-                        e.printStackTrace(System.err);
-                        break;
-
-                    default:
-                        throw new AssertionError();
+            } catch (Exception e) {
+                switch (settings.log.level) {
+                    case MINIMAL -> {}
+                    case NORMAL -> System.err.println(e);
+                    case VERBOSE -> e.printStackTrace(System.err);
                 }
                 exceptionMessage = getExceptionMessage(e);
             }
@@ -151,40 +89,35 @@ public abstract class Operation
 
         timer.stop(run.partitionCount(), run.rowCount(), !success);
 
-        if (!success)
-        {
+        if (!success) {
             String detail;
-            if (exceptionMessage != null)
+            if (exceptionMessage != null) {
                 detail = "Error executing: " + exceptionMessage;
-            else
-            {
+            } else {
                 String validationMsg = run.validationErrorMessage();
                 detail = (validationMsg != null) ? validationMsg : "Data returned was not validated";
             }
-            error(String.format("Operation x%d on key(s) %s: %s%n", tries, key(), detail));
+            error(String.format(Locale.ROOT, "Operation x%d on key(s) %s: %s%n", tries, key(), detail));
         }
-
     }
 
     public abstract String key();
 
-    protected String getExceptionMessage(Exception e)
-    {
+    protected String getExceptionMessage(Exception e) {
         String className = e.getClass().getSimpleName();
-        String message = (e instanceof InvalidRequestException) ? ((InvalidRequestException) e).getWhy() : e.getMessage();
-        return (message == null) ? "(" + className + ")" : String.format("(%s): %s", className, message);
+        String message = e.getMessage();
+        return (message == null) ? "(" + className + ")" : String.format(Locale.ROOT, "(%s): %s", className, message);
     }
 
-    protected void error(String message) throws IOException
-    {
-        if (!settings.errors.ignore)
+    protected void error(String message) throws IOException {
+        if (!settings.errors.ignore) {
             throw new IOException(message);
-        else if (settings.log.level.compareTo(SettingsLog.Level.MINIMAL) > 0)
+        } else if (settings.log.level.compareTo(SettingsLog.Level.MINIMAL) > 0) {
             System.err.println(message);
+        }
     }
 
-    public void intendedStartNs(long intendedTime)
-    {
+    public void intendedStartNs(long intendedTime) {
         timer.intendedTimeNs(intendedTime);
     }
 }

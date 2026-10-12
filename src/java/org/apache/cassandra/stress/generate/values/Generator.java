@@ -1,33 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.generate.values;
-/*
- * 
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- * 
- */
 
-
-import org.apache.cassandra.db.marshal.AbstractType;
+import java.nio.ByteBuffer;
 import org.apache.cassandra.stress.generate.Distribution;
 import org.apache.cassandra.stress.generate.DistributionFactory;
+import org.apache.cassandra.stress.marshal.AbstractType;
 import org.apache.cassandra.stress.settings.OptionDistribution;
 
-public abstract class Generator<T>
-{
+public abstract class Generator<T> {
 
     public final String name;
     public final AbstractType<T> type;
@@ -37,8 +17,7 @@ public abstract class Generator<T>
     final Distribution sizeDistribution;
     public final Distribution clusteringDistribution;
 
-    public Generator(AbstractType<T> type, GeneratorConfig config, String name, Class<?> clazz)
-    {
+    public Generator(AbstractType<T> type, GeneratorConfig config, String name, Class<?> clazz) {
         this.type = type;
         this.name = name;
         this.clazz = clazz;
@@ -48,26 +27,35 @@ public abstract class Generator<T>
         this.clusteringDistribution = config.getClusteringDistribution(defaultClusteringDistribution());
     }
 
-    public void setSeed(long seed)
-    {
+    public void setSeed(long seed) {
         identityDistribution.setSeed(seed ^ salt);
         clusteringDistribution.setSeed(seed ^ ~salt);
     }
 
     public abstract T generate();
 
-    DistributionFactory defaultIdentityDistribution()
-    {
+    public Object read(ByteBuffer bytes) {
+        return fromStoredValue(type.compose(bytes));
+    }
+
+    Object fromStoredValue(Object value) {
+        return value;
+    }
+
+    @SuppressWarnings("unchecked")
+    public int compareStored(Object left, Object right) {
+        return type.compare(type.decompose((T) left), type.decompose((T) right));
+    }
+
+    DistributionFactory defaultIdentityDistribution() {
         return OptionDistribution.get("uniform(1..100B)");
     }
 
-    DistributionFactory defaultSizeDistribution()
-    {
+    DistributionFactory defaultSizeDistribution() {
         return OptionDistribution.get("uniform(4..8)");
     }
 
-    DistributionFactory defaultClusteringDistribution()
-    {
+    DistributionFactory defaultClusteringDistribution() {
         return OptionDistribution.get("fixed(1)");
     }
 }

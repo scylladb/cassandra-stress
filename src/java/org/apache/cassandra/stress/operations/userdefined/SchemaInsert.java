@@ -1,252 +1,97 @@
+// SPDX-License-Identifier: Apache-2.0
 package org.apache.cassandra.stress.operations.userdefined;
-/*
- *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
-
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-
-import org.apache.cassandra.db.ColumnFamilyStore;
-import org.apache.cassandra.io.sstable.StressCQLSSTableWriter;
-import org.apache.cassandra.stress.WorkManager;
-import org.apache.cassandra.stress.core.BatchStatementType;
-import org.apache.cassandra.stress.core.PreparedStatement;
-import org.apache.cassandra.stress.generate.*;
+import org.apache.cassandra.stress.driver.BatchType;
+import org.apache.cassandra.stress.driver.StressBoundStatement;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressPreparedStatement;
+import org.apache.cassandra.stress.generate.Distribution;
+import org.apache.cassandra.stress.generate.PartitionGenerator;
+import org.apache.cassandra.stress.generate.PartitionIterator;
+import org.apache.cassandra.stress.generate.RatioDistribution;
+import org.apache.cassandra.stress.generate.Row;
+import org.apache.cassandra.stress.generate.SeedManager;
 import org.apache.cassandra.stress.report.Timer;
 import org.apache.cassandra.stress.settings.StressSettings;
-import org.apache.cassandra.stress.util.JavaDriverClient;
-import org.apache.cassandra.stress.util.JavaDriverV4Client;
-import org.apache.cassandra.stress.util.ThriftClient;
-import org.apache.cassandra.thrift.ThriftConversion;
-import shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement;
 
-public class SchemaInsert extends SchemaStatement
-{
+public class SchemaInsert extends SchemaStatement {
+    static final int MAX_BATCH_SIZE = 65535;
 
-    private final String tableSchema;
-    private final String insertStatement;
-    private final BatchStatementType batchType;
+    private final BatchType batchType;
+    int maxBatchSize = MAX_BATCH_SIZE;
 
-    public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, Distribution batchSize, RatioDistribution useRatio, RatioDistribution rowPopulation, Integer thriftId, PreparedStatement statement, BatchStatementType batchType)
-    {
-        super(timer, settings, new DataSpec(generator, seedManager, batchSize, useRatio, rowPopulation), statement, statement.getColumnNames(), thriftId);
+    public SchemaInsert(
+            Timer timer,
+            StressSettings settings,
+            PartitionGenerator generator,
+            SeedManager seedManager,
+            Distribution batchSize,
+            RatioDistribution useRatio,
+            RatioDistribution rowPopulation,
+            StressPreparedStatement statement,
+            BatchType batchType) {
+        super(
+                timer,
+                settings,
+                new DataSpec(generator, seedManager, batchSize, useRatio, rowPopulation),
+                statement,
+                statement.getColumnNames());
         this.batchType = batchType;
-        this.insertStatement = null;
-        this.tableSchema = null;
     }
 
-    /**
-     * Special constructor for offline use
-     */
-    public SchemaInsert(Timer timer, StressSettings settings, PartitionGenerator generator, SeedManager seedManager, RatioDistribution useRatio, RatioDistribution rowPopulation, Integer thriftId, String statement, String tableSchema)
-    {
-        super(timer, settings, new DataSpec(generator, seedManager, new DistributionFixed(1), useRatio, rowPopulation), null, generator.getColumnNames(), thriftId);
-        this.batchType = BatchStatementType.UNLOGGED;
-        this.insertStatement = statement;
-        this.tableSchema = tableSchema;
-    }
+    private final class JavaDriverRun extends Runner {
+        final StressClient client;
+        private final List<StressBoundStatement> stmts = new ArrayList<>();
+        private int partitionIndex;
+        private Row pendingRow;
+        private boolean allBound;
+        private int sentStatements;
 
-    private class JavaDriverRun extends Runner
-    {
-        final JavaDriverClient client;
-
-        private JavaDriverRun(JavaDriverClient client)
-        {
+        private JavaDriverRun(StressClient client) {
             this.client = client;
         }
 
-        public boolean run() throws Exception
-        {
-            List<com.datastax.driver.core.BoundStatement> stmts = new ArrayList<>();
-            partitionCount = partitions.size();
-
-            for (PartitionIterator iterator : partitions)
-                while (iterator.hasNext())
-                    stmts.add(bindRow(iterator.next()).ToV3Value());
-
-            rowCount += stmts.size();
-
-            // 65535 is max number of stmts per batch, so if we have more, we need to manually batch them
-            for (int j = 0; j < stmts.size(); j += 65535)
-            {
-                List<com.datastax.driver.core.BoundStatement> substmts = stmts.subList(j, Math.min(j + stmts.size(), j + 65535));
-                com.datastax.driver.core.Statement stmt;
-                if (substmts.size() == 1)
-                {
-                    stmt = substmts.get(0);
-                }
-                else
-                {
-                    com.datastax.driver.core.BatchStatement batch = new com.datastax.driver.core.BatchStatement(batchType.ToV3Value());
-                    if (statement.getConsistencyLevel() != null) {
-                        batch.setConsistencyLevel(statement.getConsistencyLevel().ToV3Value());
+        private void bindAll() {
+            while (partitionIndex < partitions.size()) {
+                PartitionIterator iterator = partitions.get(partitionIndex);
+                while (pendingRow != null || iterator.hasNext()) {
+                    if (pendingRow == null) {
+                        pendingRow = iterator.next();
                     }
-                    if (statement.getSerialConsistencyLevel() != null) {
-                        batch.setSerialConsistencyLevel(statement.getSerialConsistencyLevel().ToV3Value());
-                    }
-                    batch.addAll(substmts);
-                    stmt = batch;
+                    stmts.add(bindRow(pendingRow));
+                    pendingRow = null;
                 }
-
-                client.getSession().execute(stmt);
+                partitionIndex++;
             }
-            return true;
-        }
-    }
-
-    private class JavaDriverV4Run extends Runner
-    {
-        final JavaDriverV4Client client;
-
-        private JavaDriverV4Run(JavaDriverV4Client client)
-        {
-            this.client = client;
-        }
-
-        public boolean run() throws Exception
-        {
-            List<shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement<?>> stmts = new ArrayList<>();
+            allBound = true;
             partitionCount = partitions.size();
+            rowCount = stmts.size();
+        }
 
-            for (PartitionIterator iterator : partitions)
-                while (iterator.hasNext())
-                    stmts.add(bindRow(iterator.next()).ToV4Value());
-
-            rowCount += stmts.size();
-
-            // 65535 is max number of stmts per batch, so if we have more, we need to manually batch them
-            for (int j = 0; j < stmts.size(); j += 65535)
-            {
-                List<? extends shaded.com.datastax.oss.driver.api.core.cql.BatchableStatement<?>> substmts = stmts.subList(j, Math.min(j + stmts.size(), j + 65535));
-                shaded.com.datastax.oss.driver.api.core.cql.Statement stmt;
-                if (substmts.size() == 1)
-                {
-                    stmt = substmts.get(0);
-                }
-                else
-                {
-                    shaded.com.datastax.oss.driver.api.core.cql.BatchStatementBuilder batch = new shaded.com.datastax.oss.driver.api.core.cql.BatchStatementBuilder(batchType.ToV4Value());
-                    batch.setConsistencyLevel(statement.getConsistencyLevel().ToV4Value());
-                    batch.setSerialConsistencyLevel(statement.getSerialConsistencyLevel().ToV4Value());
-                    batch.addStatements((Iterable<BatchableStatement<?>>) substmts);
-                    stmt = batch.build();
-                }
-
-                client.getSession().execute(stmt);
+        @Override
+        public boolean run() throws Exception {
+            if (!allBound) {
+                bindAll();
             }
-            return true;
-        }
-    }
-
-    private class ThriftRun extends Runner
-    {
-        final ThriftClient client;
-
-        private ThriftRun(ThriftClient client)
-        {
-            this.client = client;
-        }
-
-        public boolean run() throws Exception
-        {
-            for (PartitionIterator iterator : partitions)
-            {
-                while (iterator.hasNext())
-                {
-                    client.execute_prepared_cql3_query(thriftId, iterator.getToken(), thriftRowArgs(iterator.next()), ThriftConversion.toThrift(settings.command.consistencyLevel));
-                    rowCount += 1;
-                }
+            while (sentStatements < stmts.size()) {
+                int end = Math.min(stmts.size(), sentStatements + maxBatchSize);
+                client.executeBatch(stmts.subList(sentStatements, end), batchType);
+                sentStatements = end;
             }
-            return true;
-        }
-    }
-
-    private class OfflineRun extends Runner
-    {
-        final StressCQLSSTableWriter writer;
-
-        OfflineRun(StressCQLSSTableWriter writer)
-        {
-            this.writer = writer;
-        }
-
-        public boolean run() throws Exception
-        {
-            for (PartitionIterator iterator : partitions)
-            {
-                while (iterator.hasNext())
-                {
-                    Row row = iterator.next();
-                    writer.rawAddRow(thriftRowArgs(row));
-                    rowCount += 1;
-                }
-            }
-
             return true;
         }
     }
 
     @Override
-    public void run(JavaDriverClient client) throws IOException
-    {
+    public void run(StressClient client) throws IOException {
         timeWithRetry(new JavaDriverRun(client));
     }
 
     @Override
-    public void run(JavaDriverV4Client client) throws IOException
-    {
-        timeWithRetry(new JavaDriverV4Run(client));
-    }
-
-    public boolean isWrite()
-    {
+    public boolean isWrite() {
         return true;
-    }
-
-    @Override
-    public void run(ThriftClient client) throws IOException
-    {
-        timeWithRetry(new ThriftRun(client));
-    }
-
-    public StressCQLSSTableWriter createWriter(ColumnFamilyStore cfs, int bufferSize, boolean makeRangeAware)
-    {
-        return StressCQLSSTableWriter.builder()
-                                     .withCfs(cfs)
-                                     .withBufferSizeInMB(bufferSize)
-                                     .forTable(tableSchema)
-                                     .using(insertStatement)
-                                     .rangeAware(makeRangeAware)
-                                     .build();
-    }
-
-    public void runOffline(StressCQLSSTableWriter writer, WorkManager workManager) throws Exception
-    {
-        OfflineRun offline = new OfflineRun(writer);
-
-        while (ready(workManager) != 0)
-        {
-            offline.run();
-        }
     }
 }
