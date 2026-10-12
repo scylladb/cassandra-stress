@@ -24,32 +24,29 @@ jobs:
       version: "1.0.0"
       java: "${{ matrix.java }}"
 
-  test-rpm:
-    needs: build
+  package-test:
     strategy:
       fail-fast: false
       matrix:
-        os: ["fedora:41", "fedora:42"]
-        java: ["21"]
-    uses: "./.github/workflows/test-package.yml"
-    with:
-      type: "rpm"
-      os: ${{ matrix.os }}
-      version: "1.0.0"
-      java: "${{ matrix.java }}"
-  test-deb:
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ["ubuntu:24.04", "debian:bookworm-slim"]
-        java: ["21"]
-    uses: "./.github/workflows/test-package.yml"
-    with:
-      type: "deb"
-      os: ${{ matrix.os }}
-      version: "1.0.0"
-      java: "${{ matrix.java }}"
+        os: ["ubuntu:24.04", "debian:bookworm-slim", "fedora:41", "fedora:42"]
+        java: ["21", "25"]
+    name: "Package test ${{ matrix.os }} with Java ${{ matrix.java }}"
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Install and run the package
+        run: >-
+          ./gradlew :core:packageTest -Pversion=1.0.0
+          -Dstress.package.images=${{ matrix.os }}
+          -Dstress.package.java=${{ matrix.java }}
 
   build-test:
     strategy:
@@ -65,12 +62,9 @@ jobs:
         with:
           distribution: "temurin"
           java-version: ${{ matrix.java }}
-      - name: Setup Ant
-        uses: ./.github/actions/setup-ant
-      - name: Setup
-        run: ant init
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Unit tests
-        run: ant test
+        run: ./gradlew test
 
   lint:
     runs-on: ubuntu-26.04
@@ -83,16 +77,19 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "25"
-      - name: Setup Ant
-        uses: ./.github/actions/setup-ant
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Format check and linters
-        run: ant lint
+        run: ./gradlew lint
       - name: Upload lint reports
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lint-reports
-          path: build/lint/reports
+          path: |
+            src/*/build/reports/checkstyle
+            src/*/build/reports/pmd
+            src/*/build/reports/spotbugs
+            src/*/build/reports/errorprone
           if-no-files-found: ignore
 
   testcontainers-tests:
@@ -110,86 +107,53 @@ jobs:
         with:
           distribution: "temurin"
           java-version: ${{ matrix.java }}
-      - name: Setup Ant
-        uses: ./.github/actions/setup-ant
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Unit and integration tests with coverage
-        run: ant coverage-all -Dtest.jvmargs="${{ matrix.java == '25' && '--sun-misc-unsafe-memory-access=deny' || '' }}"
+        run: ./gradlew jacocoFullReport -PtestJvmArgs="${{ matrix.java == '25' && '--sun-misc-unsafe-memory-access=deny' || '' }}"
       - name: Upload coverage report
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-all-java${{ matrix.java }}
-          path: build/coverage
+          path: build/reports/jacoco/jacocoFullReport
           if-no-files-found: ignore
 
-  enumerated-tests:
-    timeout-minutes: 2
-    name: "Enumerate all tests from integration-tests folder to run them independently"
-    runs-on: ubuntu-26.04
-    outputs:
-      matrix: ${{ steps.enumerate.outputs.matrix }}
-    steps:
-      - name: Checkout source code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - name: Enumerate tests
-        id: enumerate
-        shell: bash
-        run: |
-          ITEMS=""
-
-          for file in integration-tests/*; do
-            ITEMS="\"$file\",$ITEMS"
-          done
-
-          ITEMS="${ITEMS%%,}"
-          ITEMS="[$ITEMS]"
-
-          echo "matrix=$ITEMS" >> $GITHUB_OUTPUT
-
-  integration-test:
-    needs: [build, enumerated-tests]
-    timeout-minutes: 5
-    name: "Integration Test ${{ matrix.java }} c-s ${{ matrix.test }} Java Driver - ${{ matrix.driver-type }}"
+  distribution-test:
     strategy:
       fail-fast: false
-      max-parallel: 2
       matrix:
         java: ["21", "25"]
-        driver-type: ["3x", "4x"]
-        test: ${{ fromJSON(needs.enumerated-tests.outputs.matrix) }}
+    name: "Distribution test with Java ${{ matrix.java }}"
     runs-on: ubuntu-26.04
+    timeout-minutes: 30
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Download Cassandra Stress binary
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: cassandra-stress-java${{ matrix.java }}
-      - name: Setup Java
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: "temurin"
           java-version: ${{ matrix.java }}
-      - name: Setup Scylla
-        run: |
-          ulimit -n 65536
-          sudo sysctl -w fs.aio-max-nr=30000000
-          sudo sysctl -w fs.file-max=30000000
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Run the installed launcher against ScyllaDB
+        run: ./gradlew :core:distributionTest -PtestJvmArgs="${{ matrix.java == '25' && '--sun-misc-unsafe-memory-access=deny' || '' }}"
 
-          docker compose -f ./compose.yml up -d --wait
-          until docker logs scylla 2>&1 | grep "Starting listening for CQL clients" > /dev/null; do sleep 0.2; done
-      - name: Run tests
-        shell: bash
-        env:
-          JVM_OPTS: ${{ matrix.java == '25' && '--sun-misc-unsafe-memory-access=deny' || '' }}
+  docker:
+    name: "Docker image"
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Build the image
+        run: ./gradlew dockerImage -Pversion=1.0.0 -PdockerImage=cassandra-stress
+      - name: Run the image
         run: |
-          set -xe
-          SCYLLA_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' scylla)"
-          tar -C /opt -xzf cassandra-stress-bin-java${{ matrix.java }}.tar.gz
-          export PATH="$PATH:/opt/cassandra-stress/bin"
+          docker run --rm cassandra-stress:1.0.0 version | grep -x "Version: 1.0.0"
 
-          ./${{ matrix.test }} "$SCYLLA_IP" ${{ matrix.driver-type }} || exit 1

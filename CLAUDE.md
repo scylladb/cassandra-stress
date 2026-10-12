@@ -1,22 +1,30 @@
 ## Commands
 
 ```bash
-# Compile check (compile main and tests)
-ant build-test
+# Compile check (main, unit test and integration test sources)
+./gradlew testClasses integrationTestClasses
 # Test (all unit tests, as CI does)
-ant test
+./gradlew test
 # One test class
-ant test -Dtest.name=<SimpleClassName>
-# Coverage report (build/coverage/html)
-ant coverage
+./gradlew :<module>:test --tests <SimpleClassName>
+# Coverage report of all modules (build/reports/jacoco/jacocoTestReport/html)
+./gradlew jacocoTestReport
 # Integration tests against ScyllaDB in Docker (Testcontainers)
-ant integration-test
+./gradlew integrationTest
+# The installed launcher against ScyllaDB in Docker, with both drivers
+./gradlew distributionTest
+# Install the deb and the rpm in Docker (-Dstress.package.images=, -Dstress.package.java=)
+./gradlew packageTest
 # One report for unit and integration tests
-ant coverage-all
+./gradlew jacocoFullReport
 # Format all Java sources (palantir-java-format)
-ant format
+./gradlew format
 # Format check, Error Prone, Checkstyle, PMD and SpotBugs
-ant lint
+./gradlew lint
+# Archives, checksums, deb and rpm in build/distributions
+./gradlew assemble
+# Docker image from the installed distribution
+./gradlew dockerImage
 ```
 
 <!-- qatools-sdlc:begin -->

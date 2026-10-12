@@ -34,4 +34,9 @@
         <Class name="org.apache.cassandra.stress.settings.OptionEnumProbabilities$OptMatcher" />
         <Bug pattern="EQ_DOESNT_OVERRIDE_EQUALS" />
     </Match>
+    <!-- The driver modules read these fields. SpotBugs analyzes each module alone and does not see them. -->
+    <Match>
+        <Class name="org.apache.cassandra.stress.util.EncryptionOptions" />
+        <Bug pattern="URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD,UUF_UNUSED_PUBLIC_OR_PROTECTED_FIELD" />
+    </Match>
 </FindBugsFilter>

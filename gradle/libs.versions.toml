@@ -1,0 +1,40 @@
+[versions]
+scylla-driver3 = "3.11.5.20"
+scylla-driver4 = "4.19.2.2"
+jackson = "2.22.3"
+junit = "6.1.3"
+testcontainers = "2.0.5"
+errorprone = "2.50.0"
+checkstyle = "14.3.0"
+pmd = "7.28.0"
+spotbugs = "4.10.4"
+palantir-java-format = "2.102.0"
+jacoco = "0.8.15"
+
+[libraries]
+scylla-driver3 = { module = "com.scylladb:scylla-driver-core", version.ref = "scylla-driver3" }
+scylla-driver4 = { module = "com.scylladb:java-driver-core-shaded", version.ref = "scylla-driver4" }
+commons-math3 = { module = "org.apache.commons:commons-math3", version = "3.6.1" }
+snakeyaml = { module = "org.yaml:snakeyaml", version = "2.7" }
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jctools = { module = "org.jctools:jctools-core", version = "4.0.7" }
+hdrhistogram = { module = "org.hdrhistogram:HdrHistogram", version = "2.2.2" }
+typesafe-config = { module = "com.typesafe:config", version = "1.4.9" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version = "2.0.19" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.6.5" }
+lz4 = { module = "at.yawk.lz4:lz4-java", version = "1.12.0" }
+snappy = { module = "org.xerial.snappy:snappy-java", version = "1.1.10.10" }
+
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+reactive-streams = { module = "org.reactivestreams:reactive-streams", version = "1.0.4" }
+testcontainers-scylladb = { module = "org.testcontainers:testcontainers-scylladb", version.ref = "testcontainers" }
+
+errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
+
+[plugins]
+spotbugs = { id = "com.github.spotbugs", version = "6.5.12" }
+spotless = { id = "com.diffplug.spotless", version = "8.10.4" }
+ospackage = { id = "com.netflix.nebula.ospackage", version = "12.3.0" }
