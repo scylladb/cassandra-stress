@@ -9,7 +9,7 @@ networks:
 
 services:
   scylla:
-    image: scylladb/scylla:${SCYLLA_TEST_VERSION:-2025.1}
+    image: scylladb/scylla:${SCYLLA_TEST_VERSION:-2026.3}
     restart: unless-stopped
     container_name: scylla
     command: --smp 2 --memory 1024M --api-address 0.0.0.0
