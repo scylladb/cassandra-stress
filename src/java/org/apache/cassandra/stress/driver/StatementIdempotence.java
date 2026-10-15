@@ -17,11 +17,17 @@ public final class StatementIdempotence {
             "\\b(now|uuid|currentTimeUUID|currentTimestamp|currentDate|currentTime)\\s*\\(", Pattern.CASE_INSENSITIVE);
     private static final Pattern JSON_WRITE =
             Pattern.compile("\\bJSON\\s*\\?|\\bfromJson\\s*\\(", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TTL =
+            Pattern.compile("\\bUSING\\b.*\\bTTL\\b", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final Pattern PLAIN_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*+");
 
     private StatementIdempotence() {}
 
     public static boolean isIdempotent(String cql) {
+        return isIdempotent(cql, false);
+    }
+
+    public static boolean isIdempotent(String cql, boolean bindsList) {
         String shape = withoutLiterals(cql);
         return DML.matcher(shape).find()
                 && !CONDITION.matcher(shape).find()
@@ -31,12 +37,15 @@ public final class StatementIdempotence {
                 && !NON_DETERMINISTIC.matcher(shape).find()
                 && !JSON_WRITE.matcher(shape).find()
                 && !deletesAnElement(shape)
-                && !writesAListLiteral(shape);
+                && !(writes(shape)
+                        && (bindsList
+                                || shape.indexOf('[') >= 0
+                                || TTL.matcher(shape).find()));
     }
 
-    private static boolean writesAListLiteral(String shape) {
+    private static boolean writes(String shape) {
         String upper = shape.toUpperCase(Locale.ROOT).stripLeading();
-        return (upper.startsWith("INSERT") || upper.startsWith("UPDATE")) && upper.indexOf('[') >= 0;
+        return upper.startsWith("INSERT") || upper.startsWith("UPDATE");
     }
 
     private static boolean deletesAnElement(String shape) {

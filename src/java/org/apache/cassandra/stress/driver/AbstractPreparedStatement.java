@@ -18,7 +18,7 @@ public abstract class AbstractPreparedStatement implements StressPreparedStateme
     protected AbstractPreparedStatement(String query, List<String> columnNames, boolean bindsList) {
         this.query = query;
         this.columnNames = List.copyOf(columnNames);
-        this.idempotent = !bindsList && StatementIdempotence.isIdempotent(query);
+        this.idempotent = StatementIdempotence.isIdempotent(query, bindsList);
     }
 
     @Override

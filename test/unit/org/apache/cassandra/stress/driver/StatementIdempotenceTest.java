@@ -36,6 +36,9 @@ class StatementIdempotenceTest {
                 "UPDATE t SET v = $$c = c + 1 IF$$ WHERE k = ?",
                 "SELECT JSON * FROM t WHERE k = ?",
                 "INSERT INTO t (k, \"it's\") VALUES (?, ?)",
+                "SELECT k, TTL(v) FROM t WHERE k = ?",
+                "INSERT INTO t (k, v) VALUES (?, ?) USING TIMESTAMP ?",
+                "DELETE FROM t USING TIMESTAMP ? WHERE k = ?",
             })
     void plainDmlIsIdempotent(String cql) {
         assertTrue(StatementIdempotence.isIdempotent(cql), cql);
@@ -85,6 +88,11 @@ class StatementIdempotenceTest {
                 "UPDATE t /* it's */ SET c = c + 1 WHERE k = ?",
                 "UPDATE t SET v = $$it's$$, c = c + 1 WHERE k = ?",
                 "UPDATE t SET v = ? // it's\n, c = c + 1 WHERE k = ?",
+                "INSERT INTO t (k, v) VALUES (?, ?) USING TTL ?",
+                "INSERT INTO t (k, v) VALUES (?, ?) USING TTL 86400",
+                "insert into t (k, v) values (?, ?) using timestamp ? and ttl ?",
+                "UPDATE t USING TTL 60 SET v = ? WHERE k = ?",
+                "UPDATE t USING TIMESTAMP ? AND TTL ? SET v = ? WHERE k = ?",
                 "",
             })
     void aStatementThatChangesStateOnReplayIsNotIdempotent(String cql) {

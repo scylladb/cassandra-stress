@@ -218,16 +218,24 @@ class AbstractStressClientTest {
     }
 
     @Test
-    void aPreparedStatementThatBindsAListIsNotIdempotent() {
-        AbstractPreparedStatement statement =
-                new AbstractPreparedStatement("UPDATE t SET l = ? WHERE k = ?", List.of("l", "k"), true) {
-                    @Override
-                    public StressBoundStatement bind(Object... values) {
-                        return () -> this;
-                    }
-                };
+    void aPreparedWriteThatBindsAListIsNotIdempotent() {
+        assertFalse(bindingAList("UPDATE t SET l = ? WHERE k = ?").isIdempotent());
+        assertFalse(bindingAList("INSERT INTO t (k, l) VALUES (?, ?)").isIdempotent());
+    }
 
-        assertFalse(statement.isIdempotent());
+    @Test
+    void aPreparedReadThatBindsAListIsIdempotent() {
+        assertTrue(bindingAList("SELECT * FROM t WHERE k IN ?").isIdempotent());
+        assertTrue(bindingAList("DELETE FROM t WHERE k IN ?").isIdempotent());
+    }
+
+    private static AbstractPreparedStatement bindingAList(String query) {
+        return new AbstractPreparedStatement(query, List.of("k"), true) {
+            @Override
+            public StressBoundStatement bind(Object... values) {
+                return () -> this;
+            }
+        };
     }
 
     @Test
