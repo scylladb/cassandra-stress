@@ -106,7 +106,9 @@ public final class JavaDriverV4Client
         ProgrammaticDriverConfigLoaderBuilder config = new DefaultProgrammaticDriverConfigLoaderBuilder()
                 .withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS, "DcInferringLoadBalancingPolicy")
                 .withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost)
-                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofMillis(requestTimeout));
+                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofMillis(requestTimeout))
+                .withInt(DefaultDriverOption.NETTY_IO_SHUTDOWN_QUIET_PERIOD, 0)
+                .withInt(DefaultDriverOption.NETTY_ADMIN_SHUTDOWN_QUIET_PERIOD, 0);
         if (protocolVersion != null) {
             config = config.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
         }

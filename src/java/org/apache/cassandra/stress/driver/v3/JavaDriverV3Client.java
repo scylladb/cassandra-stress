@@ -28,6 +28,7 @@ import com.datastax.driver.core.exceptions.AlreadyExistsException;
 import com.datastax.driver.core.exceptions.DriverException;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.policies.ConstantSpeculativeExecutionPolicy;
+import com.datastax.shaded.netty.channel.EventLoopGroup;
 import com.datastax.shaded.netty.channel.socket.SocketChannel;
 import com.datastax.shaded.netty.util.HashedWheelTimer;
 import com.datastax.shaded.netty.util.Timer;
@@ -108,12 +109,12 @@ public final class JavaDriverV3Client
                 .withSocketOptions(new SocketOptions().setReadTimeoutMillis(requestTimeout))
                 .withLoadBalancingPolicy(V3DriverConfig.loadBalancing(node, contactPoints))
                 .withCompression(V3DriverConfig.compression(compression))
-                .withCodecRegistry(codecRegistry());
+                .withCodecRegistry(codecRegistry())
+                .withNettyOptions(new StressNettyOptions(mode.speculativeTimerTick()));
         builder.withProtocolVersion(protocolVersion);
         if (mode.speculativeExecutions != null) {
-            builder.withSpeculativeExecutionPolicy(new ConstantSpeculativeExecutionPolicy(
-                            mode.speculativeDelay, mode.speculativeExecutions - 1))
-                    .withNettyOptions(new TimerTick(mode.speculativeTimerTick()));
+            builder.withSpeculativeExecutionPolicy(
+                    new ConstantSpeculativeExecutionPolicy(mode.speculativeDelay, mode.speculativeExecutions - 1));
         }
         if (encryptionOptions.enabled) {
             builder.withSSL(sslOptions());
@@ -142,16 +143,27 @@ public final class JavaDriverV3Client
         }
     }
 
-    static final class TimerTick extends NettyOptions {
-        private final long tickMillis;
+    static final class StressNettyOptions extends NettyOptions {
+        private final Integer tickMillis;
 
-        TimerTick(long tickMillis) {
+        StressNettyOptions(Integer tickMillis) {
             this.tickMillis = tickMillis;
+        }
+
+        Integer tickMillis() {
+            return tickMillis;
         }
 
         @Override
         public Timer timer(ThreadFactory threadFactory) {
-            return new HashedWheelTimer(threadFactory, tickMillis, TimeUnit.MILLISECONDS);
+            return tickMillis == null
+                    ? super.timer(threadFactory)
+                    : new HashedWheelTimer(threadFactory, tickMillis, TimeUnit.MILLISECONDS);
+        }
+
+        @Override
+        public void onClusterClose(EventLoopGroup eventLoopGroup) {
+            eventLoopGroup.shutdownGracefully(0, 15, TimeUnit.SECONDS).awaitUninterruptibly(15, TimeUnit.SECONDS);
         }
     }
 

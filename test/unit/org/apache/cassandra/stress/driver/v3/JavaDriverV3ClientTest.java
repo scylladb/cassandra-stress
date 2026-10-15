@@ -2,6 +2,7 @@ package org.apache.cassandra.stress.driver.v3;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.datastax.driver.core.CodecRegistry;
@@ -14,6 +15,7 @@ import com.datastax.driver.core.TypeCodec;
 import com.datastax.driver.core.policies.SpeculativeExecutionPolicy;
 import com.google.common.reflect.TypeToken;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
@@ -132,9 +134,21 @@ class JavaDriverV3ClientTest {
         JavaDriverV3Client client =
                 new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
 
-        assertTrue(
-                client.builder(ProtocolCompression.NONE).getConfiguration().getNettyOptions()
-                        instanceof JavaDriverV3Client.TimerTick);
+        assertEquals(10, nettyOptions(client).tickMillis());
+    }
+
+    @Test
+    void withoutSpeculationTheTimerKeepsTheDriverTick() throws Exception {
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "native"});
+        JavaDriverV3Client client =
+                new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+
+        assertNull(nettyOptions(client).tickMillis());
+    }
+
+    private static JavaDriverV3Client.StressNettyOptions nettyOptions(JavaDriverV3Client client) throws IOException {
+        return (JavaDriverV3Client.StressNettyOptions)
+                client.builder(ProtocolCompression.NONE).getConfiguration().getNettyOptions();
     }
 
     @Test

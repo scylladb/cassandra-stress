@@ -257,6 +257,21 @@ class JavaDriverV4ClientTest {
     }
 
     @Test
+    void theDriverShutsDownWithoutAQuietPeriod() {
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "4x"});
+        JavaDriverV4Client client =
+                new JavaDriverV4Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+
+        DriverExecutionProfile profile = client.config(ProtocolCompression.NONE)
+                .build()
+                .getInitialConfig()
+                .getDefaultProfile();
+
+        assertEquals(0, profile.getInt(DefaultDriverOption.NETTY_IO_SHUTDOWN_QUIET_PERIOD));
+        assertEquals(0, profile.getInt(DefaultDriverOption.NETTY_ADMIN_SHUTDOWN_QUIET_PERIOD));
+    }
+
+    @Test
     void withoutSpeculationTheDriverKeepsItsDefaultPolicy() {
         StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "4x"});
         JavaDriverV4Client client =
