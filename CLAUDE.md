@@ -11,6 +11,8 @@ ant test -Dtest.name=<SimpleClassName>
 ant coverage
 # Integration tests against ScyllaDB in Docker (Testcontainers)
 ant integration-test
+# One driver: native or 4x
+ant integration-test -Dtest.integration.driver=native
 # One report for unit and integration tests
 ant coverage-all
 # Format all Java sources (palantir-java-format)

@@ -1,7 +1,6 @@
 package org.apache.cassandra.stress;
 
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -16,27 +15,40 @@ record StressResult(int exitCode, String output) {
     }
 
     Optional<Long> totalErrors() {
-        return find(TOTAL_ERRORS, Long::valueOf);
+        return find(TOTAL_ERRORS).map(this::parseLong);
     }
 
     Optional<Long> totalPartitions() {
-        return find(TOTAL_PARTITIONS, Long::valueOf);
+        return find(TOTAL_PARTITIONS).map(this::parseLong);
     }
 
     Optional<Double> maxLatencyMillis() {
-        return find(MAX_LATENCY, Double::valueOf);
+        return find(MAX_LATENCY).map(this::parseDouble);
     }
 
-    private <T> Optional<T> find(Pattern pattern, Function<String, T> parse) {
+    private Optional<String> find(Pattern pattern) {
         Matcher matcher = pattern.matcher(output);
-        if (!matcher.find()) {
-            return Optional.empty();
-        }
+        return matcher.find() ? Optional.of(matcher.group(1).replace(",", "")) : Optional.empty();
+    }
+
+    private long parseLong(String value) {
         try {
-            return Optional.of(parse.apply(matcher.group(1).replace(",", "")));
+            return Long.parseLong(value);
         } catch (NumberFormatException e) {
-            throw new IllegalStateException("Cannot parse \"" + matcher.group(1) + "\" in\n" + this, e);
+            throw unparsable(value, e);
         }
+    }
+
+    private double parseDouble(String value) {
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            throw unparsable(value, e);
+        }
+    }
+
+    private IllegalStateException unparsable(String value, NumberFormatException cause) {
+        return new IllegalStateException("Cannot parse \"" + value + "\" in\n" + this, cause);
     }
 
     @Override

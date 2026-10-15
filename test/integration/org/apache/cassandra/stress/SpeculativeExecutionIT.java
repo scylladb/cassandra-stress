@@ -75,10 +75,24 @@ class SpeculativeExecutionIT {
         StressResult schema = write(Files.createDirectories(dir.resolve("schema")), keyspace, "n=1000", List.of());
         assertTrue(schema.succeeded(), schema::toString);
         CompletableFuture<StressResult> run =
-                CompletableFuture.supplyAsync(() -> write(dir, keyspace, "duration=15s", modeOptions));
+                CompletableFuture.supplyAsync(() -> write(dir, keyspace, "duration=8s", modeOptions));
         awaitProgress(dir, run);
+        awaitRequestsOn(PAUSED, run);
         cluster.pause(PAUSED);
         return run.get(2, TimeUnit.MINUTES);
+    }
+
+    private static void awaitRequestsOn(int index, CompletableFuture<StressResult> run)
+            throws IOException, InterruptedException {
+        long before = cluster.requestsServed(index);
+        Instant deadline = Instant.now().plus(Duration.ofSeconds(10));
+        while (Instant.now().isBefore(deadline) && !run.isDone()) {
+            if (cluster.requestsServed(index) > before + 100) {
+                return;
+            }
+            Thread.sleep(100);
+        }
+        throw new IllegalStateException("Node " + index + " coordinated no request of the run");
     }
 
     private static void awaitProgress(Path dir, CompletableFuture<StressResult> run)

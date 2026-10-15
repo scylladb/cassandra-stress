@@ -16,7 +16,8 @@
 -->
 <project basedir="." default="jar" name="cassandra-stress"
     xmlns:resolver="antlib:org.apache.maven.resolver.ant"
-    xmlns:jacoco="antlib:org.jacoco.ant">
+    xmlns:jacoco="antlib:org.jacoco.ant"
+    xmlns:unless="ant:unless">
 
     <fail message="You need to use Ant of version at least 1.10 to continue.">
         <condition>
@@ -55,6 +56,14 @@
     <property name="test.integration.classes" value="${build.dir}/test/integration-classes" />
     <property name="test.integration.lib" value="${build.dir}/test/integration-lib" />
     <property name="test.integration.name" value="*IT" />
+    <property name="test.integration.includes" value="**/${test.integration.name}.class" />
+    <property name="test.integration.driver" value="all" />
+    <condition property="test.integration.skip.native">
+        <equals arg1="${test.integration.driver}" arg2="4x" />
+    </condition>
+    <condition property="test.integration.skip.4x">
+        <equals arg1="${test.integration.driver}" arg2="native" />
+    </condition>
     <property name="test.integration.timeout" value="1800000" />
     <property name="testcontainers.version" value="2.0.5" />
     <property name="test.jvmargs" value="" />
@@ -473,8 +482,8 @@
         <attribute name="jvmargs" default="" />
         <attribute name="driver" />
         <sequential>
-            <run-unit-tests jvmargs="@{jvmargs} -Dstress.it.driver=@{driver}" classes="${test.integration.classes}"
-                includes="**/${test.integration.name}.class" output="${build.test.dir}/integration-output-@{driver}"
+            <run-unit-tests jvmargs="@{jvmargs} -Dstress.it.driver=@{driver} -Dstress.skipSleeps=true -Ddatastax-java-driver.advanced.metadata.schema.debouncer.window=10ms" classes="${test.integration.classes}"
+                includes="${test.integration.includes}" output="${build.test.dir}/integration-output-@{driver}"
                 timeout="${test.integration.timeout}">
                 <extra-classpath>
                     <pathelement location="${test.integration.classes}" />
@@ -485,9 +494,9 @@
     </macrodef>
 
     <target name="integration-test" depends="build-integration-test"
-        description="Run the integration tests against ScyllaDB in Docker, or one class with -Dtest.integration.name=ClassNameIT">
-        <run-integration-tests driver="native" />
-        <run-integration-tests driver="4x" />
+        description="Run the integration tests against ScyllaDB in Docker. Select one class with -Dtest.integration.name=ClassNameIT and one driver with -Dtest.integration.driver=native|4x">
+        <run-integration-tests driver="native" unless:set="test.integration.skip.native" />
+        <run-integration-tests driver="4x" unless:set="test.integration.skip.4x" />
         <fail message="Some integration test(s) failed." if="testfailed" />
     </target>
 
@@ -540,8 +549,8 @@
         <jacoco:agent property="test.coverage.agent" destfile="${coverage.dir}/jacoco.exec"
             includes="org.apache.cassandra.stress.*" append="true" />
         <run-unit-tests jvmargs="${test.coverage.agent}" />
-        <run-integration-tests jvmargs="${test.coverage.agent}" driver="native" />
-        <run-integration-tests jvmargs="${test.coverage.agent}" driver="4x" />
+        <run-integration-tests jvmargs="${test.coverage.agent}" driver="native" unless:set="test.integration.skip.native" />
+        <run-integration-tests jvmargs="${test.coverage.agent}" driver="4x" unless:set="test.integration.skip.4x" />
         <coverage-report />
         <fail message="Some test(s) failed." if="testfailed" />
     </target>

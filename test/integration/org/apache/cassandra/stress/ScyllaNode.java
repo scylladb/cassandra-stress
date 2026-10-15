@@ -27,7 +27,8 @@ final class ScyllaNode {
             ScyllaDBContainer started = new ScyllaDBContainer(
                             DockerImageName.parse(IMAGE).asCompatibleSubstituteFor("scylladb/scylla"))
                     .withNetwork(NETWORK)
-                    .withNetworkAliases(NETWORK_ALIAS);
+                    .withNetworkAliases(NETWORK_ALIAS)
+                    .withCommand("--developer-mode=1 --overprovisioned=1 --smp=1 --memory=1G");
             started.start();
             container = started;
         }

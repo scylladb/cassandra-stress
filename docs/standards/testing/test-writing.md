@@ -35,6 +35,11 @@ container for the whole run, and `-Dscylla.image=` selects the image. Run
 stress in-process with `CassandraStress`, which adds `-node`, `-port` and
 `-log file=`. Check the outcome on the returned `StressResult`.
 Give each test its own keyspace, and drop it before the run.
+`ant integration-test` runs every class on both drivers. Select one driver
+with `-Dtest.integration.driver=native` or `-Dtest.integration.driver=4x`.
+The run sets `-Dstress.skipSleeps=true`, which skips the fixed sleeps of
+stress. CI runs these tests on a pull request with the `testcontainers`
+label, and on each push to `master`.
 
 ```java
 StressResult write = new CassandraStress(dir).run("write", "n=2000", "-schema", "keyspace=" + keyspace, REPLICATION);
