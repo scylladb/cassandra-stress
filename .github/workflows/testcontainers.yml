@@ -16,7 +16,10 @@ on:
 concurrency:
   group: >-
     testcontainers-${{ github.ref }}-${{
-    github.event.action == 'labeled' && github.event.label.name != 'testcontainers' && github.run_id || 'tests' }}
+    github.event_name == 'pull_request'
+    && (!contains(github.event.pull_request.labels.*.name, 'testcontainers')
+    || (github.event.action == 'labeled' && github.event.label.name != 'testcontainers'))
+    && github.run_id || 'tests' }}
   cancel-in-progress: true
 
 jobs:
