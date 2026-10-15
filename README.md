@@ -249,7 +249,7 @@ CQL for the keyspace. Optional if the keyspace already exists:
 
 ``` cql
 keyspace_definition: |
-CREATE KEYSPACE stresscql WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 3};
+CREATE KEYSPACE stresscql WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 3};
 ```
 
 The table to be stressed:
