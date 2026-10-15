@@ -12,6 +12,11 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import org.apache.cassandra.stress.driver.StressClient;
+import org.apache.cassandra.stress.driver.StressClients;
+import org.apache.cassandra.stress.settings.ProtocolCompression;
+import org.apache.cassandra.stress.settings.StressSettings;
+import org.apache.cassandra.stress.util.EncryptionOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -195,6 +200,90 @@ class DriverOptionsIT {
                 option);
         assertTrue(write.succeeded(), write::toString);
         assertEquals(200, ScyllaNode.count(keyspace, "standard1"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"write", "counter_write"})
+    void runsWithIdempotentStatementsAndSpeculativeExecution(String command) {
+        String keyspace = "speculative_" + command;
+        ScyllaNode.dropKeyspace(keyspace);
+        CassandraStress stress = new CassandraStress(dir);
+
+        StressResult write = stress.run(
+                command,
+                "n=500",
+                "no-warmup",
+                "-pop",
+                "seq=1..500",
+                "-rate",
+                "threads=4",
+                "-errors",
+                "fail-fast",
+                "-schema",
+                "keyspace=" + keyspace,
+                REPLICATION,
+                "-mode",
+                "cql3",
+                CassandraStress.driver(),
+                "idempotent",
+                "speculativeExecutions=3",
+                "speculativeDelay=50");
+        assertTrue(write.succeeded(), write::toString);
+        assertTrue(write.output().contains("Idempotent Statements: true"), write::toString);
+        assertTrue(write.output().contains("Speculative Execution: 3 executions, 50 ms delay"), write::toString);
+        assertEquals(500, ScyllaNode.count(keyspace, "write".equals(command) ? "standard1" : "counter1"));
+        if ("counter_write".equals(command)) {
+            try (CqlSession session = ScyllaNode.session()) {
+                for (Row row : session.execute("SELECT * FROM " + keyspace + ".counter1")) {
+                    for (int i = 1; i < row.getColumnDefinitions().size(); i++) {
+                        assertEquals(1L, row.getLong(i), row::getFormattedContents);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void aStatementThatBindsAListIsNotIdempotent() throws IOException {
+        ScyllaNode.dropKeyspace("idempotence");
+        try (CqlSession session = ScyllaNode.session()) {
+            session.execute("CREATE KEYSPACE idempotence WITH replication ="
+                    + " {'class': 'NetworkTopologyStrategy', 'replication_factor': 1}");
+            session.execute("CREATE TABLE idempotence.t"
+                    + " (k int PRIMARY KEY, v int, l list<int>, fl frozen<list<int>>, s set<int>)");
+        }
+        StressSettings settings = StressSettings.parse(new String[] {
+            "write",
+            "n=1",
+            "-mode",
+            "cql3",
+            CassandraStress.driver(),
+            "idempotent",
+            "-node",
+            ScyllaNode.host(),
+            "datacenter=" + ScyllaNode.DATACENTER,
+            "-port",
+            "native=" + ScyllaNode.port()
+        });
+        StressClient client =
+                StressClients.create(settings, List.of(ScyllaNode.host()), ScyllaNode.port(), new EncryptionOptions());
+        client.connect(ProtocolCompression.NONE);
+        try {
+            assertTrue(
+                    client.prepare("UPDATE idempotence.t SET v = ? WHERE k = ?").isIdempotent());
+            assertTrue(
+                    client.prepare("UPDATE idempotence.t SET s = ? WHERE k = ?").isIdempotent());
+            assertFalse(
+                    client.prepare("UPDATE idempotence.t SET l = ? WHERE k = ?").isIdempotent());
+            assertFalse(client.prepare("UPDATE idempotence.t SET fl = ? WHERE k = ?")
+                    .isIdempotent());
+            assertFalse(client.prepare("INSERT INTO idempotence.t (k, l) VALUES (?, ?)")
+                    .isIdempotent());
+            assertFalse(client.prepare("UPDATE idempotence.t USING TIMESTAMP ? SET l = ? WHERE k = ?")
+                    .isIdempotent());
+        } finally {
+            client.disconnect();
+        }
     }
 
     @Test

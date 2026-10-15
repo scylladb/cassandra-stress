@@ -106,12 +106,25 @@ public final class JavaDriverV4Client
         ProgrammaticDriverConfigLoaderBuilder config = new DefaultProgrammaticDriverConfigLoaderBuilder()
                 .withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS, "DcInferringLoadBalancingPolicy")
                 .withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, connectionsPerHost)
-                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofMillis(requestTimeout));
+                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofMillis(requestTimeout))
+                .withInt(DefaultDriverOption.NETTY_IO_SHUTDOWN_QUIET_PERIOD, 0)
+                .withInt(DefaultDriverOption.NETTY_ADMIN_SHUTDOWN_QUIET_PERIOD, 0);
         if (protocolVersion != null) {
             config = config.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion.name());
         }
         if (maxPendingPerConnection != null) {
             config = config.withInt(DefaultDriverOption.CONNECTION_MAX_REQUESTS, maxPendingPerConnection);
+        }
+        if (mode.speculativeExecutions != null) {
+            config = config.withString(
+                            DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS,
+                            "ConstantSpeculativeExecutionPolicy")
+                    .withInt(DefaultDriverOption.SPECULATIVE_EXECUTION_MAX, mode.speculativeExecutions)
+                    .withDuration(
+                            DefaultDriverOption.SPECULATIVE_EXECUTION_DELAY, Duration.ofMillis(mode.speculativeDelay))
+                    .withDuration(
+                            DefaultDriverOption.NETTY_TIMER_TICK_DURATION,
+                            Duration.ofMillis(mode.speculativeTimerTick()));
         }
         config = V4DriverConfig.loadBalancing(config, node);
         return V4DriverConfig.compression(config, compression);
@@ -237,6 +250,11 @@ public final class JavaDriverV4Client
             batch.addStatement((BatchableStatement<?>) statement);
         }
         return batch.build();
+    }
+
+    @Override
+    protected Statement<?> markIdempotent(Statement<?> statement) {
+        return statement.setIdempotent(true);
     }
 
     @Override

@@ -6,6 +6,7 @@ import java.util.regex.Pattern;
 
 record StressResult(int exitCode, String output) {
     private static final Pattern TOTAL_ERRORS = Pattern.compile("^Total errors\\s*:\\s*([0-9,]+)", Pattern.MULTILINE);
+    private static final Pattern MAX_LATENCY = Pattern.compile("^Latency max\\s*:\\s*([0-9.,]+) ms", Pattern.MULTILINE);
     private static final Pattern TOTAL_PARTITIONS =
             Pattern.compile("^Total partitions\\s*:\\s*([0-9,]+)", Pattern.MULTILINE);
 
@@ -14,19 +15,40 @@ record StressResult(int exitCode, String output) {
     }
 
     Optional<Long> totalErrors() {
-        return find(TOTAL_ERRORS);
+        return find(TOTAL_ERRORS).map(this::parseLong);
     }
 
     Optional<Long> totalPartitions() {
-        return find(TOTAL_PARTITIONS);
+        return find(TOTAL_PARTITIONS).map(this::parseLong);
     }
 
-    private Optional<Long> find(Pattern pattern) {
+    Optional<Double> maxLatencyMillis() {
+        return find(MAX_LATENCY).map(this::parseDouble);
+    }
+
+    private Optional<String> find(Pattern pattern) {
         Matcher matcher = pattern.matcher(output);
-        if (!matcher.find()) {
-            return Optional.empty();
+        return matcher.find() ? Optional.of(matcher.group(1).replace(",", "")) : Optional.empty();
+    }
+
+    private long parseLong(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            throw unparsable(value, e);
         }
-        return Optional.of(Long.parseLong(matcher.group(1).replace(",", "")));
+    }
+
+    private double parseDouble(String value) {
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            throw unparsable(value, e);
+        }
+    }
+
+    private IllegalStateException unparsable(String value, NumberFormatException cause) {
+        return new IllegalStateException("Cannot parse \"" + value + "\" in\n" + this, cause);
     }
 
     @Override

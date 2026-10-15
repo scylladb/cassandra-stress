@@ -3,6 +3,7 @@ package org.apache.cassandra.stress.driver.v3;
 
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.ColumnDefinitions;
+import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.PreparedStatement;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,7 +14,7 @@ final class V3PreparedStatement extends AbstractPreparedStatement {
     private final PreparedStatement statement;
 
     V3PreparedStatement(PreparedStatement statement) {
-        super(statement.getQueryString(), columnNames(statement.getVariables()));
+        super(statement.getQueryString(), columnNames(statement.getVariables()), bindsList(statement.getVariables()));
         this.statement = statement;
     }
 
@@ -23,6 +24,19 @@ final class V3PreparedStatement extends AbstractPreparedStatement {
             names.add(variables.getName(i));
         }
         return names;
+    }
+
+    private static boolean bindsList(ColumnDefinitions variables) {
+        for (int i = 0; i < variables.size(); i++) {
+            if (isList(variables.getType(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static boolean isList(DataType type) {
+        return type.getName() == DataType.Name.LIST;
     }
 
     @Override

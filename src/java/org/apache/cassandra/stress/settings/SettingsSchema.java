@@ -6,12 +6,14 @@ import java.nio.charset.CharacterCodingException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.cassandra.stress.driver.SchemaAlreadyExistsException;
 import org.apache.cassandra.stress.driver.StressClient;
 import org.apache.cassandra.stress.util.ByteBufferUtil;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.apache.cassandra.stress.util.CqlNames;
 import org.apache.cassandra.stress.util.ResultLogger;
+import org.apache.cassandra.stress.util.Sleep;
 
 public class SettingsSchema {
     private final String replicationStrategy;
@@ -64,7 +66,7 @@ public class SettingsSchema {
                             Locale.ROOT,
                             "Created keyspaces. Sleeping %ss for propagation.",
                             settings.node.nodes.size()));
-            Thread.sleep(settings.node.nodes.size() * 1000L);
+            Sleep.uninterruptibly(settings.node.nodes.size(), TimeUnit.SECONDS);
         } catch (SchemaAlreadyExistsException ignored) {
         } catch (Exception e) {
             throw new RuntimeException("Encountered exception creating schema", e);

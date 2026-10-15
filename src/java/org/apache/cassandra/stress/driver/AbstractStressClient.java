@@ -27,6 +27,7 @@ public abstract class AbstractStressClient<P, S, R, W> implements StressClient {
     protected final EncryptionOptions encryptionOptions;
     protected final ConsistencyLevel defaultConsistency;
     protected final ConsistencyLevel defaultSerialConsistency;
+    protected final boolean idempotent;
     private final ConcurrentMap<String, P> statements = new ConcurrentHashMap<>();
 
     protected AbstractStressClient(
@@ -42,6 +43,7 @@ public abstract class AbstractStressClient<P, S, R, W> implements StressClient {
         this.maxPendingPerConnection = settings.mode.maxPendingPerConnection;
         this.defaultConsistency = settings.command.consistencyLevel;
         this.defaultSerialConsistency = settings.command.serialConsistencyLevel;
+        this.idempotent = settings.mode.idempotent;
     }
 
     protected abstract P prepareInDriver(String query);
@@ -57,6 +59,8 @@ public abstract class AbstractStressClient<P, S, R, W> implements StressClient {
 
     protected abstract S batch(
             BatchType type, ConsistencyLevel consistency, ConsistencyLevel serialConsistency, List<S> statements);
+
+    protected abstract S markIdempotent(S statement);
 
     protected abstract R run(S statement);
 
@@ -107,6 +111,24 @@ public abstract class AbstractStressClient<P, S, R, W> implements StressClient {
                 orElse(prepared.getSerialConsistencyLevel(), serialConsistency));
     }
 
+    private S simpleStatement(String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
+        return classified(simple(query, consistency, serialConsistency), query);
+    }
+
+    private S classified(S statement, String query) {
+        return idempotent && StatementIdempotence.isIdempotent(query) ? markIdempotent(statement) : statement;
+    }
+
+    private S boundStatement(
+            StressBoundStatement statement, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
+        S bound = withLevels(statement, consistency, serialConsistency);
+        return isIdempotent(statement) ? markIdempotent(bound) : bound;
+    }
+
+    private boolean isIdempotent(StressBoundStatement statement) {
+        return idempotent && statement.statement().isIdempotent();
+    }
+
     private static ConsistencyLevel orElse(ConsistencyLevel level, ConsistencyLevel fallback) {
         return level != null ? level : fallback;
     }
@@ -123,30 +145,30 @@ public abstract class AbstractStressClient<P, S, R, W> implements StressClient {
 
     @Override
     public StressResult execute(String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
-        return result(execute(simple(query, consistency, serialConsistency)));
+        return result(execute(simpleStatement(query, consistency, serialConsistency)));
     }
 
     @Override
     public StressResult execute(
             StressBoundStatement statement, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
-        return result(execute(withLevels(statement, consistency, serialConsistency)));
+        return result(execute(boundStatement(statement, consistency, serialConsistency)));
     }
 
     @Override
     public int executeCount(String query, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
-        return count(execute(simple(query, consistency, serialConsistency)));
+        return count(execute(simpleStatement(query, consistency, serialConsistency)));
     }
 
     @Override
     public int executeCount(
             StressBoundStatement statement, ConsistencyLevel consistency, ConsistencyLevel serialConsistency) {
-        return count(execute(withLevels(statement, consistency, serialConsistency)));
+        return count(execute(boundStatement(statement, consistency, serialConsistency)));
     }
 
     @Override
     public void executeBatch(List<StressBoundStatement> statements, BatchType type) {
         if (statements.size() == 1) {
-            execute(withLevels(statements.getFirst(), defaultConsistency, defaultSerialConsistency));
+            execute(boundStatement(statements.getFirst(), defaultConsistency, defaultSerialConsistency));
             return;
         }
         StressPreparedStatement first = statements.getFirst().statement();
@@ -156,12 +178,15 @@ public abstract class AbstractStressClient<P, S, R, W> implements StressClient {
         for (StressBoundStatement statement : statements) {
             bound.add(bound(statement, null, null));
         }
-        execute(batch(type, consistency, serialConsistency, bound));
+        S batch = batch(type, consistency, serialConsistency, bound);
+        boolean idempotentBatch =
+                type != BatchType.COUNTER && statements.stream().allMatch(this::isIdempotent);
+        execute(idempotentBatch ? markIdempotent(batch) : batch);
     }
 
     @Override
     public StressPage executePage(String query, int pageSize, Object pagingState) {
-        R results = execute(page(query, pageSize, pagingState));
+        R results = execute(classified(page(query, pageSize, pagingState), query));
         int available = availableWithoutFetching(results);
         List<ByteBuffer[]> rows = new ArrayList<>(available);
         Iterator<W> iterator = rows(results);

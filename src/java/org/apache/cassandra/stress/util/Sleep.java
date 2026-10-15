@@ -3,9 +3,14 @@ package org.apache.cassandra.stress.util;
 import java.util.concurrent.TimeUnit;
 
 public final class Sleep {
+    private static final boolean SKIP = Boolean.getBoolean("stress.skipSleeps");
+
     private Sleep() {}
 
     public static void uninterruptibly(long duration, TimeUnit unit) {
+        if (SKIP) {
+            return;
+        }
         boolean interrupted = false;
         long remaining = unit.toNanos(duration);
         long end = System.nanoTime() + remaining;

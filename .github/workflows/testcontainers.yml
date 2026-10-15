@@ -1,0 +1,60 @@
+name: "Testcontainers Tests"
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: >-
+    testcontainers-${{ github.ref }}-${{
+    github.event_name == 'pull_request'
+    && (!contains(github.event.pull_request.labels.*.name, 'testcontainers')
+    || (github.event.action == 'labeled' && github.event.label.name != 'testcontainers'))
+    && github.run_id || 'tests' }}
+  cancel-in-progress: true
+
+jobs:
+  testcontainers-tests:
+    if: >-
+      github.event_name != 'pull_request'
+      || (contains(github.event.pull_request.labels.*.name, 'testcontainers')
+      && (github.event.action != 'labeled' || github.event.label.name == 'testcontainers'))
+    name: "Testcontainers ${{ matrix.driver }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        driver: ["native", "4x"]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - name: Setup Ant
+        uses: ./.github/actions/setup-ant
+      - name: Raise the async I/O limit for ScyllaDB
+        run: sudo sysctl -w fs.aio-max-nr=30000000
+      - name: Integration tests with coverage
+        run: ant coverage-all -Dtest.integration.driver=${{ matrix.driver }}
+      - name: Upload test reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: testcontainers-${{ matrix.driver }}
+          path: |
+            build/coverage
+            build/test/integration-output-${{ matrix.driver }}
+          if-no-files-found: ignore

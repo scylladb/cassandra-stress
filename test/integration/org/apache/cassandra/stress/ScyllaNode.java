@@ -14,9 +14,9 @@ final class ScyllaNode {
     static final String NETWORK_ALIAS = "scylla";
     static final Network NETWORK = Network.newNetwork();
 
-    private static final String IMAGE = System.getProperty(
+    static final String IMAGE = System.getProperty(
             "scylla.image",
-            "scylladb/scylla:2025.1@sha256:9eb53463bfed32356e1ba81eb6d9c606ffaa520ed804cc03b17713f4b4e7d84b");
+            "scylladb/scylla:2026.3@sha256:f96119dbbfa8bad4abe6161f11ac4f6d5a5c34fdc297fd23cf32626791ed2e59");
 
     private static ScyllaDBContainer container;
 
@@ -27,7 +27,8 @@ final class ScyllaNode {
             ScyllaDBContainer started = new ScyllaDBContainer(
                             DockerImageName.parse(IMAGE).asCompatibleSubstituteFor("scylladb/scylla"))
                     .withNetwork(NETWORK)
-                    .withNetworkAliases(NETWORK_ALIAS);
+                    .withNetworkAliases(NETWORK_ALIAS)
+                    .withCommand("--developer-mode=1 --overprovisioned=1 --smp=1 --memory=1G");
             started.start();
             container = started;
         }

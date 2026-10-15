@@ -1,15 +1,20 @@
 package org.apache.cassandra.stress.driver.v4;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.ProtocolVersion;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.DriverExecutionProfile;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
 import com.datastax.oss.driver.api.core.cql.ExecutionInfo;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodecs;
 import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
@@ -25,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyStore;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Date;
@@ -37,6 +43,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLEngine;
 import org.apache.cassandra.stress.driver.StressPage;
 import org.apache.cassandra.stress.driver.StressPreparedStatement;
+import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.ConsistencyLevel;
 import org.apache.cassandra.stress.util.EncryptionOptions;
@@ -226,6 +233,76 @@ class JavaDriverV4ClientTest {
         assertEquals("127.0.0.1", engine.getPeerHost());
         assertEquals(9042, engine.getPeerPort());
         assertEquals(algorithm, engine.getSSLParameters().getEndpointIdentificationAlgorithm());
+    }
+
+    @Test
+    void speculationConfiguresTheConstantPolicyWithTheTotalExecutions() {
+        StressSettings settings = StressSettings.parse(new String[] {
+            "write", "n=1", "-mode", "cql3", "4x", "idempotent", "speculativeExecutions=3", "speculativeDelay=500"
+        });
+        JavaDriverV4Client client =
+                new JavaDriverV4Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+
+        DriverExecutionProfile profile = client.config(ProtocolCompression.NONE)
+                .build()
+                .getInitialConfig()
+                .getDefaultProfile();
+
+        assertEquals(
+                "ConstantSpeculativeExecutionPolicy",
+                profile.getString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS));
+        assertEquals(3, profile.getInt(DefaultDriverOption.SPECULATIVE_EXECUTION_MAX));
+        assertEquals(Duration.ofMillis(500), profile.getDuration(DefaultDriverOption.SPECULATIVE_EXECUTION_DELAY));
+        assertEquals(Duration.ofMillis(10), profile.getDuration(DefaultDriverOption.NETTY_TIMER_TICK_DURATION));
+    }
+
+    @Test
+    void theDriverShutsDownWithoutAQuietPeriod() {
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "4x"});
+        JavaDriverV4Client client =
+                new JavaDriverV4Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+
+        DriverExecutionProfile profile = client.config(ProtocolCompression.NONE)
+                .build()
+                .getInitialConfig()
+                .getDefaultProfile();
+
+        assertEquals(0, profile.getInt(DefaultDriverOption.NETTY_IO_SHUTDOWN_QUIET_PERIOD));
+        assertEquals(0, profile.getInt(DefaultDriverOption.NETTY_ADMIN_SHUTDOWN_QUIET_PERIOD));
+    }
+
+    @Test
+    void withoutSpeculationTheDriverKeepsItsDefaultPolicy() {
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "4x"});
+        JavaDriverV4Client client =
+                new JavaDriverV4Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+
+        DriverExecutionProfile profile = client.config(ProtocolCompression.NONE)
+                .build()
+                .getInitialConfig()
+                .getDefaultProfile();
+
+        assertEquals(
+                "NoSpeculativeExecutionPolicy",
+                profile.getString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS));
+    }
+
+    @Test
+    void aListBindVariableIsAList() {
+        assertTrue(V4PreparedStatement.isList(DataTypes.listOf(DataTypes.INT)));
+        assertTrue(V4PreparedStatement.isList(DataTypes.frozenListOf(DataTypes.INT)));
+        assertFalse(V4PreparedStatement.isList(DataTypes.setOf(DataTypes.INT)));
+        assertFalse(V4PreparedStatement.isList(DataTypes.INT));
+    }
+
+    @Test
+    void markIdempotentSetsTheDriverFlag() {
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "4x"});
+        JavaDriverV4Client client =
+                new JavaDriverV4Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+
+        assertTrue(client.markIdempotent(SimpleStatement.newInstance("SELECT * FROM t"))
+                .isIdempotent());
     }
 
     @Test
