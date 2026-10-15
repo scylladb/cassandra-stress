@@ -32,6 +32,9 @@ The integration tests run on ScyllaDB 2026.3, and the example profiles create
   not mark a list as frozen, so every list bind variable counts.
 - A JSON write can carry a full list in its value. The text and the bind
   variable types do not show the columns that the JSON sets.
+- ScyllaDB computes the expiry of a TTL write on each execution. A replay
+  with the same timestamp can keep the later expiry, so the value lives
+  longer.
 - CQL names `c` and `"c"` as the same column. A user profile can spell one
   column both ways in one statement.
 
@@ -64,8 +67,10 @@ flowchart TD
     E -->|yes: element delete| N
     E -->|no| J{"INSERT JSON or fromJson?"}
     J -->|yes: may write a full list| N
-    J -->|no| T{"Binds a list, or writes a list literal?"}
-    T -->|yes: full list write| N
+    J -->|no| W{"INSERT or UPDATE?"}
+    W -->|no| Y
+    W -->|yes| T{"USING TTL, binds a list, or writes a list literal?"}
+    T -->|yes: TTL or full list write| N
     T -->|no| Y
 ```
 
@@ -178,5 +183,17 @@ boolean isIdempotent(); // the classifier result for the prepared query
   costs linear time on an unprepared statement with large blobs. (review)
 - Every JSON write is non-idempotent. The classifier cannot see which columns
   the JSON sets, and a full list write doubles the list on replay. (review)
+- Every write with `USING TTL` is non-idempotent, `USING TTL 0` included.
+  A replay can extend the life of the value. (review)
+- A list bind variable makes only an INSERT or an UPDATE non-idempotent. A
+  SELECT or a DELETE that binds a list for `IN ?` stays idempotent. (review)
+- The system property `stress.skipSleeps=true` skips the fixed sleeps of
+  stress. The integration tests set it, because both drivers wait for
+  schema agreement after each DDL. (build)
+- Both drivers shut down their event loops with no quiet period. Stress
+  closes the session only after the run, so the 2 s quiet period only
+  delays the exit. (build)
+- CI runs the Testcontainers tests on Java 21, one job per driver, on a pull
+  request with the `testcontainers` label. (build)
 - Names compare without case after the quotes come off. `"C0"` and `c0` then
   count as one column. That errs to non-idempotent. (review)
