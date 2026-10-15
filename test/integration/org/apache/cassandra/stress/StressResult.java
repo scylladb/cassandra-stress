@@ -1,11 +1,13 @@
 package org.apache.cassandra.stress;
 
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 record StressResult(int exitCode, String output) {
     private static final Pattern TOTAL_ERRORS = Pattern.compile("^Total errors\\s*:\\s*([0-9,]+)", Pattern.MULTILINE);
+    private static final Pattern MAX_LATENCY = Pattern.compile("^Latency max\\s*:\\s*([0-9.,]+) ms", Pattern.MULTILINE);
     private static final Pattern TOTAL_PARTITIONS =
             Pattern.compile("^Total partitions\\s*:\\s*([0-9,]+)", Pattern.MULTILINE);
 
@@ -14,19 +16,27 @@ record StressResult(int exitCode, String output) {
     }
 
     Optional<Long> totalErrors() {
-        return find(TOTAL_ERRORS);
+        return find(TOTAL_ERRORS, Long::valueOf);
     }
 
     Optional<Long> totalPartitions() {
-        return find(TOTAL_PARTITIONS);
+        return find(TOTAL_PARTITIONS, Long::valueOf);
     }
 
-    private Optional<Long> find(Pattern pattern) {
+    Optional<Double> maxLatencyMillis() {
+        return find(MAX_LATENCY, Double::valueOf);
+    }
+
+    private <T> Optional<T> find(Pattern pattern, Function<String, T> parse) {
         Matcher matcher = pattern.matcher(output);
         if (!matcher.find()) {
             return Optional.empty();
         }
-        return Optional.of(Long.parseLong(matcher.group(1).replace(",", "")));
+        try {
+            return Optional.of(parse.apply(matcher.group(1).replace(",", "")));
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("Cannot parse \"" + matcher.group(1) + "\" in\n" + this, e);
+        }
     }
 
     @Override

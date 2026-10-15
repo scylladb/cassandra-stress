@@ -32,7 +32,9 @@ final class CassandraStress {
         if (!full.contains("-node")) {
             full.addAll(List.of("-node", ScyllaNode.host(), "datacenter=" + ScyllaNode.DATACENTER));
         }
-        full.addAll(List.of("-port", "native=" + ScyllaNode.port()));
+        if (!full.contains("-port")) {
+            full.addAll(List.of("-port", "native=" + ScyllaNode.port()));
+        }
 
         int exitCode = Stress.run(full.toArray(String[]::new));
         try {
