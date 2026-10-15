@@ -13,6 +13,8 @@ public interface StressPreparedStatement {
         return getColumnNames().size();
     }
 
+    boolean isIdempotent();
+
     ConsistencyLevel getConsistencyLevel();
 
     void setConsistencyLevel(ConsistencyLevel level);

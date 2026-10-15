@@ -12,6 +12,7 @@ import com.datastax.driver.core.Host;
 import com.datastax.driver.core.HostDistance;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Metadata;
+import com.datastax.driver.core.NettyOptions;
 import com.datastax.driver.core.PagingState;
 import com.datastax.driver.core.PoolingOptions;
 import com.datastax.driver.core.ProtocolVersion;
@@ -26,7 +27,10 @@ import com.datastax.driver.core.TokenRange;
 import com.datastax.driver.core.exceptions.AlreadyExistsException;
 import com.datastax.driver.core.exceptions.DriverException;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
+import com.datastax.driver.core.policies.ConstantSpeculativeExecutionPolicy;
 import com.datastax.shaded.netty.channel.socket.SocketChannel;
+import com.datastax.shaded.netty.util.HashedWheelTimer;
+import com.datastax.shaded.netty.util.Timer;
 import com.datastax.shaded.netty.util.internal.logging.InternalLoggerFactory;
 import com.datastax.shaded.netty.util.internal.logging.Slf4JLoggerFactory;
 import java.io.IOException;
@@ -38,6 +42,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLHandshakeException;
@@ -104,6 +110,11 @@ public final class JavaDriverV3Client
                 .withCompression(V3DriverConfig.compression(compression))
                 .withCodecRegistry(codecRegistry());
         builder.withProtocolVersion(protocolVersion);
+        if (mode.speculativeExecutions != null) {
+            builder.withSpeculativeExecutionPolicy(new ConstantSpeculativeExecutionPolicy(
+                            mode.speculativeDelay, mode.speculativeExecutions - 1))
+                    .withNettyOptions(new TimerTick(mode.speculativeTimerTick()));
+        }
         if (encryptionOptions.enabled) {
             builder.withSSL(sslOptions());
         }
@@ -128,6 +139,19 @@ public final class JavaDriverV3Client
                         handshake.getClass().getName(), handshake.getMessage());
             }
             throw e;
+        }
+    }
+
+    static final class TimerTick extends NettyOptions {
+        private final long tickMillis;
+
+        TimerTick(long tickMillis) {
+            this.tickMillis = tickMillis;
+        }
+
+        @Override
+        public Timer timer(ThreadFactory threadFactory) {
+            return new HashedWheelTimer(threadFactory, tickMillis, TimeUnit.MILLISECONDS);
         }
     }
 
@@ -226,6 +250,11 @@ public final class JavaDriverV3Client
         }
         batch.addAll(statements);
         return batch;
+    }
+
+    @Override
+    protected com.datastax.driver.core.Statement markIdempotent(com.datastax.driver.core.Statement statement) {
+        return statement.setIdempotent(true);
     }
 
     @Override

@@ -1,13 +1,17 @@
 package org.apache.cassandra.stress.driver.v3;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.datastax.driver.core.CodecRegistry;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.EndPoint;
 import com.datastax.driver.core.LocalDate;
 import com.datastax.driver.core.ProtocolVersion;
+import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.TypeCodec;
+import com.datastax.driver.core.policies.SpeculativeExecutionPolicy;
 import com.google.common.reflect.TypeToken;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
@@ -23,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import javax.net.ssl.SSLEngine;
+import org.apache.cassandra.stress.settings.ProtocolCompression;
 import org.apache.cassandra.stress.settings.StressSettings;
 import org.apache.cassandra.stress.util.EncryptionOptions;
 import org.apache.cassandra.stress.util.MultiResultLogger;
@@ -98,6 +103,70 @@ class JavaDriverV3ClientTest {
         assertEquals("127.0.0.1", engine.getPeerHost());
         assertEquals(9042, engine.getPeerPort());
         assertEquals(algorithm, engine.getSSLParameters().getEndpointIdentificationAlgorithm());
+    }
+
+    @Test
+    void speculationRunsTheTotalExecutionsCountingTheFirst() throws Exception {
+        StressSettings settings = StressSettings.parse(new String[] {
+            "write", "n=1", "-mode", "cql3", "native", "idempotent", "speculativeExecutions=3", "speculativeDelay=500"
+        });
+        JavaDriverV3Client client =
+                new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+
+        SpeculativeExecutionPolicy.SpeculativeExecutionPlan plan = client.builder(ProtocolCompression.NONE)
+                .getConfiguration()
+                .getPolicies()
+                .getSpeculativeExecutionPolicy()
+                .newPlan("ks", new SimpleStatement("SELECT * FROM t"));
+
+        assertEquals(
+                List.of(500L, 500L, -1L),
+                List.of(plan.nextExecution(null), plan.nextExecution(null), plan.nextExecution(null)));
+    }
+
+    @Test
+    void speculationShortensTheTimerTick() throws Exception {
+        StressSettings settings = StressSettings.parse(new String[] {
+            "write", "n=1", "-mode", "cql3", "native", "idempotent", "speculativeExecutions=3", "speculativeDelay=500"
+        });
+        JavaDriverV3Client client =
+                new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+
+        assertTrue(
+                client.builder(ProtocolCompression.NONE).getConfiguration().getNettyOptions()
+                        instanceof JavaDriverV3Client.TimerTick);
+    }
+
+    @Test
+    void withoutSpeculationTheDriverRunsOneExecution() throws Exception {
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "native"});
+        JavaDriverV3Client client =
+                new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+
+        SpeculativeExecutionPolicy.SpeculativeExecutionPlan plan = client.builder(ProtocolCompression.NONE)
+                .getConfiguration()
+                .getPolicies()
+                .getSpeculativeExecutionPolicy()
+                .newPlan("ks", new SimpleStatement("SELECT * FROM t"));
+
+        assertEquals(-1L, plan.nextExecution(null));
+    }
+
+    @Test
+    void aListBindVariableIsAList() {
+        assertTrue(V3PreparedStatement.isList(DataType.list(DataType.cint())));
+        assertTrue(V3PreparedStatement.isList(DataType.frozenList(DataType.cint())));
+        assertFalse(V3PreparedStatement.isList(DataType.set(DataType.cint())));
+        assertFalse(V3PreparedStatement.isList(DataType.cint()));
+    }
+
+    @Test
+    void markIdempotentSetsTheDriverFlag() {
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "native"});
+        JavaDriverV3Client client =
+                new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
+
+        assertTrue(client.markIdempotent(new SimpleStatement("SELECT * FROM t")).isIdempotent());
     }
 
     @Test

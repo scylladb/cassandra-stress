@@ -1,8 +1,10 @@
 package org.apache.cassandra.stress.driver;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -31,6 +33,7 @@ class AbstractStressClientTest {
 
     private static final class FakeClient extends AbstractStressClient<String, Sent, List<String>, String> {
         final List<Sent> sent = new ArrayList<>();
+        final List<Sent> idempotent = new ArrayList<>();
         final AtomicInteger prepared = new AtomicInteger();
         final AtomicInteger valuesRead = new AtomicInteger();
         List<String> rows = List.of();
@@ -83,6 +86,12 @@ class AbstractStressClientTest {
                 ConsistencyLevel serialConsistency,
                 List<Sent> statements) {
             return new Sent("BATCH " + type, consistency, serialConsistency, statements);
+        }
+
+        @Override
+        protected Sent markIdempotent(Sent statement) {
+            idempotent.add(statement);
+            return statement;
         }
 
         @Override
@@ -154,6 +163,84 @@ class AbstractStressClientTest {
 
         @Override
         protected void close() {}
+    }
+
+    @Test
+    void noStatementIsIdempotentWithoutTheOption() {
+        FakeClient client = new FakeClient("write", "n=1");
+        StressPreparedStatement statement = client.prepare("INSERT INTO t (k) VALUES (?)");
+
+        client.execute("SELECT * FROM t", ConsistencyLevel.ONE, null);
+        client.execute(statement.bind(), ConsistencyLevel.ONE, null);
+        client.executeBatch(List.of(statement.bind(), statement.bind()), BatchType.UNLOGGED);
+        client.executePage("SELECT * FROM t", 10, null);
+
+        assertEquals(List.of(), client.idempotent);
+    }
+
+    @Test
+    void theOptionMarksEachSafeStatementIdempotent() {
+        FakeClient client = new FakeClient("write", "n=1", "-mode", "cql3", "native", "idempotent");
+        StressPreparedStatement insert = client.prepare("INSERT INTO t (k) VALUES (?)");
+
+        client.execute("SELECT * FROM t", ConsistencyLevel.ONE, null);
+        client.executeCount("SELECT * FROM t", ConsistencyLevel.ONE, null);
+        client.execute(insert.bind(), ConsistencyLevel.ONE, null);
+        client.executeCount(insert.bind(), ConsistencyLevel.ONE, null);
+        client.executeBatch(List.of(insert.bind()), BatchType.UNLOGGED);
+        client.executeBatch(List.of(insert.bind(), insert.bind()), BatchType.UNLOGGED);
+        client.executePage("SELECT * FROM t", 10, null);
+
+        assertEquals(client.sent, client.idempotent);
+    }
+
+    @Test
+    void theOptionLeavesSchemaLwtAndCounterStatementsNotIdempotent() {
+        FakeClient client = new FakeClient("write", "n=1", "-mode", "cql3", "native", "idempotent");
+        StressPreparedStatement lwt = client.prepare("INSERT INTO t (k) VALUES (?) IF NOT EXISTS");
+        StressPreparedStatement counter = client.prepare("UPDATE c SET v = v + ? WHERE k = ?");
+
+        client.execute("CREATE TABLE IF NOT EXISTS t (k int PRIMARY KEY)", ConsistencyLevel.ONE);
+        client.execute("CREATE TABLE t2 (k int PRIMARY KEY)", ConsistencyLevel.ONE);
+        client.execute(lwt.bind(), ConsistencyLevel.ONE, ConsistencyLevel.SERIAL);
+        client.execute(counter.bind(), ConsistencyLevel.ONE, null);
+        client.executeBatch(List.of(counter.bind()), BatchType.COUNTER);
+
+        assertEquals(List.of(), client.idempotent);
+    }
+
+    @Test
+    void aPreparedStatementClassifiesItsQueryOnce() {
+        FakeClient client = new FakeClient("write", "n=1");
+
+        assertTrue(client.prepare("INSERT INTO t (k) VALUES (?)").isIdempotent());
+        assertFalse(client.prepare("UPDATE c SET v = v + ? WHERE k = ?").isIdempotent());
+    }
+
+    @Test
+    void aPreparedStatementThatBindsAListIsNotIdempotent() {
+        AbstractPreparedStatement statement =
+                new AbstractPreparedStatement("UPDATE t SET l = ? WHERE k = ?", List.of("l", "k"), true) {
+                    @Override
+                    public StressBoundStatement bind(Object... values) {
+                        return () -> this;
+                    }
+                };
+
+        assertFalse(statement.isIdempotent());
+    }
+
+    @Test
+    void aBatchIsIdempotentOnlyWhenEveryStatementIs() {
+        FakeClient client = new FakeClient("write", "n=1", "-mode", "cql3", "native", "idempotent");
+        StressPreparedStatement insert = client.prepare("INSERT INTO t (k) VALUES (?)");
+        StressPreparedStatement append = client.prepare("UPDATE t SET l = l + ? WHERE k = ?");
+        StressPreparedStatement set = client.prepare("UPDATE c SET v = ? WHERE k = ?");
+
+        client.executeBatch(List.of(insert.bind(), append.bind()), BatchType.LOGGED);
+        client.executeBatch(List.of(insert.bind(), set.bind()), BatchType.COUNTER);
+
+        assertEquals(List.of(), client.idempotent);
     }
 
     @Test

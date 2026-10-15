@@ -22,6 +22,12 @@ public class SettingsMode {
     public final Integer connectionsPerHost;
     public final Integer requestTimeout;
 
+    public final boolean idempotent;
+    public final Integer speculativeExecutions;
+    public final Integer speculativeDelay;
+
+    private static final int MAX_SPECULATIVE_TIMER_TICK_MS = 10;
+
     private final ProtocolCompression compression;
 
     public SettingsMode(GroupedOptions options) {
@@ -58,9 +64,55 @@ public class SettingsMode {
                 }
             }
             authProvider = new AuthProvider(opts.authProvider.value());
+            idempotent = opts.idempotent.setByUser();
+            speculativeExecutions = optionalInt(opts.speculativeExecutions, "speculativeExecutions=");
+            speculativeDelay = optionalInt(opts.speculativeDelay, "speculativeDelay=");
+            validateSpeculation();
         } else {
             throw new IllegalStateException();
         }
+    }
+
+    private static Integer optionalInt(OptionSimple option, String name) {
+        if (option.value().isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(option.value());
+        } catch (NumberFormatException e) {
+            throw new InvalidSettingsException(
+                    "Invalid value for " + name + " " + option.value(), SettingsMode::printHelp, e);
+        }
+    }
+
+    private void validateSpeculation() {
+        if (speculativeExecutions == null && speculativeDelay == null) {
+            return;
+        }
+        if (!idempotent) {
+            throw new InvalidSettingsException(
+                    "speculativeExecutions= and speculativeDelay= need idempotent", SettingsMode::printHelp);
+        }
+        if (speculativeExecutions == null) {
+            throw new InvalidSettingsException(
+                    "speculativeDelay= needs speculativeExecutions=", SettingsMode::printHelp);
+        }
+        if (speculativeDelay == null) {
+            throw new InvalidSettingsException(
+                    "speculativeExecutions= needs speculativeDelay=", SettingsMode::printHelp);
+        }
+        if (speculativeExecutions < 2) {
+            throw new InvalidSettingsException(
+                    "speculativeExecutions= must be 2 or more, it counts the first execution", SettingsMode::printHelp);
+        }
+        if (speculativeDelay < 1) {
+            throw new InvalidSettingsException(
+                    "speculativeDelay= must be 1 or more, 0 sends every execution at once", SettingsMode::printHelp);
+        }
+    }
+
+    public Integer speculativeTimerTick() {
+        return speculativeDelay == null ? null : Math.min(MAX_SPECULATIVE_TIMER_TICK_MS, speculativeDelay);
     }
 
     public ProtocolCompression compression() {
@@ -92,6 +144,20 @@ public class SettingsMode {
                 new OptionSimple("connectionsPerHost=", "[0-9]+", "8", "Number of connections per host", false);
         final OptionSimple requestTimeout =
                 new OptionSimple("requestTimeout=", "[0-9]+", "12000", "Request timeout in milliseconds", false);
+        final OptionSimple idempotent = new OptionSimple(
+                "idempotent",
+                "",
+                null,
+                "Mark statements idempotent, except LWT, counter updates and collection appends",
+                false);
+        final OptionSimple speculativeExecutions = new OptionSimple(
+                "speculativeExecutions=",
+                "[0-9]+",
+                "",
+                "Total executions per request, the first one included. Needs idempotent",
+                false);
+        final OptionSimple speculativeDelay = new OptionSimple(
+                "speculativeDelay=", "[0-9]+", "", "Delay in milliseconds before each speculative execution", false);
 
         @Override
         public List<? extends Option> options() {
@@ -107,7 +173,10 @@ public class SettingsMode {
                     connectionsPerHost,
                     requestTimeout,
                     protocolVersion,
-                    driver);
+                    driver,
+                    idempotent,
+                    speculativeExecutions,
+                    speculativeDelay);
         }
     }
 
@@ -125,6 +194,13 @@ public class SettingsMode {
             out.printf("  Request Timeout: %d ms%n", requestTimeout);
         }
         out.printf("  Compression: %s%n", compression);
+        out.printf("  Idempotent Statements: %s%n", idempotent);
+        if (speculativeExecutions == null) {
+            out.printf("  Speculative Execution: none%n");
+        } else {
+            out.printf(
+                    "  Speculative Execution: %d executions, %d ms delay%n", speculativeExecutions, speculativeDelay);
+        }
     }
 
     public static SettingsMode get(Map<String, String[]> clArgs) {

@@ -7,12 +7,18 @@ import org.apache.cassandra.stress.util.ConsistencyLevel;
 public abstract class AbstractPreparedStatement implements StressPreparedStatement {
     private final String query;
     private final List<String> columnNames;
+    private final boolean idempotent;
     private volatile ConsistencyLevel consistencyLevel;
     private volatile ConsistencyLevel serialConsistencyLevel;
 
     protected AbstractPreparedStatement(String query, List<String> columnNames) {
+        this(query, columnNames, false);
+    }
+
+    protected AbstractPreparedStatement(String query, List<String> columnNames, boolean bindsList) {
         this.query = query;
         this.columnNames = List.copyOf(columnNames);
+        this.idempotent = !bindsList && StatementIdempotence.isIdempotent(query);
     }
 
     @Override
@@ -23,6 +29,11 @@ public abstract class AbstractPreparedStatement implements StressPreparedStateme
     @Override
     public List<String> getColumnNames() {
         return columnNames;
+    }
+
+    @Override
+    public boolean isIdempotent() {
+        return idempotent;
     }
 
     @Override

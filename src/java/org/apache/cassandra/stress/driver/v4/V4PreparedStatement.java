@@ -5,6 +5,8 @@ import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.BoundStatementBuilder;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.type.DataType;
+import com.datastax.oss.driver.api.core.type.ListType;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.cassandra.stress.driver.AbstractPreparedStatement;
@@ -14,7 +16,7 @@ final class V4PreparedStatement extends AbstractPreparedStatement {
     private final PreparedStatement statement;
 
     V4PreparedStatement(PreparedStatement statement) {
-        super(statement.getQuery(), columnNames(statement));
+        super(statement.getQuery(), columnNames(statement), bindsList(statement));
         this.statement = statement;
     }
 
@@ -24,6 +26,19 @@ final class V4PreparedStatement extends AbstractPreparedStatement {
             names.add(definition.getName().asInternal());
         }
         return names;
+    }
+
+    private static boolean bindsList(PreparedStatement statement) {
+        for (ColumnDefinition definition : statement.getVariableDefinitions()) {
+            if (isList(definition.getType())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static boolean isList(DataType type) {
+        return type instanceof ListType;
     }
 
     @Override
