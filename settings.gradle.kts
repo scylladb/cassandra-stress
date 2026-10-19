@@ -9,6 +9,13 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
     repositories {
+        // -PmavenLocal resolves the Scylla drivers from ~/.m2 first, so a build can
+        // use a driver that `mvn install` put there before its release.
+        if (providers.gradleProperty("mavenLocal").isPresent) {
+            mavenLocal {
+                content { includeGroup("com.scylladb") }
+            }
+        }
         mavenCentral()
     }
     // -PscyllaDriver3Version=<version> and -PscyllaDriver4Version=<version> build

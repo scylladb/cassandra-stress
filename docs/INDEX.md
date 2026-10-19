@@ -65,6 +65,15 @@ actions, the Docker base images, the Gradle wrapper and the version catalog.
 Gradle is the build tool and builds the deb and the rpm.
 `modulePathCheck` fails on a jar in `lib/` with no module name.
 
+## Guides
+
+Procedures for tasks that are not part of the usual build.
+
+#### Unreleased Scylla Java driver (`guides/unreleased-driver.md`)
+Build cassandra-stress with a driver 3.x or 4.x build that is not on Maven
+Central. Install the driver with `mvn install`, then build with
+`-PmavenLocal` and `-PscyllaDriver3Version` or `-PscyllaDriver4Version`.
+
 ## Updating this documentation
 
 - Update a standard when a team convention changes, through
