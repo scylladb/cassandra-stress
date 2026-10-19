@@ -13,6 +13,9 @@
 ./gradlew integrationTest
 # One driver: native or 4x
 ./gradlew integrationTest -PintegrationDriver=native
+# One integration test class, on the native driver or on the 4x driver
+./gradlew :core:integrationTest --tests <Name>IT
+./gradlew :core:integrationTest4x --tests <Name>IT
 # The installed launcher against ScyllaDB in Docker, with both drivers
 ./gradlew distributionTest
 # Install the deb and the rpm in Docker (-Dstress.package.images=, -Dstress.package.java=)
