@@ -61,4 +61,3 @@ val stressVersion = providers.gradleProperty("version").orNull
 gradle.allprojects {
     version = stressVersion
 }
-

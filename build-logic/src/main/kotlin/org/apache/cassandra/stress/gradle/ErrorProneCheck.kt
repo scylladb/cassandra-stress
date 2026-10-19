@@ -1,7 +1,5 @@
 package org.apache.cassandra.stress.gradle
 
-import java.io.ByteArrayOutputStream
-import javax.inject.Inject
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
@@ -20,6 +18,8 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.jvm.toolchain.JavaCompiler
 import org.gradle.process.ExecOperations
+import java.io.ByteArrayOutputStream
+import javax.inject.Inject
 
 /**
  * Compiles the main sources with Error Prone in a separate javac process and
@@ -73,8 +73,10 @@ abstract class ErrorProneCheck @Inject constructor(private val execOperations: E
             args("--release", release.get(), "-encoding", "UTF-8", "-proc:none", "-Xmaxwarns", "10000")
             args("-processorpath", errorProneClasspath.asPath)
             args(
-                (listOf("-Xplugin:ErrorProne", "-XepDisableWarningsInGeneratedCode") +
-                    disabledChecks.get().map { "-Xep:$it:OFF" }).joinToString(" ")
+                (
+                    listOf("-Xplugin:ErrorProne", "-XepDisableWarningsInGeneratedCode") +
+                        disabledChecks.get().map { "-Xep:$it:OFF" }
+                    ).joinToString(" "),
             )
             args(pathOption, classpath.asPath, "-d", classes.path, "@${sourceList.path}")
             standardOutput = output

@@ -13,6 +13,7 @@ plugins {
     base
     `jacoco-report-aggregation`
     id("cassandra-stress.packaging")
+    id("cassandra-stress.kotlin-format")
 }
 
 description = "Cassandra-stress is a Java-based command-line stress testing tool for Apache Cassandra and ScyllaDB."
@@ -232,7 +233,7 @@ tasks.withType<Rpm>().configureEach {
     requires("rpmlib(RichDependencies)", "4.12.0-1", Flags.LESS or Flags.EQUAL or Flags.RPMLIB)
     requires(
         "(temurin-21-jre or temurin-25-jre or temurin-21-jdk or temurin-25-jdk " +
-            "or jre-21-headless or jre-25-headless)"
+            "or jre-21-headless or jre-25-headless)",
     )
     listOf("bash", "coreutils", "findutils", "gawk", "grep").forEach { requires(it) }
 }
@@ -268,7 +269,7 @@ tasks.register<Exec>("dockerImage") {
             dockerPlatforms.orNull?.let { addAll(listOf("--platform", it)) }
             add(if (dockerPush.get()) "--push" else "--load")
             add(".")
-        }
+        },
     )
 }
 

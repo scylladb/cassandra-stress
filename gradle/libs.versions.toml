@@ -9,6 +9,7 @@ checkstyle = "14.3.0"
 pmd = "7.28.0"
 spotbugs = "4.10.4"
 palantir-java-format = "2.102.0"
+ktlint = "1.8.0"
 jacoco = "0.8.15"
 
 [libraries]

@@ -124,21 +124,20 @@ val rootBuild = rootProject.layout.buildDirectory
 val launcherJvmOpts = providers.gradleProperty("testJvmArgs")
 
 // Runs the launcher of the installed distribution, or installs the deb and the rpm in Docker.
-fun registerPackagingTest(name: String, tag: String, describe: String, configure: Test.() -> Unit) =
-    tasks.register<Test>(name) {
-        description = describe
-        group = LifecycleBasePlugin.VERIFICATION_GROUP
-        testClassesDirs = integrationTest.output.classesDirs
-        classpath = integrationTest.runtimeClasspath
-        useJUnitPlatform {
-            includeTags(tag)
-        }
-        timeout = Duration.ofMinutes(60)
-        systemProperties(integrationTestProperties.get())
-        systemProperty("stress.version", project.version.toString())
-        shouldRunAfter(integrationTestTasks)
-        configure()
+fun registerPackagingTest(name: String, tag: String, describe: String, configure: Test.() -> Unit) = tasks.register<Test>(name) {
+    description = describe
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = integrationTest.output.classesDirs
+    classpath = integrationTest.runtimeClasspath
+    useJUnitPlatform {
+        includeTags(tag)
     }
+    timeout = Duration.ofMinutes(60)
+    systemProperties(integrationTestProperties.get())
+    systemProperty("stress.version", project.version.toString())
+    shouldRunAfter(integrationTestTasks)
+    configure()
+}
 
 registerPackagingTest(
     "distributionTest",

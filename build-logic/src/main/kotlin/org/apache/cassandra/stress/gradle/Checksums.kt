@@ -1,7 +1,5 @@
 package org.apache.cassandra.stress.gradle
 
-import java.io.File
-import java.security.MessageDigest
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Provider
@@ -10,6 +8,8 @@ import org.gradle.api.tasks.OutputFiles
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import java.io.File
+import java.security.MessageDigest
 
 /** Writes a SHA-256 and a SHA-512 file next to each archive. Each file holds the hex digest only. */
 abstract class Checksums : DefaultTask() {
