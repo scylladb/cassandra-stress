@@ -169,6 +169,9 @@ packages. It needs Docker with buildx.
     To build with another version of a Scylla Java driver, add
     `-PscyllaDriver3Version=<version>` for driver 3.x or
     `-PscyllaDriver4Version=<version>` for driver 4.x.
+    To use a driver build that is not released, run `mvn install` in the
+    driver repository, then also add `-PmavenLocal`. See
+    [docs/guides/unreleased-driver.md](docs/guides/unreleased-driver.md).
 
 Once built, you can run the image locally using:
 
