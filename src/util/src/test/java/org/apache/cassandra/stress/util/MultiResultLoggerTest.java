@@ -114,26 +114,27 @@ class MultiResultLoggerTest {
     @Test
     void closeWhileOtherThreadsWriteThrowsNothing() throws Exception {
         for (int round = 0; round < 50; round++) {
-            MultiResultLogger logger =
-                    new MultiResultLogger(new PrintStream(OutputStream.nullOutputStream(), true, UTF_8));
-            for (int i = 0; i < 4; i++) {
-                logger.addOwnedStream(new PrintStream(OutputStream.nullOutputStream(), true, UTF_8));
-            }
-            CountDownLatch writing = new CountDownLatch(4);
-            List<CompletableFuture<Void>> writers = new ArrayList<>();
-            for (int t = 0; t < 4; t++) {
-                writers.add(CompletableFuture.runAsync(() -> {
-                    writing.countDown();
-                    for (int line = 0; line < 2_000; line++) {
-                        logger.println("line");
-                        logger.printException(new RuntimeException("failure"));
-                    }
-                }));
-            }
-            writing.await();
-            logger.close();
-            for (CompletableFuture<Void> writer : writers) {
-                assertDoesNotThrow(() -> writer.get());
+            try (PrintStream console = new PrintStream(OutputStream.nullOutputStream(), true, UTF_8);
+                    MultiResultLogger logger = new MultiResultLogger(console)) {
+                for (int i = 0; i < 4; i++) {
+                    logger.addOwnedStream(new PrintStream(OutputStream.nullOutputStream(), true, UTF_8));
+                }
+                CountDownLatch writing = new CountDownLatch(4);
+                List<CompletableFuture<Void>> writers = new ArrayList<>();
+                for (int t = 0; t < 4; t++) {
+                    writers.add(CompletableFuture.runAsync(() -> {
+                        writing.countDown();
+                        for (int line = 0; line < 2_000; line++) {
+                            logger.println("line");
+                            logger.printException(new RuntimeException("failure"));
+                        }
+                    }));
+                }
+                writing.await();
+                logger.close();
+                for (CompletableFuture<Void> writer : writers) {
+                    assertDoesNotThrow(() -> writer.get());
+                }
             }
         }
     }
