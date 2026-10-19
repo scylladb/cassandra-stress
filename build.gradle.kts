@@ -3,6 +3,7 @@ import com.netflix.gradle.plugins.packaging.CopySpecEnhancement
 import com.netflix.gradle.plugins.packaging.SystemPackagingTask
 import com.netflix.gradle.plugins.rpm.Rpm
 import org.apache.cassandra.stress.gradle.Checksums
+import org.apache.cassandra.stress.gradle.ModulePathCheck
 import org.apache.cassandra.stress.gradle.useModuleJars
 import org.redline_rpm.header.Architecture
 import org.redline_rpm.header.Flags
@@ -78,6 +79,17 @@ tasks.register<JacocoReport>("jacocoFullReport") {
         csv.required = true
         html.required = true
     }
+}
+
+val modulePathCheck = tasks.register<ModulePathCheck>("modulePathCheck") {
+    description = "Checks that every jar in lib/ of the distribution is a named module."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    modulePath.from(distributionRuntime)
+    report = layout.buildDirectory.file("reports/modulePathCheck/unnamed.txt")
+}
+
+tasks.check {
+    dependsOn(modulePathCheck)
 }
 
 tasks.register("integrationTest") {

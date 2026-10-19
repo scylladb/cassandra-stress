@@ -31,6 +31,8 @@ with `packageTest`. Add a test of the build output as a JUnit test in
 `./gradlew dockerImage` builds the Docker image from the `installDist` tree,
 so the Dockerfile copies that tree and compiles nothing.
 ktlint formats the Gradle build scripts and the Kotlin code in `build-logic`.
+`./gradlew modulePathCheck` fails when a jar in `lib/` has no module name.
+Add such a jar to `AUTOMATIC_MODULE_NAMES` in `build-logic`.
 
 ### Versions
 
