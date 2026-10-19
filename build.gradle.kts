@@ -272,14 +272,25 @@ tasks.register<Exec>("dockerImage") {
     dependsOn(tasks.installDist)
     val stressVersion = project.version.toString()
     val repository = dockerRepository.get()
+    // The local Docker image store keeps one platform, so more than one
+    // platform needs -PdockerPush=true.
+    val platforms = dockerPlatforms.orNull
+    val push = dockerPush.get()
+    doFirst {
+        if (!push && platforms != null && platforms.contains(',')) {
+            throw GradleException(
+                "-PdockerPlatforms=$platforms sets more than one platform. Add -PdockerPush=true to push the image.",
+            )
+        }
+    }
     workingDir = layout.projectDirectory.asFile
     commandLine(
         buildList {
             addAll(listOf(dockerExecutable.get(), "buildx", "build", "--pull"))
             addAll(listOf("--build-arg", "CASSANDRA_STRESS_VERSION=$stressVersion"))
             addAll(listOf("--tag", "$repository:$stressVersion", "--tag", "$repository:latest"))
-            dockerPlatforms.orNull?.let { addAll(listOf("--platform", it)) }
-            add(if (dockerPush.get()) "--push" else "--load")
+            platforms?.let { addAll(listOf("--platform", it)) }
+            add(if (push) "--push" else "--load")
             add(".")
         },
     )
