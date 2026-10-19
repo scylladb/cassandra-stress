@@ -63,11 +63,14 @@ because it names a class that the jar does not hold.
 | `gradle/libs.versions.toml` | Every library and plugin version |
 | `cassandra-stress.java-module` | Compile with `--release 21`, the module version, JUnit, JaCoCo, Spotless, Error Prone, Checkstyle, PMD, SpotBugs |
 | `cassandra-stress.packaging` | The `distribution` and the nebula `ospackage` plugins |
+| `cassandra-stress.kotlin-format` | ktlint for the Gradle build scripts and the build logic |
 | Root `build.gradle.kts` | The distribution, the archives, the checksums, the deb, the rpm, the Docker image, the coverage report |
 | `settings.gradle.kts` | The projects, the driver version overrides, the version |
 
-Error Prone runs as its own javac process. A finding fails the `lint` task.
-The compile tasks keep the plain javac output on every JDK.
+Error Prone runs as its own javac process for each source set. A finding
+fails the `lint` task. The compile tasks keep the plain javac output on every
+JDK. Checkstyle, PMD and SpotBugs also check every source set.
+`modulePathCheck` fails when a jar of the distribution has no module name.
 
 ### Version
 
@@ -108,10 +111,14 @@ copies the `installDist` tree.
 | Task | What runs | Where |
 |---|---|---|
 | `test` | The unit tests of each module | Classpath |
-| `:core:integrationTest`, `:core:integrationTest4x` | Stress in-process against ScyllaDB, one task per driver | Testcontainers |
+| `:core:integrationTest`, `:core:integrationTest4x` | Stress in-process against ScyllaDB, one target of the `integrationTest` suite per driver | Testcontainers |
 | `:core:distributionTest` | `bin/cassandra-stress` of the `installDist` tree with both drivers | Testcontainers |
 | `:core:packageTest` | The deb or the rpm with a Temurin runtime in a clean image, then `cassandra-stress version` | Testcontainers |
 | `jacocoFullReport` | One coverage report for the unit and the integration tests | — |
+
+The tests read `examples/` and `conf/`, and these directories are inputs of
+every test task. `packageTest` is never taken from the build cache, because it
+installs a Java runtime from the network.
 
 `-PintegrationDriver=native` or `-PintegrationDriver=4x` runs the integration
 tests with one driver, and any other value fails the build. The
@@ -232,6 +239,8 @@ module org.apache.cassandra.stress.driver.v3 {
 
 - A package repository for the deb and the rpm. The package names and the
   file layout stay stable for it.
+- Gradle dependency verification, with the checksum of every downloaded
+  artifact in `gradle/verification-metadata.xml`.
 
 ## Decisions
 
@@ -252,6 +261,11 @@ module org.apache.cassandra.stress.driver.v3 {
   file. (build)
 - Gradle builds the Docker image from the `installDist` tree. (build)
 - The launcher and package scripts become JUnit tests that Gradle runs. (build)
+- The module transform stays in `build-logic`. The gradlex
+  `extra-java-module-info` plugin cannot remove a service file from an
+  automatic module. (build)
+- Error Prone stays a separate javac process. With `--release`, javac warns
+  on `sun.misc.Signal` in every case, so `-Werror` cannot gate Error Prone. (build)
 - The integration tests run on JDK 21 only, in one job for each driver, behind
   the `testcontainers` label, so a pull request without the label does not
   wait for ScyllaDB. (build)
