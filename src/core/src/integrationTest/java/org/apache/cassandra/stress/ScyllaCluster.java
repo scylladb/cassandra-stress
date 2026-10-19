@@ -15,6 +15,8 @@ final class ScyllaCluster implements AutoCloseable {
     private final Network network = Network.newNetwork();
     private final List<ScyllaDBContainer> nodes = new ArrayList<>();
 
+    // close() stops every node.
+    @SuppressWarnings("PMD.CloseResource")
     ScyllaCluster(int size) {
         for (int i = 1; i <= size; i++) {
             ScyllaDBContainer node = new ScyllaDBContainer(
@@ -110,6 +112,7 @@ final class ScyllaCluster implements AutoCloseable {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public void close() {
         for (ScyllaDBContainer node : nodes.reversed()) {
             node.stop();

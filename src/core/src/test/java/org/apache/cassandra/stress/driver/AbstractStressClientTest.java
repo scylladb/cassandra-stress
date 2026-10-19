@@ -33,7 +33,7 @@ class AbstractStressClientTest {
 
     private static final class FakeClient extends AbstractStressClient<String, Sent, List<String>, String> {
         final List<Sent> sent = new ArrayList<>();
-        final List<Sent> idempotent = new ArrayList<>();
+        final List<Sent> idempotentSent = new ArrayList<>();
         final AtomicInteger prepared = new AtomicInteger();
         final AtomicInteger valuesRead = new AtomicInteger();
         List<String> rows = List.of();
@@ -90,7 +90,7 @@ class AbstractStressClientTest {
 
         @Override
         protected Sent markIdempotent(Sent statement) {
-            idempotent.add(statement);
+            idempotentSent.add(statement);
             return statement;
         }
 
@@ -175,7 +175,7 @@ class AbstractStressClientTest {
         client.executeBatch(List.of(statement.bind(), statement.bind()), BatchType.UNLOGGED);
         client.executePage("SELECT * FROM t", 10, null);
 
-        assertEquals(List.of(), client.idempotent);
+        assertEquals(List.of(), client.idempotentSent);
     }
 
     @Test
@@ -191,7 +191,7 @@ class AbstractStressClientTest {
         client.executeBatch(List.of(insert.bind(), insert.bind()), BatchType.UNLOGGED);
         client.executePage("SELECT * FROM t", 10, null);
 
-        assertEquals(client.sent, client.idempotent);
+        assertEquals(client.sent, client.idempotentSent);
     }
 
     @Test
@@ -206,7 +206,7 @@ class AbstractStressClientTest {
         client.execute(counter.bind(), ConsistencyLevel.ONE, null);
         client.executeBatch(List.of(counter.bind()), BatchType.COUNTER);
 
-        assertEquals(List.of(), client.idempotent);
+        assertEquals(List.of(), client.idempotentSent);
     }
 
     @Test
@@ -248,7 +248,7 @@ class AbstractStressClientTest {
         client.executeBatch(List.of(insert.bind(), append.bind()), BatchType.LOGGED);
         client.executeBatch(List.of(insert.bind(), set.bind()), BatchType.COUNTER);
 
-        assertEquals(List.of(), client.idempotent);
+        assertEquals(List.of(), client.idempotentSent);
     }
 
     @Test

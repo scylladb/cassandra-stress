@@ -1,6 +1,7 @@
 import com.diffplug.gradle.spotless.SpotlessTask
 import com.github.spotbugs.snom.Confidence
 import com.github.spotbugs.snom.Effort
+import com.github.spotbugs.snom.SpotBugsTask
 import org.apache.cassandra.stress.gradle.ErrorProneCheck
 import org.apache.cassandra.stress.gradle.FormatterLock
 import org.apache.cassandra.stress.gradle.useModuleJars
@@ -93,28 +94,32 @@ jacoco {
     toolVersion = version("jacoco")
 }
 
-val errorProneMain = tasks.register<ErrorProneCheck>("errorProneMain") {
-    description = "Checks the main sources with Error Prone."
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
-    compiler = javaToolchains.compilerFor(java.toolchain)
-    sources.from(sourceSets.main.map { it.java })
-    classpath.from(configurations.compileClasspath)
-    errorProneClasspath.from(configurations.named("errorProneClasspath"))
-    release = javaRelease
-    disabledChecks = listOf(
-        "JavaUtilDate",
-        "StringSplitter",
-        "ImmutableEnumChecker",
-        "AnnotateFormatMethod",
-        "ExposedPrivateType",
-        "EffectivelyPrivate",
-    )
-    classesDirectory = layout.buildDirectory.dir("errorprone/classes")
-    report = layout.buildDirectory.file("reports/errorprone/main.txt")
-}
-
-tasks.check {
-    dependsOn(errorProneMain)
+// One Error Prone task for each source set, such as errorProneMain and errorProneTest.
+val errorProneCompiler = javaToolchains.compilerFor(java.toolchain)
+sourceSets.configureEach {
+    val sourceSet = this
+    val task = tasks.register<ErrorProneCheck>(getTaskName("errorProne", null)) {
+        description = "Checks the ${sourceSet.name} sources with Error Prone."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        compiler = errorProneCompiler
+        sources.from(sourceSet.java)
+        classpath.from(sourceSet.compileClasspath)
+        errorProneClasspath.from(configurations.named("errorProneClasspath"))
+        release = javaRelease
+        disabledChecks = listOf(
+            "JavaUtilDate",
+            "StringSplitter",
+            "ImmutableEnumChecker",
+            "AnnotateFormatMethod",
+            "ExposedPrivateType",
+            "EffectivelyPrivate",
+        )
+        classesDirectory = layout.buildDirectory.dir("errorprone/${sourceSet.name}")
+        report = layout.buildDirectory.file("reports/errorprone/${sourceSet.name}.txt")
+    }
+    tasks.check {
+        dependsOn(task)
+    }
 }
 
 val formatterLock = gradle.sharedServices.registerIfAbsent("formatterLock", FormatterLock::class) {
@@ -144,7 +149,6 @@ pmd {
     ruleSets = emptyList()
     rulesMinimumPriority = 5
     isConsoleOutput = true
-    sourceSets = listOf(project.sourceSets.main.get())
 }
 
 spotbugs {
@@ -155,19 +159,15 @@ spotbugs {
     maxHeapSize = "1024m"
 }
 
-tasks.spotbugsMain {
+tasks.withType<SpotBugsTask>().configureEach {
     reports.create("text") { required = true }
     reports.create("html") { required = true }
-}
-
-tasks.named { it.startsWith("spotbugs") && it != "spotbugsMain" }.configureEach {
-    enabled = false
 }
 
 tasks.register("lint") {
     description = "Runs the format check, Error Prone, Checkstyle, PMD and SpotBugs."
     group = LifecycleBasePlugin.VERIFICATION_GROUP
-    dependsOn(tasks.spotlessCheck, errorProneMain, tasks.withType<Checkstyle>(), tasks.pmdMain, tasks.spotbugsMain)
+    dependsOn(tasks.spotlessCheck, tasks.withType<ErrorProneCheck>(), tasks.withType<Checkstyle>(), tasks.withType<Pmd>(), tasks.withType<SpotBugsTask>())
 }
 
 tasks.register("format") {

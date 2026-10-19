@@ -18,7 +18,7 @@ Use JDK 21 or a later LTS release, such as JDK 25. The Gradle wrapper downloads 
 | `./gradlew distributionTest` | Runs `bin/cassandra-stress` of the installed distribution against ScyllaDB in Docker |
 | `./gradlew packageTest` | Installs the deb and the rpm in Docker and runs `cassandra-stress version` |
 | `./gradlew format` | Formats the Java code with palantir-java-format and the Gradle scripts with ktlint |
-| `./gradlew lint` | Runs the format check, Error Prone, Checkstyle, PMD and SpotBugs |
+| `./gradlew lint` | Runs the format check, Error Prone, Checkstyle, PMD and SpotBugs on every source set |
 | `./gradlew dockerImage` | Builds the Docker image from the installed distribution |
 | `./gradlew installDist` | Writes a runnable tree to `build/install/cassandra-stress` |
 | `./gradlew assemble` | Writes the archives, the checksums, the deb and the rpm to `build/distributions`. The version comes from the latest `v*` git tag, or from `-Pversion=<version>` |

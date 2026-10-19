@@ -22,7 +22,7 @@ import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 
 /**
- * Compiles the main sources with Error Prone in a separate javac process and
+ * Compiles the sources of one source set with Error Prone in a separate javac process and
  * fails on every finding, at warning level too. A finding has the form
  * "warning: [CheckName]", and a check name starts with a capital letter. A
  * javac lint warning, such as "warning: [removal]", has a lowercase key and

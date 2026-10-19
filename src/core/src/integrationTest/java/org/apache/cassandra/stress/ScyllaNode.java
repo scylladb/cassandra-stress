@@ -24,15 +24,19 @@ final class ScyllaNode {
 
     private static final int START_ATTEMPTS = 3;
 
+    private static final Object LOCK = new Object();
+
     private static ScyllaDBContainer container;
 
     private ScyllaNode() {}
 
-    static synchronized ScyllaDBContainer container() {
-        if (container == null) {
-            container = start();
+    static ScyllaDBContainer container() {
+        synchronized (LOCK) {
+            if (container == null) {
+                container = start();
+            }
+            return container;
         }
-        return container;
     }
 
     // Another process can take the free port before Docker binds it, so a failed
@@ -56,6 +60,8 @@ final class ScyllaNode {
         throw failure;
     }
 
+    // The caller starts and keeps the node. The subclass reaches the protected addFixedExposedPort.
+    @SuppressWarnings({"PMD.CloseResource", "PMD.DoubleBraceInitialization"})
     private static ScyllaDBContainer node(int shardAwarePort) {
         ScyllaDBContainer node =
                 new ScyllaDBContainer(DockerImageName.parse(IMAGE).asCompatibleSubstituteFor("scylladb/scylla")) {

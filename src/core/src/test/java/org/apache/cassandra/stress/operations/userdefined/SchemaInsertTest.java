@@ -28,6 +28,7 @@ class SchemaInsertTest {
     private static final StressSettings SETTINGS =
             StressSettings.parse(new String[] {"write", "n=1", "-errors", "retries=3"});
 
+    @SuppressWarnings("ArrayRecordComponent")
     record Bound(FailingStatement statement, Object[] values) implements StressBoundStatement {}
 
     private static final class FailingStatement extends AbstractPreparedStatement {

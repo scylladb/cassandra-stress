@@ -103,7 +103,7 @@ class StressSettingsTest {
 
     private static Set<Path> graphLogs() throws IOException {
         try (Stream<Path> files = Files.list(Path.of(System.getProperty("java.io.tmpdir")))) {
-            return files.filter(f -> f.getFileName().toString().startsWith("cassandra-stress"))
+            return files.filter(f -> String.valueOf(f.getFileName()).startsWith("cassandra-stress"))
                     .collect(Collectors.toSet());
         }
     }
