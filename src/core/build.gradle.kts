@@ -168,4 +168,6 @@ registerPackagingTest(
         .withPropertyName("packages")
         .withPathSensitivity(PathSensitivity.NAME_ONLY)
     systemProperty("stress.package.dir", distributions.get().asFile.absolutePath)
+    // The test installs a Java runtime from the network, so a cached result can hide a broken package repository.
+    outputs.doNotCacheIf("the test installs packages from the network") { true }
 }

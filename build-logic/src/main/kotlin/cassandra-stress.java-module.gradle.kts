@@ -64,6 +64,9 @@ tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     // The tests read the example profiles and the configuration relative to the repository root.
     workingDir = layout.settingsDirectory.asFile
+    listOf("examples", "conf").forEach { dir ->
+        inputs.dir(layout.settingsDirectory.dir(dir)).withPropertyName(dir).withPathSensitivity(PathSensitivity.RELATIVE)
+    }
     enableAssertions = true
     maxHeapSize = "1024m"
     systemProperty("com.datastax.oss.driver.shaded.netty.noUnsafe", "true")
