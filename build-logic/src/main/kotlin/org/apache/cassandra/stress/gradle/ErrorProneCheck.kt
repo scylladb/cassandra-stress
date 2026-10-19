@@ -24,7 +24,9 @@ import javax.inject.Inject
 /**
  * Compiles the main sources with Error Prone in a separate javac process and
  * fails on every finding, at warning level too. A finding has the form
- * "warning: [CheckName]". The JDK also warns on each use of sun.misc.Signal,
+ * "warning: [CheckName]", and a check name starts with a capital letter. A
+ * javac lint warning, such as "warning: [removal]", has a lowercase key and
+ * is not a finding. The JDK also warns on each use of sun.misc.Signal,
  * which has no public replacement and no way to suppress the warning, so
  * javac -Werror cannot do this check.
  */
@@ -99,6 +101,6 @@ abstract class ErrorProneCheck @Inject constructor(private val execOperations: E
             "api", "code", "comp", "file", "main", "model", "parser", "processing", "tree", "util",
         )
         val OPENED_PACKAGES = listOf("code", "comp")
-        val FINDING = Regex("(warning|error): \\[[A-Za-z]+\\]")
+        val FINDING = Regex("(warning|error): \\[[A-Z][A-Za-z]*\\]")
     }
 }
