@@ -26,6 +26,19 @@ has_jars() {
   [ -n "$(find "$1" -maxdepth 1 -name '*.jar' -print -quit 2>/dev/null)" ]
 }
 
+# Prints the storage directory of the user in TMPDIR. Another user can create
+# that path first, so it must be a real directory that only this user can use.
+private_tmp_dir() {
+  local dir
+  dir="${TMPDIR:-/tmp}/cassandra-stress-$(id -u)"
+  mkdir -m 700 "$dir" 2>/dev/null
+  if [ -L "$dir" ] || [ ! -d "$dir" ] || [ ! -O "$dir" ] || ! chmod 700 "$dir" 2>/dev/null; then
+    echo "Error: $dir is not a directory that only $(id -un) owns. Set CASSANDRA_STRESS_STORAGE_DIR to choose another directory." >&2
+    return 1
+  fi
+  echo "$dir"
+}
+
 # Prints the major version of the java binary $1. The release file of the JDK
 # holds the version, so a JVM starts only when that file is missing.
 java_major_version() {
@@ -137,7 +150,7 @@ if [ -z "$CASSANDRA_STRESS_STORAGE_DIR" ]; then
   elif [ -n "$HOME" ]; then
     CASSANDRA_STRESS_STORAGE_DIR="$HOME/.local/state/cassandra-stress"
   else
-    CASSANDRA_STRESS_STORAGE_DIR="${TMPDIR:-/tmp}/cassandra-stress-$(id -u)"
+    CASSANDRA_STRESS_STORAGE_DIR="$(private_tmp_dir)" || exit 1
   fi
 fi
 
@@ -145,7 +158,7 @@ fi
 # a tarball that root unpacked, keeps the logs in a directory of the user in TMPDIR.
 LOG_DIR="$CASSANDRA_STRESS_STORAGE_DIR/logs"
 if ! mkdir -p "$LOG_DIR" 2>/dev/null; then
-  FALLBACK_STORAGE_DIR="${TMPDIR:-/tmp}/cassandra-stress-$(id -u)"
+  FALLBACK_STORAGE_DIR="$(private_tmp_dir)" || exit 1
   echo "Warning: cannot create $LOG_DIR. The logs go to $FALLBACK_STORAGE_DIR/logs. Set CASSANDRA_STRESS_STORAGE_DIR to choose another directory." >&2
   CASSANDRA_STRESS_STORAGE_DIR="$FALLBACK_STORAGE_DIR"
   LOG_DIR="$CASSANDRA_STRESS_STORAGE_DIR/logs"
