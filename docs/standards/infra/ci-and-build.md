@@ -30,6 +30,7 @@ with `packageTest`. Add a test of the build output as a JUnit test in
 `src/core/src/integrationTest`, not as a shell script.
 `./gradlew dockerImage` builds the Docker image from the `installDist` tree,
 so the Dockerfile copies that tree and compiles nothing.
+ktlint formats the Gradle build scripts and the Kotlin code in `build-logic`.
 
 ### Versions
 

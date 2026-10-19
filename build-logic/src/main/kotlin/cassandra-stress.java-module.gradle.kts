@@ -1,12 +1,12 @@
+import com.diffplug.gradle.spotless.SpotlessTask
 import com.github.spotbugs.snom.Confidence
 import com.github.spotbugs.snom.Effort
-import java.time.Duration
-import com.diffplug.gradle.spotless.SpotlessTask
 import org.apache.cassandra.stress.gradle.ErrorProneCheck
 import org.apache.cassandra.stress.gradle.FormatterLock
 import org.apache.cassandra.stress.gradle.useModuleJars
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
+import java.time.Duration
 
 plugins {
     `java-library`

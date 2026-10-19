@@ -2,8 +2,7 @@ plugins {
     `kotlin-dsl`
 }
 
-fun plugin(plugin: Provider<PluginDependency>) =
-    plugin.map { "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version.requiredVersion}" }
+fun plugin(plugin: Provider<PluginDependency>) = plugin.map { "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version.requiredVersion}" }
 
 dependencies {
     implementation(plugin(libs.plugins.spotbugs))

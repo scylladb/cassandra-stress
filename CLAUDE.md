@@ -21,7 +21,7 @@
 ./gradlew jacocoFullReport
 # Format all Java sources (palantir-java-format)
 ./gradlew format
-# Format check, Error Prone, Checkstyle, PMD and SpotBugs
+# Format check of Java and Gradle scripts, Error Prone, Checkstyle, PMD and SpotBugs
 ./gradlew lint
 # Archives, checksums, deb and rpm in build/distributions
 ./gradlew assemble
