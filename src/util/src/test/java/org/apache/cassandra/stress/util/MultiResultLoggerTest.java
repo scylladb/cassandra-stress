@@ -16,11 +16,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.Test;
 
+// The logger owns or borrows each stream, and each test checks that ownership.
+@SuppressWarnings("PMD.CloseResource")
 class MultiResultLoggerTest {
     private final ByteArrayOutputStream output = new ByteArrayOutputStream();
 
     private PrintStream captured() {
-        return new PrintStream(output, true);
+        return new PrintStream(output, true, UTF_8);
     }
 
     @Test
@@ -37,21 +39,24 @@ class MultiResultLoggerTest {
 
     @Test
     void printsToAddedStreams() {
-        MultiResultLogger logger = new MultiResultLogger(new PrintStream(OutputStream.nullOutputStream()));
-        logger.addStream(captured());
+        try (PrintStream initial = new PrintStream(OutputStream.nullOutputStream(), true, UTF_8);
+                PrintStream added = captured()) {
+            MultiResultLogger logger = new MultiResultLogger(initial);
+            logger.addStream(added);
 
-        logger.println("result");
-        logger.printf("%s %s", "one", "two");
-        logger.println();
+            logger.println("result");
+            logger.printf("%s %s", "one", "two");
+            logger.println();
 
-        assertEquals("result\none two\n", output.toString(UTF_8));
+            assertEquals("result\none two\n", output.toString(UTF_8));
+        }
     }
 
     @Test
     void closeFlushesAndClosesTheOwnedStreams() {
         ByteArrayOutputStream file = new ByteArrayOutputStream();
         PrintStream owned = new PrintStream(new BufferedOutputStream(file), false, UTF_8);
-        MultiResultLogger logger = new MultiResultLogger(new PrintStream(OutputStream.nullOutputStream()));
+        MultiResultLogger logger = new MultiResultLogger(new PrintStream(OutputStream.nullOutputStream(), true, UTF_8));
         logger.addOwnedStream(owned);
         logger.println("result");
 
@@ -109,9 +114,10 @@ class MultiResultLoggerTest {
     @Test
     void closeWhileOtherThreadsWriteThrowsNothing() throws Exception {
         for (int round = 0; round < 50; round++) {
-            MultiResultLogger logger = new MultiResultLogger(new PrintStream(OutputStream.nullOutputStream()));
+            MultiResultLogger logger =
+                    new MultiResultLogger(new PrintStream(OutputStream.nullOutputStream(), true, UTF_8));
             for (int i = 0; i < 4; i++) {
-                logger.addOwnedStream(new PrintStream(OutputStream.nullOutputStream()));
+                logger.addOwnedStream(new PrintStream(OutputStream.nullOutputStream(), true, UTF_8));
             }
             CountDownLatch writing = new CountDownLatch(4);
             List<CompletableFuture<Void>> writers = new ArrayList<>();

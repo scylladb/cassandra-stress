@@ -123,6 +123,7 @@ class UserProfileIT {
         assertTrue(read.succeeded(), read::toString);
     }
 
+    @SuppressWarnings("InlineFormatString")
     private static final String FROZEN_CLUSTERING = """
         keyspace: %1$s
         keyspace_definition: |

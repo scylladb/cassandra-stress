@@ -13,25 +13,25 @@ class SettingsSchemaTest {
     void quotesEachColumnNameOfTheStandardTable() {
         StressSettings settings = settings("plain,C0,order,a\"b");
 
-        assertEquals(
-                "CREATE TABLE IF NOT EXISTS standard1 (key blob PRIMARY KEY \n"
-                        + ", \"C0\" blob\n"
-                        + ", \"a\"\"b\" blob\n"
-                        + ", \"order\" blob\n"
-                        + ", plain blob) WITH compression = {};\n",
-                settings.schema.createStandard1StatementCQL3(settings));
+        assertEquals("""
+                CREATE TABLE IF NOT EXISTS standard1 (key blob PRIMARY KEY\s
+                , "C0" blob
+                , "a""b" blob
+                , "order" blob
+                , plain blob) WITH compression = {};
+                """, settings.schema.createStandard1StatementCQL3(settings));
     }
 
     @Test
     void quotesEachColumnNameOfTheCounterTable() {
         StressSettings settings = settings("plain,C0,order,a\"b");
 
-        assertEquals(
-                "CREATE TABLE IF NOT EXISTS counter1 (key blob PRIMARY KEY,\n"
-                        + ", \"C0\" counter\n"
-                        + ", \"a\"\"b\" counter\n"
-                        + ", \"order\" counter\n"
-                        + ", plain counter) WITH compression = {};\n",
-                settings.schema.createCounter1StatementCQL3(settings));
+        assertEquals("""
+                CREATE TABLE IF NOT EXISTS counter1 (key blob PRIMARY KEY,
+                , "C0" counter
+                , "a""b" counter
+                , "order" counter
+                , plain counter) WITH compression = {};
+                """, settings.schema.createCounter1StatementCQL3(settings));
     }
 }

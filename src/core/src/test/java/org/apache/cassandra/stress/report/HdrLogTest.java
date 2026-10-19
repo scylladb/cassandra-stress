@@ -49,6 +49,7 @@ class HdrLogTest {
     }
 
     @Test
+    @SuppressWarnings("PMD.CloseResource")
     void closeReleasesTheFile() throws IOException {
         Path file = dir.resolve("closed.hdr");
         HdrLog log = HdrLog.open(file);

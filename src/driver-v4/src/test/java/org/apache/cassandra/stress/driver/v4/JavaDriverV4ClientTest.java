@@ -121,7 +121,7 @@ class JavaDriverV4ClientTest {
         assertEquals("Cannot resolve the whitelisted node no-such-host.invalid", e.getMessage());
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "ReferenceEquality", "PMD.CompareObjectsWithEquals"})
     private static <T> T fake(Class<T> type, Map<String, Object> answers) {
         return (T) Proxy.newProxyInstance(
                 JavaDriverV4ClientTest.class.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
@@ -182,10 +182,11 @@ class JavaDriverV4ClientTest {
         assertEquals(0, rowsRead.get());
         assertEquals(0, result.result().rows().size());
         assertEquals(state, result.pagingState());
-        assertEquals(false, result.fullyFetched());
+        assertFalse(result.fullyFetched());
     }
 
     @Test
+    @SuppressWarnings("PMD.CloseResource")
     void eachPreparedQueryKeepsItsOwnConsistencyLevel() throws Exception {
         AtomicInteger prepared = new AtomicInteger();
         PreparedStatement driverStatement = fake(

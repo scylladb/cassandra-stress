@@ -1,7 +1,7 @@
 package org.apache.cassandra.stress.operations.userdefined;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -91,12 +91,9 @@ class ValidationSliceTest {
 
     private static boolean selected(
             Object[] row, Object[] lo, Object[] hi, ValidatingSchemaQuery.Slice slice, boolean desc) {
-        int fromLo = compare(row, lo);
-        int fromHi = compare(row, hi);
-        if (desc) {
-            fromLo = -fromLo;
-            fromHi = -fromHi;
-        }
+        int direction = desc ? -1 : 1;
+        int fromLo = direction * Integer.signum(compare(row, lo));
+        int fromHi = direction * Integer.signum(compare(row, hi));
         boolean afterStart = slice.inclusiveStart() ? fromLo >= 0 : fromLo > 0;
         boolean beforeEnd = slice.inclusiveEnd() ? fromHi <= 0 : fromHi < 0;
         return afterStart && beforeEnd;
@@ -141,6 +138,6 @@ class ValidationSliceTest {
                 }
             }
         }
-        assertFalse(checked == 0);
+        assertNotEquals(0, checked);
     }
 }

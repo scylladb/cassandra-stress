@@ -48,6 +48,8 @@ class AbstractTypeTest {
         return new Sample((AbstractType<Object>) type, value);
     }
 
+    // Each address is a literal, so no name lookup runs.
+    @SuppressWarnings("AddressSelection")
     private static Map<String, Sample> samples() throws IOException {
         Map<String, Sample> samples = new LinkedHashMap<>();
         samples.put("ascii", sample(AsciiType.instance, "stress-1"));

@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FindBugsFilter>
+    <!-- The text blocks of the integration tests are YAML profiles, which need \n on every platform. -->
+    <Match>
+        <Source name="~.*IT\.java" />
+        <Bug pattern="VA_FORMAT_STRING_USES_NEWLINE" />
+    </Match>
     <Match>
         <Bug pattern="CT_CONSTRUCTOR_THROW,EI_EXPOSE_REP,EI_EXPOSE_REP2,MS_EXPOSE_REP,PA_PUBLIC_PRIMITIVE_ATTRIBUTE,DM_EXIT,HSM_HIDING_METHOD,REC_CATCH_EXCEPTION" />
     </Match>

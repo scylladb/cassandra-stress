@@ -1,5 +1,6 @@
 package org.apache.cassandra.stress.util;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +41,7 @@ class UncertaintyTest {
             uncertainty.update(100);
             Thread.onSpinWait();
         }
-        waiter.get(1, TimeUnit.SECONDS);
+        assertDoesNotThrow(() -> waiter.get(1, TimeUnit.SECONDS));
     }
 
     @Test
@@ -58,6 +59,6 @@ class UncertaintyTest {
             uncertainty.wakeAll();
             Thread.onSpinWait();
         }
-        waiter.get(1, TimeUnit.SECONDS);
+        assertDoesNotThrow(() -> waiter.get(1, TimeUnit.SECONDS));
     }
 }

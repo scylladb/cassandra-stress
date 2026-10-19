@@ -25,7 +25,7 @@ Located in `docs/standards/backend/`.
 #### Java conventions (`standards/backend/java-conventions.md`)
 palantir-java-format formats every Java file through `./gradlew format`, and
 `./gradlew spotlessCheck` fails on unformatted code. `./gradlew lint` runs the format
-check, Error Prone, Checkstyle, PMD and SpotBugs with the rules in `lint/`,
+check, Error Prone, Checkstyle, PMD and SpotBugs on every source set with the rules in `lint/`,
 and a deliberate exception gets a `@SuppressWarnings` on the smallest
 element. Every `if`, `else`, `for`, `while`, `do`, `try`, `catch`,
 `finally`, `switch` and `synchronized` body has braces and one statement per

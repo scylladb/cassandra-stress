@@ -1,8 +1,8 @@
 package org.apache.cassandra.stress.generate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -161,7 +161,7 @@ class PartitionIteratorTest {
         PartitionIterator iterator = iterator(generator);
         Pair<Row, Row> bounds = iterator.resetToBounds(new Seed(3, 1), 1);
         assertEquals(1, bounds.left().row.length);
-        assertFalse(bounds.left().row[0] == null);
+        assertNotNull(bounds.left().row[0]);
     }
 
     @Test

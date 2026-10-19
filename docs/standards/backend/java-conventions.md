@@ -39,8 +39,9 @@ Checkstyle rejects both with `NeedBraces`, `LeftCurly` and `RightCurly`, and
 
 ### Static analysis
 
-Run `./gradlew lint` before a commit. It runs `spotlessCheck`, Error Prone on
-the compile, Checkstyle, PMD and SpotBugs, and fails on any finding. The rule
+Run `./gradlew lint` before a commit. It checks the format of the Java code
+and of the Gradle build scripts. It runs Error Prone, Checkstyle, PMD and
+SpotBugs on every source set, the tests too, and fails on any finding. The rule
 files are in `lint/`. Fix a finding in the code. When the code is right on
 purpose, suppress the one check on the smallest element:
 

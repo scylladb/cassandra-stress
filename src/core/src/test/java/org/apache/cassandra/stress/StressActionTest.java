@@ -14,6 +14,7 @@ import org.apache.cassandra.stress.util.MultiResultLogger;
 import org.junit.jupiter.api.Test;
 
 class StressActionTest {
+    @FunctionalInterface
     interface Answer {
         Object answer(String method) throws Throwable;
     }

@@ -146,10 +146,12 @@ class StressServerTest {
         assertEquals(List.of("Invalid parameter bogus", "FAILURE"), sendToServer("write", "n=10", "-rate", "bogus"));
     }
 
+    @FunctionalInterface
     interface RawClient {
         void send(DataOutputStream out, Socket socket) throws Exception;
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private static List<String> sendRaw(Duration commandTimeout, RawClient sender) throws Exception {
         try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
             CompletableFuture<Void> served = CompletableFuture.runAsync(() -> {
@@ -399,12 +401,15 @@ class StressServerTest {
                     throw new UncheckedIOException(e);
                 }
             });
-            boolean succeeded = Stress.sendToDaemon(
-                    new HostAndPort("127.0.0.1", daemon.getLocalPort()),
-                    new String[] {"write", "n=1"},
-                    new MultiResultLogger(new PrintStream(OutputStream.nullOutputStream())));
-            served.get(10, TimeUnit.SECONDS);
-            return succeeded;
+            try (PrintStream discarded =
+                    new PrintStream(OutputStream.nullOutputStream(), true, StandardCharsets.UTF_8)) {
+                boolean succeeded = Stress.sendToDaemon(
+                        new HostAndPort("127.0.0.1", daemon.getLocalPort()),
+                        new String[] {"write", "n=1"},
+                        new MultiResultLogger(discarded));
+                served.get(10, TimeUnit.SECONDS);
+                return succeeded;
+            }
         }
     }
 
@@ -416,6 +421,7 @@ class StressServerTest {
     }
 
     @Test
+    @SuppressWarnings("PMD.CloseResource")
     void aCancelledRequestEndsOnlyAfterItsActionStops() throws Exception {
         int closedPort;
         try (ServerSocket probe = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {

@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.SplittableRandom;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -17,7 +17,7 @@ class DynamicListTest {
         DynamicList<Integer> list = locked ? new LockedDynamicList<>(1_000) : new DynamicList<>(1_000);
         List<Integer> model = new ArrayList<>();
         List<DynamicList.Node<Integer>> nodes = new ArrayList<>();
-        Random random = new Random(1);
+        SplittableRandom random = new SplittableRandom(1);
         for (int step = 0; step < 5_000; step++) {
             if (model.isEmpty() || random.nextInt(3) > 0) {
                 nodes.add(list.append(step));
@@ -25,7 +25,7 @@ class DynamicListTest {
             } else {
                 int index = random.nextInt(model.size());
                 list.remove(nodes.remove(index));
-                model.remove(index);
+                model.subList(index, index + 1).clear();
             }
             assertEquals(model.size(), list.size());
             if (!model.isEmpty()) {

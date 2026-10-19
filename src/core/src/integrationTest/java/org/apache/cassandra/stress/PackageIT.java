@@ -95,8 +95,8 @@ class PackageIT {
 
     private static Path newest(String extension) throws IOException {
         try (Stream<Path> files = Files.list(PACKAGES)) {
-            return files.filter(f -> f.getFileName().toString().endsWith(extension))
-                    .max(Comparator.comparing(f -> f.toFile().lastModified()))
+            return files.filter(f -> String.valueOf(f.getFileName()).endsWith(extension))
+                    .max(Comparator.comparingLong(f -> f.toFile().lastModified()))
                     .orElseThrow(() -> new IllegalStateException("No " + extension + " package in " + PACKAGES));
         }
     }
