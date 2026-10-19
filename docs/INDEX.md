@@ -63,6 +63,7 @@ External GitHub Actions and reusable workflows use a commit SHA pin with a
 tag or branch comment. Local references have no pin. Renovate updates the
 actions, the Docker base images, the Gradle wrapper and the version catalog.
 Gradle is the build tool and builds the deb and the rpm.
+`modulePathCheck` fails on a jar in `lib/` with no module name.
 
 ## Updating this documentation
 

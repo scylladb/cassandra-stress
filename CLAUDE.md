@@ -26,6 +26,8 @@
 ./gradlew format
 # Format check of Java and Gradle scripts, Error Prone, Checkstyle, PMD and SpotBugs
 ./gradlew lint
+# Every jar of the distribution is a named module
+./gradlew modulePathCheck
 # Archives, checksums, deb and rpm in build/distributions
 ./gradlew assemble
 # Docker image from the installed distribution
