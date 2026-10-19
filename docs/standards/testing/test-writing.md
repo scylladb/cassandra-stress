@@ -38,7 +38,9 @@ stress in-process with `CassandraStress`, which adds `-node`, `-port` and
 `-log file=`. Check the outcome on the returned `StressResult`.
 Give each test its own keyspace, and drop it before the run.
 `./gradlew integrationTest` runs every class on both drivers. Select one
-driver with `-PintegrationDriver=native` or `-PintegrationDriver=4x`.
+driver with `-PintegrationDriver=native` or `-PintegrationDriver=4x`. Run one
+class on the native driver with `./gradlew :core:integrationTest --tests
+<Name>IT`, and on the 4x driver with `:core:integrationTest4x`.
 The run sets `-Dstress.skipSleeps=true`, which skips the fixed sleeps of
 stress. CI runs these tests on a pull request with the `testcontainers`
 label, and on each push to `master`.

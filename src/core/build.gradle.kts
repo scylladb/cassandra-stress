@@ -44,66 +44,58 @@ sourceSets.main {
 val integrationTestProperties = providers.systemPropertiesPrefixedBy("scylla.")
     .zip(providers.systemPropertiesPrefixedBy("stress.")) { scylla, stress -> scylla + stress }
 
-testing {
-    suites {
-        register<JvmTestSuite>("integrationTest") {
-            useJUnitJupiter(libs.versions.junit)
-            dependencies {
-                implementation(project())
-                implementation(libs.testcontainers.scylladb) {
-                    exclude(group = "junit", module = "junit")
+// The integration test task of each driver. The suite target of a task runs
+// the same classes with another driver.
+val integrationDriverTasks = mapOf("native" to "integrationTest", "4x" to "integrationTest4x")
+
+// -PintegrationDriver=native or -PintegrationDriver=4x runs the integration tests with one driver only.
+val integrationDriver = providers.gradleProperty("integrationDriver").orNull?.also {
+    if (it !in integrationDriverTasks) {
+        throw GradleException(
+            "-PintegrationDriver=$it is not a driver. Use one of ${integrationDriverTasks.keys.joinToString()}.",
+        )
+    }
+}
+
+testing.suites.register<JvmTestSuite>("integrationTest") {
+    useJUnitJupiter(libs.versions.junit)
+    dependencies {
+        implementation(project())
+        implementation(libs.testcontainers.scylladb) {
+            exclude(group = "junit", module = "junit")
+        }
+        implementation(project(":driver-v4"))
+        implementation(libs.hdrhistogram)
+        runtimeOnly(project(":driver-v3"))
+        runtimeOnly(libs.reactive.streams)
+    }
+    integrationDriverTasks.forEach { (driver, name) ->
+        val target = if (name == this.name) targets.named(name) else targets.register(name)
+        target.configure {
+            testTask.configure {
+                description = "Runs the integration tests against ScyllaDB in Docker with the $driver driver."
+                useJUnitPlatform {
+                    excludeTags("distribution", "package")
                 }
-                implementation(project(":driver-v4"))
-                implementation(libs.hdrhistogram)
-                runtimeOnly(project(":driver-v3"))
-                runtimeOnly(libs.reactive.streams)
+                filter {
+                    includeTestsMatching("*IT")
+                }
+                timeout = Duration.ofMinutes(30)
+                systemProperties(integrationTestProperties.get())
+                systemProperty("stress.it.driver", driver)
+                // Skips the fixed sleeps of stress, and lets the 4x driver see a schema change after 10 ms.
+                systemProperty("stress.skipSleeps", "true")
+                systemProperty("datastax-java-driver.advanced.metadata.schema.debouncer.window", "10ms")
+                val selected = integrationDriver ?: driver
+                onlyIf("-PintegrationDriver selects the $driver driver") { selected == driver }
+                shouldRunAfter(tasks.test)
             }
         }
     }
 }
 
 val integrationTest = sourceSets["integrationTest"]
-
-val integrationDrivers = listOf("native", "4x")
-
-// -PintegrationDriver=native or -PintegrationDriver=4x runs the integration tests with one driver only.
-val integrationDriver = providers.gradleProperty("integrationDriver").orNull?.also {
-    if (it !in integrationDrivers) {
-        throw GradleException("-PintegrationDriver=$it is not a driver. Use one of ${integrationDrivers.joinToString()}.")
-    }
-}
-
-// The integration tests run once for each driver.
-val integrationTestTasks = integrationDrivers.map { driver ->
-    val name = if (driver == "native") "integrationTest" else "integrationTest4x"
-    val task = if (driver == "native") tasks.named<Test>(name) else tasks.register<Test>(name)
-    task.configure {
-        description = "Runs the integration tests against ScyllaDB in Docker with the $driver driver."
-        group = LifecycleBasePlugin.VERIFICATION_GROUP
-        testClassesDirs = integrationTest.output.classesDirs
-        classpath = integrationTest.runtimeClasspath
-        useJUnitPlatform {
-            excludeTags("distribution", "package")
-        }
-        filter {
-            includeTestsMatching("*IT")
-        }
-        timeout = Duration.ofMinutes(30)
-        systemProperties(integrationTestProperties.get())
-        systemProperty("stress.it.driver", driver)
-        // Skips the fixed sleeps of stress, and lets the 4x driver see a schema change after 10 ms.
-        systemProperty("stress.skipSleeps", "true")
-        systemProperty("datastax-java-driver.advanced.metadata.schema.debouncer.window", "10ms")
-        val selected = integrationDriver ?: driver
-        onlyIf("-PintegrationDriver selects the $driver driver") { selected == driver }
-        shouldRunAfter(tasks.test)
-    }
-    task
-}
-
-tasks.named("integrationTest") {
-    finalizedBy(integrationTestTasks.drop(1))
-}
+val integrationTestTasks = integrationDriverTasks.values.map { tasks.named<Test>(it) }
 
 // The JaCoCo data of both integration test tasks, for the full coverage report of the root project.
 configurations.consumable("integrationCoverageElements") {
