@@ -3,6 +3,7 @@ import com.netflix.gradle.plugins.packaging.CopySpecEnhancement
 import com.netflix.gradle.plugins.packaging.SystemPackagingTask
 import com.netflix.gradle.plugins.rpm.Rpm
 import org.apache.cassandra.stress.gradle.Checksums
+import org.apache.cassandra.stress.gradle.JvmOptions
 import org.apache.cassandra.stress.gradle.ModulePathCheck
 import org.apache.cassandra.stress.gradle.useModuleJars
 import org.redline_rpm.header.Architecture
@@ -98,6 +99,71 @@ tasks.register("integrationTest") {
     dependsOn(":core:integrationTest", ":core:integrationTest4x")
 }
 
+// The JVM options of bin/cassandra-stress, written into conf/. The launcher
+// puts JVM_OPTS after them, so a user option wins.
+val jvmClientOptions = tasks.register<JvmOptions>("jvmClientOptions") {
+    description = "Writes conf/jvm-clients.options, the JVM options of every run."
+    header =
+        """
+        The JVM options of every cassandra-stress run. Set JVM_OPTS to add an
+        option or to override one, such as JVM_OPTS="-Xmx8g".
+        A line "<min>-<max>:<option>" or "<min>-:<option>" applies to those Java
+        versions only. A short bound covers its updates, so 21.0.9-21 holds
+        21.0.9 and every later update of 21.
+        """.trimIndent()
+    options =
+        listOf(
+            // The drivers shade netty, and netty reaches sun.misc.Unsafe without these.
+            "-Dcom.datastax.oss.driver.shaded.netty.noUnsafe=true",
+            "-Dcom.datastax.shaded.netty.noUnsafe=true",
+            "--enable-native-access=org.lz4.java,org.xerial.snappy",
+            // The heap can grow to 80% of the memory of the machine or the container.
+            // MinRAMPercentage sets the maximum heap on a machine with little memory.
+            "-XX:MaxRAMPercentage=80",
+            "-XX:MinRAMPercentage=80",
+            // Direct buffers count against the size of the heap by default, so the heap and the direct
+            // buffers of netty could take twice the 80%. With noUnsafe, netty prefers heap buffers.
+            "-XX:MaxDirectMemorySize=256m",
+            // Pre-faults the initial heap, so the first requests take no page faults.
+            "-XX:+AlwaysPreTouch",
+            // The JVM writes its counters to a file in /tmp, and a slow disk stalls a safepoint.
+            "-XX:+PerfDisableSharedMem",
+            // Object headers of 8 bytes: less heap per request, fewer collections.
+            // Java 24 has them as an experimental option only.
+            "25-:-XX:+UseCompactObjectHeaders",
+        )
+    optionsFile = layout.buildDirectory.file("jvm-options/jvm-clients.options")
+}
+
+val jvmGcOptions = tasks.register<JvmOptions>("jvmGcOptions") {
+    description = "Writes conf/jvm-gc.options, the garbage collector of every run."
+    header =
+        """
+        The garbage collector of every cassandra-stress run. When JVM_OPTS,
+        JAVA_TOOL_OPTIONS or JDK_JAVA_OPTIONS select a collector, such as
+        JVM_OPTS="-XX:+UseG1GC", the launcher skips the lines that select one.
+        A line "<min>-<max>:<option>" or "<min>-:<option>" applies to those Java
+        versions only. A short bound covers its updates, so 21.0.9-21 holds
+        21.0.9 and every later update of 21.
+        """.trimIndent()
+    options =
+        listOf(
+            // Pauses below one millisecond, so the latency that stress reports is the latency of the cluster.
+            // Generational ZGC can crash when it collects the old generation (JDK-8347564). Java 21.0.9
+            // and 24.0.2 have the fix, so an earlier release runs on G1.
+            "21.0.9-21:-XX:+UseZGC",
+            "24.0.2-:-XX:+UseZGC",
+            "21-21.0.8:-XX:+UseG1GC",
+            "22-24.0.1:-XX:+UseG1GC",
+            // Java 21 and 22 start the single-generation ZGC without this option. Java 23 and later have
+            // generational ZGC only, and Java 24 and later warn on the option. G1 ignores it.
+            "21-22:-XX:+ZGenerational",
+        )
+    optionsFile = layout.buildDirectory.file("jvm-options/jvm-gc.options")
+}
+
+val jvmOptionFiles = files(jvmClientOptions, jvmGcOptions)
+
 distributions {
     main {
         distributionBaseName = "cassandra-stress"
@@ -111,6 +177,7 @@ distributions {
             }
             into("conf") {
                 from("conf")
+                from(jvmOptionFiles)
             }
             into("examples") {
                 from("examples") { include("*.yaml") }
@@ -216,7 +283,7 @@ tasks.withType<SystemPackagingTask>().configureEach {
         into("$installPrefix/bin")
         filePermissions { unix("rwxr-xr-x") }
     }
-    from("conf") {
+    from(files("conf", jvmOptionFiles)) {
         into("/etc/cassandra-stress")
         CopySpecEnhancement.fileType(this, Directive(Directive.RPMFILE_CONFIG or Directive.RPMFILE_NOREPLACE))
     }
@@ -235,7 +302,7 @@ tasks.withType<Deb>().configureEach {
         .or("openjdk-25-jre-headless", "", 0)
         .or("java21-runtime-headless", "", 0)
     requires("awk")
-    fileTree("conf").forEach { configurationFile("/etc/cassandra-stress/${it.name}") }
+    (fileTree("conf") + jvmOptionFiles).forEach { configurationFile("/etc/cassandra-stress/${it.name}") }
 }
 
 tasks.withType<Rpm>().configureEach {

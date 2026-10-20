@@ -115,6 +115,32 @@ the JVM.
 
 The releases also have a deb and an rpm package.
 
+### JVM Options
+
+Stress runs on generational ZGC, so a pause of the client does not show as
+latency of the cluster. Java 21 before 21.0.9 and Java 22 to 24.0.1 run on G1,
+because generational ZGC can crash on them
+([JDK-8347564](https://bugs.openjdk.org/browse/JDK-8347564)). Java 25 and later
+also use compact object headers.
+
+The launcher reads its JVM options from `conf/jvm-clients.options` and the
+collector from `conf/jvm-gc.options`. The packages keep both files in
+`/etc/cassandra-stress`. A line `<min>-<max>:<option>` applies to those Java
+versions only.
+
+The heap can grow to 80% of the memory of the machine or the container, and
+the direct buffers to 256 MB. Set a heap size in `JVM_OPTS` when more than one
+stress process runs on one machine, or in a container with less than 1 GB of
+memory.
+An option in `JVM_OPTS` overrides the default option:
+
+``` shell
+JVM_OPTS="-Xms8g -Xmx8g" cassandra-stress write n=1000000
+```
+
+A collector in `JVM_OPTS`, such as `-XX:+UseG1GC`, replaces the default
+collector.
+
 ### Build from Source
 
 To build [cassandra-stress]{.title-ref} from source, install JDK 21 or a

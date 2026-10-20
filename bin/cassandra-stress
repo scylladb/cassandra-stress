@@ -39,19 +39,59 @@ private_tmp_dir() {
   echo "$dir"
 }
 
-# Prints the major version of the java binary $1. The release file of the JDK
-# holds the version, so a JVM starts only when that file is missing.
-java_major_version() {
+# Prints the version of the java binary $1, such as 21.0.9. The release file
+# of the JDK holds the version, so a JVM starts only when that file is missing.
+java_version() {
   local home version=""
   home="$(dirname "$(dirname "$(realpath "$1")")")"
   if [ -r "$home/release" ]; then
     version=$(awk -F'"' '/^JAVA_VERSION=/ { print $2 }' "$home/release")
   fi
   if [ -z "$version" ]; then
-    version=$("$1" -XshowSettings:properties -version 2>&1 | awk '/java.specification.version/ { print $3 }')
+    version=$("$1" -XshowSettings:properties -version 2>&1 | awk '/^ *java.version = / { print $3 }')
   fi
-  version="${version#1.}"
-  echo "${version%%.*}"
+  echo "${version#1.}"
+}
+
+# Prints the major version of the java binary $1.
+java_major_version() {
+  local version
+  version="$(java_version "$1")"
+  echo "${version%%[!0-9]*}"
+}
+
+# Compares the first $3 parts of the dotted versions $1 and $2, and prints
+# -1, 0 or 1. A missing part is 0, and a part ends at its first non-digit.
+compare_versions() {
+  local i a b
+  local -a left right
+  IFS=. read -r -a left <<< "$1"
+  IFS=. read -r -a right <<< "$2"
+  for ((i = 0; i < $3; i++)); do
+    a="${left[i]:-0}"
+    b="${right[i]:-0}"
+    a="${a%%[!0-9]*}"
+    b="${b%%[!0-9]*}"
+    if [ "${a:-0}" -lt "${b:-0}" ]; then
+      echo -1
+      return
+    elif [ "${a:-0}" -gt "${b:-0}" ]; then
+      echo 1
+      return
+    fi
+  done
+  echo 0
+}
+
+# Succeeds when the version $1 is in the range $2, "<min>-<max>" or "<min>-".
+# The bounds are dotted versions, and a short bound covers its updates, so
+# 21.0.9-21 holds 21.0.9 and every later update of 21.
+version_in_range() {
+  local min="${2%%-*}" max="${2#*-}" parts
+  [ "$(compare_versions "$1" "$min" 4)" -ge 0 ] || return 1
+  [ -z "$max" ] && return 0
+  parts="${max//[!.]/}"
+  [ "$(compare_versions "$1" "$max" $((${#parts} + 1)))" -le 0 ]
 }
 
 # Sets JAVA and JAVA_MAJOR. JAVA_HOME wins. Otherwise use java from PATH, and
@@ -82,6 +122,28 @@ find_java() {
       JAVA_MAJOR="$major"
     fi
   done
+}
+
+# Appends to DEFAULT_JVM_OPTS the options of the file $1 that apply to Java
+# $JAVA_RUNTIME_VERSION. A line "<min>-<max>:<option>" or "<min>-:<option>"
+# applies to those versions only. When $2 is "skip-collector", the lines that
+# select a collector do not apply.
+read_jvm_options() {
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      -*) ;;
+      [0-9]*-*:-*)
+        version_in_range "$JAVA_RUNTIME_VERSION" "${line%%:*}" || continue
+        line="${line#*:}"
+      ;;
+      *) continue ;;
+    esac
+    if [ "${2:-}" = skip-collector ] && [[ "$line" =~ ^-XX:\+Use[A-Za-z0-9]+GC$ ]]; then
+      continue
+    fi
+    DEFAULT_JVM_OPTS+=("$line")
+  done < "$1"
 }
 
 case "$1" in
@@ -123,6 +185,8 @@ if [ -z "$JAVA_MAJOR" ] || [ "$JAVA_MAJOR" -lt "$MIN_JAVA_VERSION" ]; then
   echo "Cassandra-Stress requires Java $MIN_JAVA_VERSION or newer. $JAVA is Java ${JAVA_MAJOR:-of an unknown version}." >&2
   exit 1
 fi
+
+JAVA_RUNTIME_VERSION="$(java_version "$JAVA")"
 
 # The home is the parent of the real bin directory. A package links
 # /usr/bin/cassandra-stress to $PACKAGE_HOME/bin/cassandra-stress.
@@ -179,16 +243,36 @@ fi
 
 MAIN_MODULE="org.apache.cassandra.stress"
 
+# JVM_OPTS comes after the default options, so an option in it wins. The JVM
+# stops when two options select a collector, so a collector in JVM_OPTS,
+# JAVA_TOOL_OPTIONS or JDK_JAVA_OPTIONS replaces the default collector. The
+# other options of jvm-gc.options, such as -XX:+ZGenerational, still apply.
+DEFAULT_JVM_OPTS=()
 JVM_OPTS="${JVM_OPTS:-}"
-while read -r opt; do
-  JVM_OPTS="$JVM_OPTS $opt"
-done < <(grep "^-" "$CASSANDRA_STRESS_CONFIG/jvm-clients.options")
+GC_MODE=""
+if [[ " $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} " =~ [[:space:]]-XX:\+Use[A-Za-z0-9]+GC[[:space:]] ]]; then
+  GC_MODE=skip-collector
+fi
+# The build writes the JVM options into conf. Each file comes from
+# CASSANDRA_STRESS_CONFIG when it is there, and otherwise from the conf
+# directory next to lib, as in a source checkout after ./gradlew installDist.
+for file in jvm-clients.options jvm-gc.options; do
+  mode=""
+  [ "$file" = jvm-gc.options ] && mode="$GC_MODE"
+  options_file="$CASSANDRA_STRESS_CONFIG/$file"
+  [ -r "$options_file" ] || options_file="$(dirname "$MODULE_PATH")/conf/$file"
+  if [ -r "$options_file" ]; then
+    read_jvm_options "$options_file" "$mode"
+  else
+    echo "Warning: cannot read $file in $CASSANDRA_STRESS_CONFIG or $(dirname "$MODULE_PATH")/conf. Stress runs without its JVM options." >&2
+  fi
+done
 
 case "$1" in
   start)
     echo "Starting $DESC: "
     # shellcheck disable=SC2086
-    "$JAVA" $JVM_OPTS \
+    "$JAVA" "${DEFAULT_JVM_OPTS[@]}" $JVM_OPTS \
       -server \
       --module-path "$MODULE_PATH" \
       --add-modules ALL-MODULE-PATH \
@@ -203,7 +287,7 @@ case "$1" in
 
   *)
     # shellcheck disable=SC2086
-    exec "$JAVA" $JVM_OPTS \
+    exec "$JAVA" "${DEFAULT_JVM_OPTS[@]}" $JVM_OPTS \
       --module-path "$MODULE_PATH" \
       --add-modules ALL-MODULE-PATH \
       -Dcassandra.storagedir="$CASSANDRA_STRESS_STORAGE_DIR" \

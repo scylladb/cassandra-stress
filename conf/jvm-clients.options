@@ -1,3 +1,0 @@
--Dcom.datastax.oss.driver.shaded.netty.noUnsafe=true
--Dcom.datastax.shaded.netty.noUnsafe=true
---enable-native-access=org.lz4.java,org.xerial.snappy
