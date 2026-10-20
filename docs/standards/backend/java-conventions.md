@@ -74,9 +74,9 @@ Each Gradle subproject in `src/<name>` is one Java module with a `module-info.ja
   `StressClientProvider` with `provides` in `module-info.java` and with a
   `META-INF/services` file, and `StressClients` finds it with
   `ServiceLoader`. Add a driver as a new module that provides this service.
-- Do not add `--add-opens` or `--add-exports` to `conf/jvm-clients.options`.
-  A module cannot open a JDK package, so fix the code or the dependency
-  instead.
+- Do not add `--add-opens` or `--add-exports` to the `jvmClientOptions`
+  task in `build.gradle.kts`. A module cannot open a JDK package, so fix the
+  code or the dependency instead.
 - A dependency jar without a module name gets one in
   `build-logic/src/main/kotlin/org/apache/cassandra/stress/gradle/ModuleJars.kt`. Add a new jar there when the module path
   rejects it.
