@@ -130,11 +130,42 @@ The ScyllaDB test node listens on its shard-aware port with the same number
 on the host and in the container, because driver 3.x connects to the port
 that the node advertises.
 
+### JVM options
+
+The root build writes two JVM options files into `conf/` of every
+distribution. The `jvmClientOptions` task writes `jvm-clients.options`, and
+the `jvmGcOptions` task writes `jvm-gc.options`. A line
+`<min>-<max>:<option>` or `<min>-:<option>` applies to those Java versions
+only, and the launcher skips the other lines. A bound is a dotted version, and
+a short bound covers its updates, so `21.0.9-21` holds 21.0.9 and every later
+update of 21. The launcher reads the version from the `release` file of the
+JDK.
+
+| Option | Java | Why |
+|---|---|---|
+| `-XX:+UseZGC` | 21.0.9 to 21, 24.0.2 and later | Pauses below one millisecond, so the latency that stress reports is the latency of the cluster |
+| `-XX:+UseG1GC` | 21 to 21.0.8, 22 to 24.0.1 | Generational ZGC can crash when it collects the old generation ([JDK-8347564](https://bugs.openjdk.org/browse/JDK-8347564)). These releases do not have the fix |
+| `-XX:+ZGenerational` | 21 and 22 | Without it, Java 21 and 22 start the single-generation ZGC. Java 24 and later warn on it, and G1 ignores it |
+| `-XX:MaxRAMPercentage=80`, `-XX:MinRAMPercentage=80` | 21 and later | The heap can grow to 80% of the memory of the machine or the container. `MinRAMPercentage` sets the maximum heap on a machine with little memory |
+| `-XX:MaxDirectMemorySize=256m` | 21 and later | The direct buffers have their own limit. By default, the limit is the maximum heap, so the heap and the direct buffers could take 160% of the memory. With `noUnsafe`, netty prefers heap buffers, and the workloads of `distributionTest` pass with a limit of 16 MB |
+| `-XX:+AlwaysPreTouch` | 21 and later | The first requests take no page faults on the initial heap |
+| `-XX:+PerfDisableSharedMem` | 21 and later | A slow write to the `hsperfdata` file in `/tmp` cannot stall a safepoint |
+| `-XX:+UseCompactObjectHeaders` | 25 and later | Object headers of 8 bytes, so each request uses less heap. Java 24 has them as an experimental option only |
+
+The launcher sets no initial heap size, so `-XX:+AlwaysPreTouch` touches a
+small heap and each run starts fast. The launcher puts `JVM_OPTS` after the
+default options, so an option in `JVM_OPTS` wins. The JVM stops when two
+options select a collector. A collector in `JVM_OPTS`, `JAVA_TOOL_OPTIONS` or
+`JDK_JAVA_OPTIONS` makes the launcher skip the lines of `jvm-gc.options` that
+select a collector. The other lines still apply, so `JVM_OPTS=-XX:+UseZGC` on
+Java 21 starts generational ZGC.
+
 ### Failure behavior
 
 | Condition | Behavior |
 |---|---|
 | Java older than 21 | The launcher stops before the JVM starts and names the Java version |
+| `conf` has no JVM options file | The launcher reads the `conf` directory next to `lib`, and warns when that directory has no file either |
 | The storage directory is not writable | The launcher warns and keeps the logs in `$TMPDIR/cassandra-stress-<uid>` |
 | No git checkout | `sourceTar` is skipped, every other artifact builds |
 | The free shard-aware port is taken before Docker binds it | `ScyllaNode` starts the node again with a new port, up to three times |
@@ -197,7 +228,7 @@ Requires: bash coreutils findutils gawk grep
 The launcher command:
 
 ```
-java $JVM_OPTS --module-path lib --add-modules ALL-MODULE-PATH \
+java <conf/jvm-clients.options> <conf/jvm-gc.options> $JVM_OPTS --module-path lib --add-modules ALL-MODULE-PATH \
   -Dcassandra.storagedir=... -Dcassandra.logdir=... \
   -Dlogback.configurationFile=conf/logback.xml \
   -m org.apache.cassandra.stress/org.apache.cassandra.stress.Stress <args>
@@ -233,6 +264,8 @@ module org.apache.cassandra.stress.driver.v3 {
 | The nebula ospackage plugin and its redline library are old and not configuration-cache safe | The package tasks opt out of the configuration cache, delete the old package before they write, and `packageTest` installs both packages in CI |
 | Jars of two releases in one `lib/` stop the JVM on the module path | The README says to unpack a new release into an empty directory. The packages replace their files on upgrade |
 | `--release 21` does not stop a later JDK from warning about `sun.misc.Signal` | Error Prone runs in its own javac process and fails on its findings only |
+| The heap of each process can grow to 80% of the memory, so two stress processes on one loader can use more memory than the loader has. SCT starts one container for each stress command, without a memory limit | `-XX:+ZUncommit` stays on and returns unused memory after 300 seconds. A run that shares a loader sets `-Xmx` in `JVM_OPTS`, as the SCT performance tests do |
+| The scylla-dtest container has a memory limit of 256 MB. A heap of 80% leaves about 50 MB for the class metadata, the thread stacks and the compiled code | The direct buffers have a limit of 256 MB. scylla-dtest sets `-Xmx` in `JVM_OPTS` or raises the limit before it moves to this image |
 | A local `dockerImage` tags `latest` over an image pulled from Docker Hub | The README names the repository property |
 
 ## Deferred work
@@ -269,3 +302,7 @@ module org.apache.cassandra.stress.driver.v3 {
 - The integration tests run on JDK 21 only, in one job for each driver, behind
   the `testcontainers` label, so a pull request without the label does not
   wait for ScyllaDB. (build)
+- ZGC is the default collector, and Gradle writes the JVM options into
+  `conf/`. A Java release without the fix of JDK-8347564 runs on G1. (build)
+- The maximum heap is 80% of the memory. The initial heap stays at the default
+  of the JVM, so a run starts fast. (build)
