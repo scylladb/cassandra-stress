@@ -146,14 +146,63 @@ JDK.
 | `-XX:+UseZGC` | 21.0.9 to 21, 24.0.2 and later | Pauses below one millisecond, so the latency that stress reports is the latency of the cluster |
 | `-XX:+UseG1GC` | 21 to 21.0.8, 22 to 24.0.1 | Generational ZGC can crash when it collects the old generation ([JDK-8347564](https://bugs.openjdk.org/browse/JDK-8347564)). These releases do not have the fix |
 | `-XX:+ZGenerational` | 21 and 22 | Without it, Java 21 and 22 start the single-generation ZGC. Java 24 and later warn on it, and G1 ignores it |
-| `-XX:MaxRAMPercentage=80`, `-XX:MinRAMPercentage=80` | 21 and later | The heap can grow to 80% of the memory of the machine or the container. `MinRAMPercentage` sets the maximum heap on a machine with little memory |
+| `-XX:MaxRAMPercentage=85`, `-XX:MinRAMPercentage=85` | 21 and later | The heap can grow to 85% of the memory of the machine or the container. `MinRAMPercentage` sets the maximum heap on a machine with little memory. The launcher and the heap balancer share the memory among the stress processes on one machine |
 | `-XX:MaxDirectMemorySize=256m` | 21 and later | The direct buffers have their own limit. By default, the limit is the maximum heap, so the heap and the direct buffers could take 160% of the memory. With `noUnsafe`, netty prefers heap buffers, and the workloads of `distributionTest` pass with a limit of 16 MB |
-| `-XX:+AlwaysPreTouch` | 21 and later | The first requests take no page faults on the initial heap |
+| `-XX:+AlwaysPreTouch` | 21 and later | The first requests take no page faults on the initial heap. On G1, the launcher sets `-Xms` equal to `-Xmx`, so the process holds its whole heap from the start, and the next process sees it as used |
 | `-XX:+PerfDisableSharedMem` | 21 and later | A slow write to the `hsperfdata` file in `/tmp` cannot stall a safepoint |
 | `-XX:+UseCompactObjectHeaders` | 25 and later | Object headers of 8 bytes, so each request uses less heap. Java 24 has them as an experimental option only |
 
-The launcher sets no initial heap size, so `-XX:+AlwaysPreTouch` touches a
-small heap and each run starts fast. The launcher puts `JVM_OPTS` after the
+On Linux and ZGC, the stress processes on one machine share its memory. The
+heap starts small and can grow to 85% of the memory. `HeapBalancer`, a thread
+in each process, listens on the first free loopback port from 39300 to 39363.
+It answers each connection with its committed heap. Every two seconds, it
+connects to the other ports of the range, so it knows the live processes and
+their heaps. A port closes when its process stops, so a stopped process does
+not count. The free memory is the available memory of the machine, or of the
+cgroup when its limit is lower. The pool is the free memory plus the committed
+heaps of the live processes. The fair share of a process is 3/4 of the pool
+divided by the number of processes. A process grows only into memory that is
+free now, so its `SoftMaxHeapSize` is the fair share or its committed heap plus
+its part of 3/4 of the free memory, the smaller of the two. Thus a new process
+waits for the others to return their memory. When the soft maximum falls below
+the committed heap, the balancer starts a collection at once with the
+`gcRun` diagnostic command and checks every 250 milliseconds. It also checks
+every 250 milliseconds in the first 10 seconds, so processes that start
+together see each other before their heaps grow. The first balance runs before
+the workload. With `-XX:ZUncommitDelay=1`, ZGC returns the memory above the
+soft maximum after 1 second.
+
+SCT starts each stress command in its own container with `--network=host`, so
+the containers share the loopback ports. SCT mounts only single files into the
+container, the HDR file and the safepoint log, so no directory is shared. A
+file in a shared directory needs a mount that SCT does not have, and a lock on
+the file cannot show a live process to both the launcher and Java. The
+loopback ports need no change in SCT.
+
+The sharing is best effort. ZGC grows a heap past the soft maximum when the
+process allocates faster than ZGC collects. A process that comes later does not
+know its future peers, so a fixed maximum heap from a count of processes is
+rejected: it needs the count from the caller.
+
+G1 has no soft maximum. On Linux and G1, the launcher sets `-Xms` equal to
+`-Xmx`, and `-XX:+AlwaysPreTouch` touches every page, so a later process sees
+the heap as used. The heap is 1/2 of the free memory less 256 MiB. A process on
+G1 answers on a port of the range, so the processes on ZGC count its heap.
+
+Tests ran four processes in a container with a limit of 4 GiB and 4 CPUs:
+
+| Case | Result |
+|---|---|
+| `cassandra-stress write`, 100 threads each, against ScyllaDB | Heaps of 200 to 460 MiB, about 230 MiB outside each heap, 2.3 GiB in use at most. No kernel kill |
+| A test program at 200 MB/s to 2 GB/s each, all at once or 5 seconds apart | About 650 MiB each, from a soft maximum of 672 to 688 MiB. No kernel kill |
+| A test program at 4 GB/s or with no limit, all at once | ZGC cannot keep the soft maximum, and the kernel kills processes |
+| Four containers with `--network=host` and no shared mount, 200 MB/s each | A soft maximum of 2752 MiB each. After one container stopped, 3696 MiB each |
+
+With `-XX:MaxRAMPercentage=80` alone, each JVM in the 4 GiB container got a
+heap of 3278 MiB, and the kernel killed all four. Before the ramp into free
+memory, two of four processes at 1 GB/s each were killed.
+
+The launcher puts `JVM_OPTS` after the
 default options, so an option in `JVM_OPTS` wins. The JVM stops when two
 options select a collector. A collector in `JVM_OPTS`, `JAVA_TOOL_OPTIONS` or
 `JDK_JAVA_OPTIONS` makes the launcher skip the lines of `jvm-gc.options` that
@@ -264,7 +313,9 @@ module org.apache.cassandra.stress.driver.v3 {
 | The nebula ospackage plugin and its redline library are old and not configuration-cache safe | The package tasks opt out of the configuration cache, delete the old package before they write, and `packageTest` installs both packages in CI |
 | Jars of two releases in one `lib/` stop the JVM on the module path | The README says to unpack a new release into an empty directory. The packages replace their files on upgrade |
 | `--release 21` does not stop a later JDK from warning about `sun.misc.Signal` | Error Prone runs in its own javac process and fails on its findings only |
-| The heap of each process can grow to 80% of the memory, so two stress processes on one loader can use more memory than the loader has. SCT starts one container for each stress command, without a memory limit | `-XX:+ZUncommit` stays on and returns unused memory after 300 seconds. A run that shares a loader sets `-Xmx` in `JVM_OPTS`, as the SCT performance tests do |
+| A container without `--network=host` has its own loopback ports, so it does not see the stress processes of other containers | The balancer of that container still uses the free memory of the container or of its cgroup. SCT uses `--network=host` |
+| A process that allocates faster than ZGC collects grows past the soft maximum, up to 85% of the memory | The sharing is best effort. A run that needs a hard limit sets `-Xmx` in `JVM_OPTS` for every process |
+| Another program on a port from 39300 to 39363 takes a slot of the range | The balancer counts only an answer that starts with `cassandra-stress-heap`, and a process takes the next free port |
 | The scylla-dtest container has a memory limit of 256 MB. A heap of 80% leaves about 50 MB for the class metadata, the thread stacks and the compiled code | The direct buffers have a limit of 256 MB. scylla-dtest sets `-Xmx` in `JVM_OPTS` or raises the limit before it moves to this image |
 | A local `dockerImage` tags `latest` over an image pulled from Docker Hub | The README names the repository property |
 
@@ -304,5 +355,7 @@ module org.apache.cassandra.stress.driver.v3 {
   wait for ScyllaDB. (build)
 - ZGC is the default collector, and Gradle writes the JVM options into
   `conf/`. A Java release without the fix of JDK-8347564 runs on G1. (build)
-- The maximum heap is 80% of the memory. The initial heap stays at the default
-  of the JVM, so a run starts fast. (build)
+- The heap can grow to 85% of the memory. On Linux and ZGC, the stress
+  processes on one machine find each other on loopback ports and share the
+  memory through a soft maximum heap, as best effort. On G1, the launcher sets
+  a fixed heap of 1/2 of the free memory. (build)
