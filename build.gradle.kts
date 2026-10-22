@@ -162,9 +162,11 @@ val jvmGcOptions = tasks.register<JvmOptions>("jvmGcOptions") {
             "24.0.2-:-XX:ZUncommitDelay=1",
             "21-21.0.8:-XX:+UseG1GC",
             "22-24.0.1:-XX:+UseG1GC",
-            // Java 21 and 22 start the single-generation ZGC without this option. Java 23 and later have
-            // generational ZGC only, and Java 24 and later warn on the option. G1 ignores it.
-            "21-22:-XX:+ZGenerational",
+            // Java 21 starts the single-generation ZGC without this option. Java 23 and later have
+            // generational ZGC only, and Java 24 and later warn on the option. The line covers only the
+            // releases with the fix of JDK-8347564, so -XX:+UseZGC in JVM_OPTS on an earlier release
+            // starts the single-generation ZGC.
+            "21.0.9-21:-XX:+ZGenerational",
         )
     optionsFile = layout.buildDirectory.file("jvm-options/jvm-gc.options")
 }
@@ -290,9 +292,15 @@ tasks.withType<SystemPackagingTask>().configureEach {
         into("$installPrefix/bin")
         filePermissions { unix("rwxr-xr-x") }
     }
-    from(files("conf", jvmOptionFiles)) {
+    from("conf") {
         into("/etc/cassandra-stress")
         CopySpecEnhancement.fileType(this, Directive(Directive.RPMFILE_CONFIG or Directive.RPMFILE_NOREPLACE))
+    }
+    // The build writes the JVM options, and JVM_OPTS overrides them. An upgrade replaces them, and rpm
+    // keeps a changed file as .rpmsave.
+    from(jvmOptionFiles) {
+        into("/etc/cassandra-stress")
+        CopySpecEnhancement.fileType(this, Directive(Directive.RPMFILE_CONFIG))
     }
     link("$installPrefix/conf", "/etc/cassandra-stress")
     link("/usr/bin/cassandra-stress", "$installPrefix/bin/cassandra-stress")
@@ -309,7 +317,8 @@ tasks.withType<Deb>().configureEach {
         .or("openjdk-25-jre-headless", "", 0)
         .or("java21-runtime-headless", "", 0)
     requires("awk")
-    (fileTree("conf") + jvmOptionFiles).forEach { configurationFile("/etc/cassandra-stress/${it.name}") }
+    // The conffiles are the files of conf, so an upgrade replaces the JVM options.
+    fileTree("conf").forEach { configurationFile("/etc/cassandra-stress/${it.name}") }
 }
 
 tasks.withType<Rpm>().configureEach {

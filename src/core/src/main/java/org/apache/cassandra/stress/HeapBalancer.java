@@ -16,73 +16,81 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
-import javax.management.JMException;
-import javax.management.ObjectName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Shares the memory of a machine among the stress processes on it. Each process listens on the first
- * free loopback port of a fixed range and answers each connection with its committed heap. Every two
- * seconds, the balancer connects to the other ports of the range, so it knows the live processes and
- * their heaps. The containers of SCT use the network of the host, so they share the loopback ports.
- * The pool is the available memory plus the committed heaps of the live processes. On ZGC, the
- * balancer sets the soft maximum heap to the fair share of this process: 3/4 of the pool divided by
- * the number of processes. A process grows only into memory that is free now, so the soft maximum
- * heap is also at most its committed heap plus its part of 3/4 of the available memory. A new process
- * thus waits for the others to return their memory. When the soft maximum heap falls below the
- * committed heap, the balancer starts a collection at once and checks every 250 milliseconds. It also
- * checks every 250 milliseconds in the first 10 seconds, so processes that start together see each
- * other before their heaps grow. ZGC then
- * keeps the heap below the soft maximum heap and returns the memory above it to the system.
+ * free loopback port of a fixed range. It answers each connection with its committed heap and its
+ * memory budget: the machine, or the cgroup that limits its memory. Every two seconds, the balancer
+ * connects to the ports of the range that a process of the same user listens on. Thus it knows the
+ * live processes with the same budget and their heaps. The containers of SCT use the network of the
+ * host, so they share the loopback ports.
+ *
+ * <p>The pool is the free memory plus the committed heaps of the live processes. The fair share of a
+ * process is 3/4 of the pool divided by the number of processes. A process grows only into memory that
+ * is free now, so on ZGC the balancer sets the soft maximum heap to the smaller of the fair share and
+ * the committed heap plus its part of 3/4 of the free memory. A new process thus waits for the others
+ * to return their memory. When the committed heap is above the soft maximum heap and the initial
+ * heap, the balancer starts up to three collections, one each second, and checks every 250
+ * milliseconds. It also checks every 250 milliseconds in the first 10 seconds, so processes that start
+ * together see each other before their heaps grow.
+ *
+ * <p>On G1, and with {@code -Dcassandra.stress.heap.balance=false} from a heap in JVM_OPTS, the
+ * balancer only reports the heap of the process to the others.
  */
 final class HeapBalancer implements Runnable {
     static final int FIRST_PORT = 39300;
     static final int PORTS = 64;
     static final String GREETING = "cassandra-stress-heap ";
+    static final String BALANCE_PROPERTY = "cassandra.stress.heap.balance";
     static final long MIN_SOFT_MAX_HEAP = 64L << 20;
     private static final int TIMEOUT_MILLIS = 200;
     private static final long PERIOD_MILLIS = 2000;
     private static final long FAST_PERIOD_MILLIS = 250;
     private static final long STARTUP_NANOS = TimeUnit.SECONDS.toNanos(10);
+    private static final long COLLECTION_NANOS = TimeUnit.SECONDS.toNanos(1);
+    private static final int COLLECTIONS = 3;
     private static final long STEP = 16L << 20;
+    private static final String LISTEN = "0A";
     private static final Logger LOGGER = LoggerFactory.getLogger(HeapBalancer.class);
 
     private final int firstPort;
     private final int ports;
-    private final boolean setsSoftMaxHeap;
+    private final String budget;
     private final InetAddress loopback = InetAddress.getLoopbackAddress();
     private final MemoryMXBean memory = ManagementFactory.getMemoryMXBean();
     private final long maxHeap = Runtime.getRuntime().maxMemory();
+    private final long started = System.nanoTime();
     private ServerSocket server;
     private long softMaxHeap = -1;
     private long lastCollection;
+    private int collections;
     private volatile boolean shrinking;
-    private final long started = System.nanoTime();
 
-    HeapBalancer(int firstPort, int ports, boolean setsSoftMaxHeap) {
+    HeapBalancer(int firstPort, int ports, String budget) {
         this.firstPort = firstPort;
         this.ports = ports;
-        this.setsSoftMaxHeap = setsSoftMaxHeap;
+        this.budget = budget;
     }
 
     /**
-     * Starts the balancer on a machine that shows its memory, as Linux does. The first balance runs
-     * before the workload, so the heap grows to the share of this process only.
+     * Starts the balancer on a machine that shows its memory, as Linux does. On ZGC, the first balance
+     * runs before the workload, so the heap grows to the share of this process.
      */
     static void start() {
         if (SystemMemory.available().isEmpty()) {
             return;
         }
-        boolean zgc = runsOnZgc();
-        HeapBalancer balancer = new HeapBalancer(FIRST_PORT, PORTS, zgc);
+        HeapBalancer balancer = new HeapBalancer(FIRST_PORT, PORTS, SystemMemory.budget());
         balancer.listen();
-        // G1 has no soft maximum heap, so a process on G1 only shows its heap to the others.
-        if (!zgc) {
+        if (!runsOnZgc() || !Boolean.parseBoolean(System.getProperty(BALANCE_PROPERTY, "true"))) {
             return;
         }
         balancer.balanceOnce();
@@ -97,7 +105,7 @@ final class HeapBalancer implements Runnable {
                 .anyMatch(name -> name.startsWith("ZGC"));
     }
 
-    /** Listens on the first free port of the range. With no free port, the others do not see this process. */
+    /** Listens on the first free port of the range and answers on it until the process stops. */
     void listen() {
         for (int port = firstPort; port < firstPort + ports; port++) {
             try {
@@ -117,7 +125,7 @@ final class HeapBalancer implements Runnable {
         while (!server.isClosed()) {
             try (Socket socket = server.accept();
                     OutputStream out = socket.getOutputStream()) {
-                out.write((GREETING + committedHeap() + "\n").getBytes(US_ASCII));
+                out.write((GREETING + committedHeap() + " " + budget + "\n").getBytes(US_ASCII));
             } catch (IOException e) {
                 LOGGER.debug("Cannot answer a stress process", e);
             }
@@ -146,6 +154,8 @@ final class HeapBalancer implements Runnable {
         }
     }
 
+    // The collection lets ZGC return the heap above a lower soft maximum heap.
+    @SuppressWarnings("PMD.DoNotCallGarbageCollectionExplicitly")
     private void balance() {
         OptionalLong available = SystemMemory.available();
         if (available.isEmpty()) {
@@ -154,47 +164,41 @@ final class HeapBalancer implements Runnable {
         Peers peers = peers();
         long committed = committedHeap();
         long target = softMaxHeap(available.getAsLong(), committed, peers.committed(), peers.count() + 1, maxHeap);
-        if (!setsSoftMaxHeap) {
-            return;
-        }
         if (target != softMaxHeap) {
             ManagementFactory.getPlatformMXBean(HotSpotDiagnosticMXBean.class)
                     .setVMOption("SoftMaxHeapSize", Long.toString(target));
             softMaxHeap = target;
+            collections = 0;
             LOGGER.debug("Soft maximum heap {} MiB with {} stress processes", target >> 20, peers.count() + 1);
         }
-        shrinking = committed > target + STEP;
+        // ZGC keeps at least the initial heap, and a collection frees only the garbage. So the balancer
+        // stops after a few collections that leave the heap above the soft maximum heap.
+        long floor = Math.max(target, memory.getHeapMemoryUsage().getInit());
+        shrinking = committed > floor + STEP && collections < COLLECTIONS;
         long now = System.nanoTime();
-        if (shrinking && now - lastCollection > TimeUnit.SECONDS.toNanos(1)) {
+        if (shrinking && now - lastCollection > COLLECTION_NANOS) {
             lastCollection = now;
-            collect();
+            collections++;
+            System.gc();
         }
     }
 
-    /** Starts a collection, so the heap falls below the soft maximum heap without waiting for ZGC. */
-    private static void collect() {
-        try {
-            ManagementFactory.getPlatformMBeanServer()
-                    .invoke(
-                            new ObjectName("com.sun.management:type=DiagnosticCommand"),
-                            "gcRun",
-                            new Object[] {null},
-                            new String[] {String[].class.getName()});
-        } catch (JMException e) {
-            LOGGER.debug("Cannot start a collection", e);
-        }
-    }
-
-    /** The number of the other stress processes and the sum of their committed heaps. */
+    /** The number of the other stress processes with the same budget and the sum of their committed heaps. */
     record Peers(int count, long committed) {}
 
-    /** The other stress processes that answer on the ports of the range. */
+    /** The other stress processes of this user and budget that answer on the ports of the range. */
     Peers peers() {
+        Map<Integer, Long> listeners = SystemMemory.loopbackListeners();
+        OptionalLong uid = SystemMemory.uid();
         int count = 0;
         long committed = 0;
         int own = server == null ? -1 : server.getLocalPort();
         for (int port = firstPort; port < firstPort + ports; port++) {
             if (port == own) {
+                continue;
+            }
+            Long owner = listeners.get(port);
+            if (owner != null && uid.isPresent() && owner != uid.getAsLong()) {
                 continue;
             }
             OptionalLong heap = ask(port);
@@ -206,15 +210,15 @@ final class HeapBalancer implements Runnable {
         return new Peers(count, committed);
     }
 
-    /** The committed heap of the stress process on {@code port}, or nothing when another program has it. */
+    /** The committed heap of the stress process on {@code port} when it has the budget of this process. */
     private OptionalLong ask(int port) {
         try (Socket socket = connected(port);
                 InputStream in = socket.getInputStream()) {
-            String line = new String(in.readNBytes(64), US_ASCII).strip();
-            if (!line.startsWith(GREETING)) {
+            String[] parts = new String(in.readNBytes(128), US_ASCII).strip().split(" ");
+            if (parts.length != 3 || !GREETING.equals(parts[0] + " ") || !budget.equals(parts[2])) {
                 return OptionalLong.empty();
             }
-            return OptionalLong.of(Long.parseLong(line.substring(GREETING.length())));
+            return OptionalLong.of(Long.parseLong(parts[1]));
         } catch (IOException | NumberFormatException e) {
             return OptionalLong.empty();
         }
@@ -255,8 +259,11 @@ final class HeapBalancer implements Runnable {
         return Math.min(Math.max(share, MIN_SOFT_MAX_HEAP), maxHeap);
     }
 
-    /** The memory that a new process can take, as the launcher reads it. */
+    /** The memory of this process as Linux shows it, read the same way as the launcher reads it. */
     static final class SystemMemory {
+        private static final Path CGROUP = Path.of("/sys/fs/cgroup");
+        private static final Path CGROUP_V1 = CGROUP.resolve("memory");
+
         private SystemMemory() {}
 
         /**
@@ -270,32 +277,107 @@ final class HeapBalancer implements Runnable {
             if (machine.isEmpty()) {
                 return machine;
             }
-            OptionalLong cgroup = cgroupFree();
-            return cgroup.isPresent() && cgroup.getAsLong() < machine.getAsLong() ? cgroup : machine;
+            Optional<Long> cgroup = limitedCgroup().flatMap(Limit::free);
+            return cgroup.isPresent() && cgroup.get() < machine.getAsLong() ? OptionalLong.of(cgroup.get()) : machine;
         }
 
-        private static OptionalLong cgroupFree() {
+        /**
+         * The budget of this process: {@code cgroup-<inode>} for the cgroup that limits its memory, or
+         * {@code machine}. Processes in one cgroup see the same inode.
+         */
+        static String budget() {
+            return limitedCgroup()
+                    .flatMap(limit -> inode(limit.directory()))
+                    .map(inode -> "cgroup-" + inode)
+                    .orElse("machine");
+        }
+
+        /** The memory limit of a cgroup, with the names of its files for cgroup v2 or cgroup v1. */
+        record Limit(Path directory, long limit, String usage, String inactive) {
+            Optional<Long> free() {
+                try {
+                    long used = Long.parseLong(
+                            Files.readString(directory.resolve(usage)).strip());
+                    long dropped =
+                            field(directory.resolve("memory.stat"), inactive).orElse(0);
+                    return Optional.of(Math.max(0, limit - used + dropped));
+                } catch (IOException | NumberFormatException e) {
+                    return Optional.empty();
+                }
+            }
+        }
+
+        /** The cgroup of this process when it has a memory limit below the memory of the machine. */
+        static Optional<Limit> limitedCgroup() {
+            OptionalLong total = field(Path.of("/proc/meminfo"), "MemTotal:");
+            Optional<Limit> limit = cgroupV2().or(SystemMemory::cgroupV1);
+            return limit.filter(l -> total.isEmpty() || l.limit() < total.getAsLong() << 10);
+        }
+
+        private static Optional<Limit> cgroupV2() {
             try {
                 Optional<String> path = Files.readAllLines(Path.of("/proc/self/cgroup")).stream()
                         .filter(line -> line.startsWith("0::"))
-                        .map(line -> line.substring(3))
+                        .map(line -> line.substring(3).replaceAll("/$", ""))
                         .findFirst();
                 if (path.isEmpty()) {
-                    return OptionalLong.empty();
+                    return Optional.empty();
                 }
-                Path dir = Path.of("/sys/fs/cgroup" + path.get().replaceAll("/$", ""));
-                String limit = Files.readString(dir.resolve("memory.max")).strip();
+                Path directory = Path.of(CGROUP + path.get());
+                String limit = Files.readString(directory.resolve("memory.max")).strip();
                 if ("max".equals(limit)) {
-                    return OptionalLong.empty();
+                    return Optional.empty();
                 }
-                long usage = Long.parseLong(
-                        Files.readString(dir.resolve("memory.current")).strip());
-                long inactive =
-                        field(dir.resolve("memory.stat"), "inactive_file").orElse(0);
-                return OptionalLong.of(Math.max(0, Long.parseLong(limit) - usage + inactive));
+                return Optional.of(new Limit(directory, Long.parseLong(limit), "memory.current", "inactive_file"));
             } catch (IOException | NumberFormatException e) {
-                return OptionalLong.empty();
+                return Optional.empty();
             }
+        }
+
+        private static Optional<Limit> cgroupV1() {
+            try {
+                long limit = Long.parseLong(Files.readString(CGROUP_V1.resolve("memory.limit_in_bytes"))
+                        .strip());
+                return Optional.of(new Limit(CGROUP_V1, limit, "memory.usage_in_bytes", "total_inactive_file"));
+            } catch (IOException | NumberFormatException e) {
+                return Optional.empty();
+            }
+        }
+
+        private static Optional<Long> inode(Path path) {
+            try {
+                return Optional.of(((Number) Files.getAttribute(path, "unix:ino")).longValue());
+            } catch (IOException | UnsupportedOperationException | IllegalArgumentException e) {
+                return Optional.empty();
+            }
+        }
+
+        /** The user ID of this process. */
+        static OptionalLong uid() {
+            return field(Path.of("/proc/self/status"), "Uid:");
+        }
+
+        /** The user ID of each process that listens on a loopback port, by port. */
+        static Map<Integer, Long> loopbackListeners() {
+            return listeners(Path.of("/proc/net/tcp"));
+        }
+
+        /** The user ID of each listening socket in {@code file}, in the format of /proc/net/tcp, by port. */
+        static Map<Integer, Long> listeners(Path file) {
+            Map<Integer, Long> owners = new HashMap<>();
+            try {
+                for (String line : Files.readAllLines(file)) {
+                    String[] parts = line.trim().split("\\s+");
+                    if (parts.length < 8 || !LISTEN.equals(parts[3]) || !parts[1].contains(":")) {
+                        continue;
+                    }
+                    String port = parts[1].substring(parts[1].indexOf(':') + 1);
+                    owners.put(Integer.parseInt(port, 16), Long.parseLong(parts[7]));
+                }
+            } catch (IOException | NumberFormatException e) {
+                return Map.of();
+            }
+            return owners;
         }
 
         /** The number after {@code name} on the line of {@code file} that starts with it. */

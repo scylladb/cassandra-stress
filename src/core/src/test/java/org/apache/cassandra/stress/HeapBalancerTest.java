@@ -12,6 +12,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -59,8 +60,8 @@ class HeapBalancerTest {
     @Test
     void countsTheStressProcessesThatAnswerOnTheRange() throws IOException {
         int first = freeRange(4);
-        HeapBalancer one = new HeapBalancer(first, 4, false);
-        HeapBalancer two = new HeapBalancer(first, 4, false);
+        HeapBalancer one = new HeapBalancer(first, 4, "machine");
+        HeapBalancer two = new HeapBalancer(first, 4, "machine");
         try (ServerSocket other = new ServerSocket(first + 2, 50, InetAddress.getLoopbackAddress())) {
             Thread thread = new Thread(() -> {
                 try (Socket socket = other.accept();
@@ -81,7 +82,34 @@ class HeapBalancerTest {
             one.close();
             two.close();
         }
-        assertEquals(0, new HeapBalancer(first, 4, false).peers().count());
+        assertEquals(0, new HeapBalancer(first, 4, "machine").peers().count());
+    }
+
+    /** A process counts only the processes with its memory budget. */
+    @Test
+    void countsOnlyTheProcessesWithTheSameBudget() throws IOException {
+        int first = freeRange(2);
+        HeapBalancer machine = new HeapBalancer(first, 2, "machine");
+        HeapBalancer container = new HeapBalancer(first, 2, "cgroup-42");
+        try {
+            machine.listen();
+            container.listen();
+            assertEquals(0, machine.peers().count());
+            assertEquals(0, container.peers().count());
+        } finally {
+            machine.close();
+            container.close();
+        }
+    }
+
+    @Test
+    void readsTheUserOfEachListeningPort() throws IOException {
+        Path tcp = Files.writeString(dir.resolve("tcp"), """
+                  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+                   0: 0100007F:9984 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 1 1
+                   1: 0100007F:9985 0100007F:D2A0 01 00000000:00000000 00:00000000 00000000     0        0 2 1
+                """);
+        assertEquals(Map.of(39300, 1000L), HeapBalancer.SystemMemory.listeners(tcp));
     }
 
     /** The first port of {@code size} loopback ports that no program uses. */

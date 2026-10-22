@@ -296,37 +296,50 @@ for file in jvm-clients.options jvm-gc.options; do
   fi
 done
 
-# On ZGC, the heap starts small and can grow to 85% of the memory. The heap
-# balancer in each process shares the memory with the other stress processes on
-# the machine through a soft maximum heap.
+# The heap balancer in each stress process shares the memory of the machine
+# with the other stress processes. A heap option in JVM_OPTS,
+# JAVA_TOOL_OPTIONS or JDK_JAVA_OPTIONS keeps the heap of the user, and the
+# balancer then only reports this heap to the other processes.
 #
-# G1 has no soft maximum heap, so on Linux a process on G1 takes a fixed heap
-# when it starts. -Xms is equal to -Xmx, and -XX:+AlwaysPreTouch touches every
-# page, so a later process sees this memory as used. The heap is 1/2 of the free
-# memory less 256 MiB, or 1/2 of the free memory below 1 GiB. The free memory is
-# the available memory of the machine, or of the cgroup when its limit is lower.
-# A heap option in JVM_OPTS, JAVA_TOOL_OPTIONS or JDK_JAVA_OPTIONS turns this
-# off.
+# On ZGC, the heap starts at 64 MiB and can grow to 85% of the memory, and the
+# balancer sets the soft maximum heap.
+#
+# On G1 and Linux, a workload or the stress server takes a fixed heap when it
+# starts. -Xms is equal to -Xmx, and -XX:+AlwaysPreTouch touches every page, so
+# a later process sees this memory as used. The heap is 1/2 of the free memory
+# less 256 MiB, or 1/2 of the free memory below 1 GiB. It is at most 31 GiB, so
+# the JVM keeps compressed object pointers. The free memory is the available
+# memory of the machine, or of the cgroup when its limit is lower. The help,
+# print and version commands keep the default heap of the JVM.
 if [ "$GC_MODE" = skip-collector ]; then
   collector_opts=" $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} "
 else
   collector_opts=" ${DEFAULT_JVM_OPTS[*]} "
 fi
-if [[ "$collector_opts" != *" -XX:+UseZGC "* ]] \
-    && [[ ! " $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} " =~ [[:space:]](-Xm[sx]|-XX:(MaxHeapSize|InitialHeapSize|MaxRAM|MaxRAMPercentage|InitialRAMPercentage)=) ]]; then
-  available="$(available_memory_mib)"
-  if [ -n "$available" ]; then
-    if [ "$available" -lt 1024 ]; then
-      heap=$(( available / 2 ))
-    else
-      heap=$(( available / 2 - 256 ))
-    fi
-    if [ "$heap" -lt 64 ]; then
-      echo "Error: $available MiB of memory is free. Stress needs a heap of 64 MiB or more. Set -Xmx in JVM_OPTS to start anyway." >&2
-      exit 1
-    fi
-    DEFAULT_JVM_OPTS+=("-Xms${heap}m" "-Xmx${heap}m")
-  fi
+if [[ " $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} " =~ [[:space:]](-Xm[sx]|-XX:(MaxHeapSize|InitialHeapSize|MaxRAM|MaxRAMPercentage|InitialRAMPercentage|SoftMaxHeapSize)=) ]]; then
+  DEFAULT_JVM_OPTS+=("-Dcassandra.stress.heap.balance=false")
+elif [[ "$collector_opts" == *" -XX:+UseZGC "* ]]; then
+  DEFAULT_JVM_OPTS+=("-Xms64m")
+else
+  case "$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+    ""|help|-\?|print|version) ;;
+    *)
+      available="$(available_memory_mib)"
+      if [ -n "$available" ]; then
+        if [ "$available" -lt 1024 ]; then
+          heap=$(( available / 2 ))
+        else
+          heap=$(( available / 2 - 256 ))
+        fi
+        [ "$heap" -gt 31744 ] && heap=31744
+        if [ "$heap" -lt 64 ]; then
+          echo "Error: $available MiB of memory is free. Stress needs a heap of 64 MiB or more. Set -Xmx in JVM_OPTS to start anyway." >&2
+          exit 1
+        fi
+        DEFAULT_JVM_OPTS+=("-Xms${heap}m" "-Xmx${heap}m")
+      fi
+    ;;
+  esac
 fi
 
 case "$1" in
