@@ -184,16 +184,16 @@ class DistributionIT {
         String generational = "-XX:+ZGenerational";
         String compact = "-XX:+UseCompactObjectHeaders";
         return Stream.of(
-                Arguments.of("21.0.8", "", List.of(g1, generational), List.of(zgc, compact)),
+                Arguments.of("21.0.8", "", List.of(g1), List.of(zgc, generational, compact)),
                 Arguments.of("21.0.9", "", List.of(zgc, generational), List.of(g1, compact)),
                 Arguments.of("21.0.12", "", List.of(zgc, generational), List.of(g1, compact)),
-                Arguments.of("22.0.2", "", List.of(g1, generational), List.of(zgc, compact)),
+                Arguments.of("22.0.2", "", List.of(g1), List.of(zgc, generational, compact)),
                 Arguments.of("24.0.1", "", List.of(g1), List.of(zgc, generational, compact)),
                 Arguments.of("24.0.2", "", List.of(zgc), List.of(g1, generational, compact)),
                 Arguments.of("25", "", List.of(zgc, compact), List.of(g1, generational)),
                 Arguments.of("25.0.1", "", List.of(zgc, compact), List.of(g1, generational)),
                 Arguments.of("26-ea", "", List.of(zgc, compact), List.of(g1, generational)),
-                Arguments.of("21.0.5", zgc, List.of(zgc, generational), List.of(g1)),
+                Arguments.of("21.0.5", zgc, List.of(zgc), List.of(g1, generational)),
                 Arguments.of("25.0.1", g1, List.of(g1), List.of(zgc)));
     }
 
@@ -228,23 +228,26 @@ class DistributionIT {
         assertTrue(args.contains("-XX:MaxRAMPercentage=85"), result::toString);
     }
 
-    /** On ZGC, the heap starts small, and the heap balancer of the process shares the memory. */
+    /** On ZGC, the heap starts at 64 MiB, and the heap balancer of the process shares the memory. */
     @Test
     void leavesTheHeapToTheHeapBalancerOnZgc() throws Exception {
         Path javaHome = fakeJavaHome("25.0.1", "jdk-zgc-heap");
         StressResult result = launch(List.of("version"), Map.of("JAVA_HOME", javaHome.toString()));
         assertEquals(0, result.exitCode(), result::toString);
         List<String> args = result.output().lines().toList();
-        assertTrue(args.stream().noneMatch(a -> a.startsWith("-Xm")), result::toString);
+        assertEquals(
+                List.of("-Xms64m"),
+                args.stream().filter(a -> a.startsWith("-Xm")).toList(),
+                result::toString);
         assertTrue(args.contains("-XX:ZUncommitDelay=1"), result::toString);
     }
 
-    /** On Linux and G1, the launcher sets a fixed heap from the free memory. */
+    /** On Linux and G1, the launcher sets a fixed heap from the free memory for a workload. */
     @Test
     @EnabledOnOs(OS.LINUX)
     void setsAFixedHeapOnG1() throws Exception {
         Path javaHome = fakeJavaHome("21.0.5", "jdk-g1-heap");
-        StressResult result = launch(List.of("version"), Map.of("JAVA_HOME", javaHome.toString()));
+        StressResult result = launch(List.of("write", "n=1"), Map.of("JAVA_HOME", javaHome.toString()));
         assertEquals(0, result.exitCode(), result::toString);
         List<String> args = result.output().lines().toList();
         String xms = args.stream().filter(a -> a.startsWith("-Xms")).findFirst().orElseThrow();
@@ -256,11 +259,21 @@ class DistributionIT {
     void keepsTheHeapOfJvmOpts() throws Exception {
         Path javaHome = fakeJavaHome("21.0.5", "jdk-xmx");
         StressResult result =
-                launch(List.of("version"), Map.of("JAVA_HOME", javaHome.toString(), "JVM_OPTS", "-Xmx1g"));
+                launch(List.of("write", "n=1"), Map.of("JAVA_HOME", javaHome.toString(), "JVM_OPTS", "-Xmx1g"));
         assertEquals(0, result.exitCode(), result::toString);
         List<String> args = result.output().lines().toList();
         assertEquals(1, args.stream().filter(a -> a.startsWith("-Xm")).count(), result::toString);
         assertTrue(args.contains("-Xmx1g"), result::toString);
+        assertTrue(args.contains("-Dcassandra.stress.heap.balance=false"), result::toString);
+    }
+
+    /** The version command keeps the default heap of the JVM on G1. */
+    @Test
+    void keepsTheDefaultHeapForTheVersionOnG1() throws Exception {
+        Path javaHome = fakeJavaHome("21.0.5", "jdk-g1-version");
+        StressResult result = launch(List.of("version"), Map.of("JAVA_HOME", javaHome.toString()));
+        assertEquals(0, result.exitCode(), result::toString);
+        assertTrue(result.output().lines().noneMatch(a -> a.startsWith("-Xm")), result::toString);
     }
 
     /** Writes a JDK whose release file names {@code version} and whose java prints its arguments one per line. */

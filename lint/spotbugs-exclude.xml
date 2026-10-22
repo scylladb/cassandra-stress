@@ -44,4 +44,15 @@
         <Class name="org.apache.cassandra.stress.util.EncryptionOptions" />
         <Bug pattern="URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD,UUF_UNUSED_PUBLIC_OR_PROTECTED_FIELD" />
     </Match>
+    <!-- The heap balancer collects so that ZGC returns the heap above a lower soft maximum heap. -->
+    <Match>
+        <Class name="org.apache.cassandra.stress.HeapBalancer" />
+        <Method name="balance" />
+        <Bug pattern="DM_GC" />
+    </Match>
+    <!-- The heap balancer reads the memory of the process from the fixed paths of /proc and /sys on Linux. -->
+    <Match>
+        <Class name="org.apache.cassandra.stress.HeapBalancer$SystemMemory" />
+        <Bug pattern="DMI_HARDCODED_ABSOLUTE_FILENAME" />
+    </Match>
 </FindBugsFilter>
