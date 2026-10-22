@@ -145,7 +145,7 @@ JDK.
 |---|---|---|
 | `-XX:+UseZGC` | 21.0.9 to 21, 24.0.2 and later | Pauses below one millisecond, so the latency that stress reports is the latency of the cluster |
 | `-XX:+UseG1GC` | 21 to 21.0.8, 22 to 24.0.1 | Generational ZGC can crash when it collects the old generation ([JDK-8347564](https://bugs.openjdk.org/browse/JDK-8347564)). These releases do not have the fix |
-| `-XX:+ZGenerational` | 21 and 22 | Without it, Java 21 and 22 start the single-generation ZGC. Java 24 and later warn on it, and G1 ignores it |
+| `-XX:+ZGenerational` | 21.0.9 to 21 | Java 21 starts the single-generation ZGC without it. The line covers only the releases with the fix of JDK-8347564, so `-XX:+UseZGC` in `JVM_OPTS` on an earlier release starts the single-generation ZGC. G1 ignores it |
 | `-XX:MaxRAMPercentage=85`, `-XX:MinRAMPercentage=85` | 21 and later | The heap can grow to 85% of the memory of the machine or the container. `MinRAMPercentage` sets the maximum heap on a machine with little memory. The launcher and the heap balancer share the memory among the stress processes on one machine |
 | `-XX:MaxDirectMemorySize=256m` | 21 and later | The direct buffers have their own limit. By default, the limit is the maximum heap, so the heap and the direct buffers could take 160% of the memory. With `noUnsafe`, netty prefers heap buffers, and the workloads of `distributionTest` pass with a limit of 16 MB |
 | `-XX:+AlwaysPreTouch` | 21 and later | The first requests take no page faults on the initial heap. On G1, the launcher sets `-Xms` equal to `-Xmx`, so the process holds its whole heap from the start, and the next process sees it as used |
@@ -153,20 +153,23 @@ JDK.
 | `-XX:+UseCompactObjectHeaders` | 25 and later | Object headers of 8 bytes, so each request uses less heap. Java 24 has them as an experimental option only |
 
 On Linux and ZGC, the stress processes on one machine share its memory. The
-heap starts small and can grow to 85% of the memory. `HeapBalancer`, a thread
-in each process, listens on the first free loopback port from 39300 to 39363.
-It answers each connection with its committed heap. Every two seconds, it
-connects to the other ports of the range, so it knows the live processes and
-their heaps. A port closes when its process stops, so a stopped process does
-not count. The free memory is the available memory of the machine, or of the
-cgroup when its limit is lower. The pool is the free memory plus the committed
+heap starts at 64 MiB and can grow to 85% of the memory. `HeapBalancer`, a
+thread in each process, listens on the first free loopback port from 39300 to
+39363. It answers each connection with its committed heap and its budget: the
+machine, or the inode of the cgroup that limits its memory. Every two seconds,
+it connects to the ports of the range that a socket of the same user listens
+on, from `/proc/net/tcp`. It counts the processes with the same budget. A port
+closes when its process stops, so the count holds the live processes only. The free memory is the available memory of the machine, or of the
+cgroup v2 or v1 when its limit is lower. The pool is the free memory plus the committed
 heaps of the live processes. The fair share of a process is 3/4 of the pool
 divided by the number of processes. A process grows only into memory that is
 free now, so its `SoftMaxHeapSize` is the fair share or its committed heap plus
 its part of 3/4 of the free memory, the smaller of the two. Thus a new process
-waits for the others to return their memory. When the soft maximum falls below
-the committed heap, the balancer starts a collection at once with the
-`gcRun` diagnostic command and checks every 250 milliseconds. It also checks
+waits for the others to return their memory. When the committed heap is above
+the soft maximum and the initial heap, the balancer starts up to three
+collections, one each second, and checks every 250 milliseconds. ZGC keeps at
+least the initial heap, and a collection frees only the garbage, so the
+balancer stops after three collections until the soft maximum changes. It also checks
 every 250 milliseconds in the first 10 seconds, so processes that start
 together see each other before their heaps grow. The first balance runs before
 the workload. With `-XX:ZUncommitDelay=1`, ZGC returns the memory above the
@@ -184,10 +187,17 @@ process allocates faster than ZGC collects. A process that comes later does not
 know its future peers, so a fixed maximum heap from a count of processes is
 rejected: it needs the count from the caller.
 
-G1 has no soft maximum. On Linux and G1, the launcher sets `-Xms` equal to
-`-Xmx`, and `-XX:+AlwaysPreTouch` touches every page, so a later process sees
-the heap as used. The heap is 1/2 of the free memory less 256 MiB. A process on
-G1 answers on a port of the range, so the processes on ZGC count its heap.
+On Linux and G1, the launcher sets `-Xms` equal to `-Xmx` for a workload and
+for the stress server, and `-XX:+AlwaysPreTouch` touches every page, so a later
+process sees the heap as used. The heap is 1/2 of the free memory less 256 MiB,
+at most 31 GiB, so the JVM keeps compressed object pointers. The help, print
+and version commands keep the default heap of the JVM. A process on G1 answers
+on a port of the range, so the processes on ZGC count its heap.
+
+A heap option in `JVM_OPTS`, `JAVA_TOOL_OPTIONS` or `JDK_JAVA_OPTIONS` keeps
+the heap of the user. The launcher then passes
+`-Dcassandra.stress.heap.balance=false`, and the balancer only answers on its
+port.
 
 Tests ran four processes in a container with a limit of 4 GiB and 4 CPUs:
 
@@ -207,7 +217,11 @@ default options, so an option in `JVM_OPTS` wins. The JVM stops when two
 options select a collector. A collector in `JVM_OPTS`, `JAVA_TOOL_OPTIONS` or
 `JDK_JAVA_OPTIONS` makes the launcher skip the lines of `jvm-gc.options` that
 select a collector. The other lines still apply, so `JVM_OPTS=-XX:+UseZGC` on
-Java 21 starts generational ZGC.
+Java 21.0.9 or later starts generational ZGC.
+
+The packages install `jvm-clients.options` and `jvm-gc.options` as files that
+an upgrade replaces. The rpm keeps a changed file as `.rpmsave`. The other
+files of `conf` stay configuration files that an upgrade keeps.
 
 ### Failure behavior
 
@@ -315,7 +329,7 @@ module org.apache.cassandra.stress.driver.v3 {
 | `--release 21` does not stop a later JDK from warning about `sun.misc.Signal` | Error Prone runs in its own javac process and fails on its findings only |
 | A container without `--network=host` has its own loopback ports, so it does not see the stress processes of other containers | The balancer of that container still uses the free memory of the container or of its cgroup. SCT uses `--network=host` |
 | A process that allocates faster than ZGC collects grows past the soft maximum, up to 85% of the memory | The sharing is best effort. A run that needs a hard limit sets `-Xmx` in `JVM_OPTS` for every process |
-| Another program on a port from 39300 to 39363 takes a slot of the range | The balancer counts only an answer that starts with `cassandra-stress-heap`, and a process takes the next free port |
+| Another program on a port from 39300 to 39363 takes a slot of the range, and a program of the same user can answer with the greeting | The balancer asks only the ports of its user and counts only an answer with the greeting and its budget. A process takes the next free port |
 | The scylla-dtest container has a memory limit of 256 MB. A heap of 80% leaves about 50 MB for the class metadata, the thread stacks and the compiled code | The direct buffers have a limit of 256 MB. scylla-dtest sets `-Xmx` in `JVM_OPTS` or raises the limit before it moves to this image |
 | A local `dockerImage` tags `latest` over an image pulled from Docker Hub | The README names the repository property |
 
