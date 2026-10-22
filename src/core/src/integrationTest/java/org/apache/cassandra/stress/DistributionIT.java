@@ -14,6 +14,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -207,7 +209,7 @@ class DistributionIT {
         present.forEach(
                 option -> assertEquals(1, args.stream().filter(option::equals).count(), result::toString));
         absent.forEach(option -> assertFalse(args.contains(option), result::toString));
-        assertTrue(args.contains("-XX:MaxRAMPercentage=80"), result::toString);
+        assertTrue(args.contains("-XX:MaxRAMPercentage=85"), result::toString);
     }
 
     @Test
@@ -223,7 +225,42 @@ class DistributionIT {
         List<String> args = result.output().lines().toList();
         assertTrue(args.contains("-XX:+UseSerialGC"), result::toString);
         assertFalse(args.contains("-XX:+UseZGC"), result::toString);
-        assertTrue(args.contains("-XX:MaxRAMPercentage=80"), result::toString);
+        assertTrue(args.contains("-XX:MaxRAMPercentage=85"), result::toString);
+    }
+
+    /** On ZGC, the heap starts small, and the heap balancer of the process shares the memory. */
+    @Test
+    void leavesTheHeapToTheHeapBalancerOnZgc() throws Exception {
+        Path javaHome = fakeJavaHome("25.0.1", "jdk-zgc-heap");
+        StressResult result = launch(List.of("version"), Map.of("JAVA_HOME", javaHome.toString()));
+        assertEquals(0, result.exitCode(), result::toString);
+        List<String> args = result.output().lines().toList();
+        assertTrue(args.stream().noneMatch(a -> a.startsWith("-Xm")), result::toString);
+        assertTrue(args.contains("-XX:ZUncommitDelay=1"), result::toString);
+    }
+
+    /** On Linux and G1, the launcher sets a fixed heap from the free memory. */
+    @Test
+    @EnabledOnOs(OS.LINUX)
+    void setsAFixedHeapOnG1() throws Exception {
+        Path javaHome = fakeJavaHome("21.0.5", "jdk-g1-heap");
+        StressResult result = launch(List.of("version"), Map.of("JAVA_HOME", javaHome.toString()));
+        assertEquals(0, result.exitCode(), result::toString);
+        List<String> args = result.output().lines().toList();
+        String xms = args.stream().filter(a -> a.startsWith("-Xms")).findFirst().orElseThrow();
+        assertTrue(xms.matches("-Xms\\d+m"), result::toString);
+        assertTrue(args.contains("-Xmx" + xms.substring(4)), result::toString);
+    }
+
+    @Test
+    void keepsTheHeapOfJvmOpts() throws Exception {
+        Path javaHome = fakeJavaHome("21.0.5", "jdk-xmx");
+        StressResult result =
+                launch(List.of("version"), Map.of("JAVA_HOME", javaHome.toString(), "JVM_OPTS", "-Xmx1g"));
+        assertEquals(0, result.exitCode(), result::toString);
+        List<String> args = result.output().lines().toList();
+        assertEquals(1, args.stream().filter(a -> a.startsWith("-Xm")).count(), result::toString);
+        assertTrue(args.contains("-Xmx1g"), result::toString);
     }
 
     /** Writes a JDK whose release file names {@code version} and whose java prints its arguments one per line. */

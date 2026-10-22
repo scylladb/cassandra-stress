@@ -27,6 +27,7 @@ public final class Stress {
 
     public static void main(String[] arguments) throws Exception {
         registerSignalHandler();
+        HeapBalancer.start();
 
         int exitCode = run(arguments);
 

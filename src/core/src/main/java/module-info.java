@@ -9,6 +9,7 @@ module org.apache.cassandra.stress {
     requires transitive org.apache.cassandra.stress.util;
     requires com.fasterxml.jackson.databind;
     requires java.management;
+    requires jdk.management;
     requires jdk.unsupported;
     requires org.apache.commons.math3;
     requires org.hdrhistogram.HdrHistogram;

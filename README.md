@@ -128,15 +128,32 @@ collector from `conf/jvm-gc.options`. The packages keep both files in
 `/etc/cassandra-stress`. A line `<min>-<max>:<option>` applies to those Java
 versions only.
 
-The heap can grow to 80% of the memory of the machine or the container, and
-the direct buffers to 256 MB. Set a heap size in `JVM_OPTS` when more than one
-stress process runs on one machine, or in a container with less than 1 GB of
-memory.
-An option in `JVM_OPTS` overrides the default option:
+The heap starts small and can grow to 85% of the memory of the machine or the
+container. The direct buffers can grow to 256 MB.
+
+On Linux and ZGC, the stress processes on one machine share its memory. Each
+process listens on a loopback port from 39300 to 39363 and tells the others its
+heap. Every two seconds, each process sets its soft maximum heap to 3/4 of the
+free memory and the heaps of the stress processes, divided by the number of
+processes. Thus a new process makes the heaps of the others smaller, and ZGC
+returns the memory to the system. A new process grows only into memory that
+is free, so it waits for the others to return their memory. The sharing is
+best effort: a process that allocates faster than ZGC collects can grow past
+its soft maximum heap.
+Containers see each other when they use the network of the host, as in SCT.
+
+On G1, Java 21 before 21.0.9 and Java 22 to 24.0.1, each process takes a fixed
+heap of 1/2 of the free memory when it starts. A later process gets a smaller
+heap.
+
+A heap size in `JVM_OPTS` turns the sharing off. Set the heap of every process
+on one machine in `JVM_OPTS`, or of none:
 
 ``` shell
 JVM_OPTS="-Xms8g -Xmx8g" cassandra-stress write n=1000000
 ```
+
+An option in `JVM_OPTS` overrides the default option.
 
 A collector in `JVM_OPTS`, such as `-XX:+UseG1GC`, replaces the default
 collector.

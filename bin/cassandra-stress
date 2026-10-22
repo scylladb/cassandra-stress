@@ -146,6 +146,34 @@ read_jvm_options() {
   done < "$1"
 }
 
+# Prints the memory in MiB that a new process can take. That is the available
+# memory of the machine, or less when the cgroup of this process has a lower
+# limit. The page cache that the kernel can drop counts as available. Prints
+# nothing when the system does not show its memory, as on macOS.
+available_memory_mib() {
+  local available cgroup dir="" limit usage inactive free
+  available=$(awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null)
+  [ -n "$available" ] || return 0
+  cgroup=$(awk -F: '$1 == "0" { print $3 }' /proc/self/cgroup 2>/dev/null)
+  if [ -n "$cgroup" ] && [ -r "/sys/fs/cgroup${cgroup%/}/memory.max" ]; then
+    dir="/sys/fs/cgroup${cgroup%/}"
+    limit=$(cat "$dir/memory.max")
+    usage=$(cat "$dir/memory.current")
+    inactive=$(awk '$1 == "inactive_file" { print $2 }' "$dir/memory.stat")
+  elif [ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
+    dir=/sys/fs/cgroup/memory
+    limit=$(cat "$dir/memory.limit_in_bytes")
+    usage=$(cat "$dir/memory.usage_in_bytes")
+    inactive=$(awk '$1 == "total_inactive_file" { print $2 }' "$dir/memory.stat")
+  fi
+  if [ -n "$dir" ] && [[ "$limit" =~ ^[0-9]+$ ]] && [[ "$usage" =~ ^[0-9]+$ ]]; then
+    free=$(( (limit - usage + ${inactive:-0}) / 1048576 ))
+    [ "$free" -lt 0 ] && free=0
+    [ "$free" -lt "$available" ] && available=$free
+  fi
+  echo "$available"
+}
+
 case "$1" in
   usage)
     echo "Cassandra-Stress Server Usage: $0 start|stop|status [-h <host>]"
@@ -267,6 +295,39 @@ for file in jvm-clients.options jvm-gc.options; do
     echo "Warning: cannot read $file in $CASSANDRA_STRESS_CONFIG or $(dirname "$MODULE_PATH")/conf. Stress runs without its JVM options." >&2
   fi
 done
+
+# On ZGC, the heap starts small and can grow to 85% of the memory. The heap
+# balancer in each process shares the memory with the other stress processes on
+# the machine through a soft maximum heap.
+#
+# G1 has no soft maximum heap, so on Linux a process on G1 takes a fixed heap
+# when it starts. -Xms is equal to -Xmx, and -XX:+AlwaysPreTouch touches every
+# page, so a later process sees this memory as used. The heap is 1/2 of the free
+# memory less 256 MiB, or 1/2 of the free memory below 1 GiB. The free memory is
+# the available memory of the machine, or of the cgroup when its limit is lower.
+# A heap option in JVM_OPTS, JAVA_TOOL_OPTIONS or JDK_JAVA_OPTIONS turns this
+# off.
+if [ "$GC_MODE" = skip-collector ]; then
+  collector_opts=" $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} "
+else
+  collector_opts=" ${DEFAULT_JVM_OPTS[*]} "
+fi
+if [[ "$collector_opts" != *" -XX:+UseZGC "* ]] \
+    && [[ ! " $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} " =~ [[:space:]](-Xm[sx]|-XX:(MaxHeapSize|InitialHeapSize|MaxRAM|MaxRAMPercentage|InitialRAMPercentage)=) ]]; then
+  available="$(available_memory_mib)"
+  if [ -n "$available" ]; then
+    if [ "$available" -lt 1024 ]; then
+      heap=$(( available / 2 ))
+    else
+      heap=$(( available / 2 - 256 ))
+    fi
+    if [ "$heap" -lt 64 ]; then
+      echo "Error: $available MiB of memory is free. Stress needs a heap of 64 MiB or more. Set -Xmx in JVM_OPTS to start anyway." >&2
+      exit 1
+    fi
+    DEFAULT_JVM_OPTS+=("-Xms${heap}m" "-Xmx${heap}m")
+  fi
+fi
 
 case "$1" in
   start)
