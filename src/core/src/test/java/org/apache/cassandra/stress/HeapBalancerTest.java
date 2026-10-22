@@ -1,0 +1,107 @@
+package org.apache.cassandra.stress;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+class HeapBalancerTest {
+    private static final long MIB = 1L << 20;
+    private static final long GIB = 1L << 30;
+
+    @TempDir
+    Path dir;
+
+    @Test
+    void givesEachProcessAnEqualPartOfThreeQuartersOfThePool() {
+        assertEquals(9 * GIB, HeapBalancer.softMaxHeap(12 * GIB, 9 * GIB, 27 * GIB, 4, 40 * GIB));
+        assertEquals(36 * GIB, HeapBalancer.softMaxHeap(48 * GIB, 0, 0, 1, 40 * GIB));
+    }
+
+    /** A new process grows only into the memory that is free now, so it waits for the others. */
+    @Test
+    void growsOnlyIntoTheFreeMemory() {
+        assertEquals(GIB + 384 * MIB, HeapBalancer.softMaxHeap(GIB, GIB, 36 * GIB, 2, 40 * GIB));
+    }
+
+    @Test
+    void staysBetweenTheMinimumAndTheMaximumHeap() {
+        assertEquals(HeapBalancer.MIN_SOFT_MAX_HEAP, HeapBalancer.softMaxHeap(256 * MIB, 0, 0, 8, 4 * GIB));
+        assertEquals(2 * GIB, HeapBalancer.softMaxHeap(48 * GIB, 0, 0, 1, 2 * GIB));
+    }
+
+    @Test
+    void roundsDownToSteps() {
+        assertEquals(752 * MIB, HeapBalancer.softMaxHeap(1003 * MIB, 0, 0, 1, 4 * GIB));
+    }
+
+    @Test
+    void readsTheNumberOfAField() throws IOException {
+        Path meminfo =
+                Files.writeString(dir.resolve("meminfo"), "MemTotal:       16384000 kB\nMemAvailable:    8192000 kB\n");
+        assertEquals(
+                8192000,
+                HeapBalancer.SystemMemory.field(meminfo, "MemAvailable:").orElseThrow());
+        assertTrue(HeapBalancer.SystemMemory.field(meminfo, "Missing:").isEmpty());
+    }
+
+    /** Two balancers in one range see each other, and a program that does not greet does not count. */
+    @Test
+    void countsTheStressProcessesThatAnswerOnTheRange() throws IOException {
+        int first = freeRange(4);
+        HeapBalancer one = new HeapBalancer(first, 4, false);
+        HeapBalancer two = new HeapBalancer(first, 4, false);
+        try (ServerSocket other = new ServerSocket(first + 2, 50, InetAddress.getLoopbackAddress())) {
+            Thread thread = new Thread(() -> {
+                try (Socket socket = other.accept();
+                        OutputStream out = socket.getOutputStream()) {
+                    out.write("HTTP/1.1 400\n".getBytes(StandardCharsets.US_ASCII));
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+            thread.setDaemon(true);
+            thread.start();
+            one.listen();
+            two.listen();
+            HeapBalancer.Peers peers = one.peers();
+            assertEquals(1, peers.count());
+            assertTrue(peers.committed() > 0);
+        } finally {
+            one.close();
+            two.close();
+        }
+        assertEquals(0, new HeapBalancer(first, 4, false).peers().count());
+    }
+
+    /** The first port of {@code size} loopback ports that no program uses. */
+    private static int freeRange(int size) throws IOException {
+        for (int first = 40000; first < 60000; first += size) {
+            if (rangeIsFree(first, size)) {
+                return first;
+            }
+        }
+        throw new IOException("No free range of " + size + " ports");
+    }
+
+    private static boolean rangeIsFree(int first, int size) {
+        for (int port = first; port < first + size; port++) {
+            try (ServerSocket socket = new ServerSocket(port, 1, InetAddress.getLoopbackAddress())) {
+                socket.getLocalPort();
+            } catch (IOException e) {
+                return false;
+            }
+        }
+        return true;
+    }
+}

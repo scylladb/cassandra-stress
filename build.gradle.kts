@@ -117,14 +117,17 @@ val jvmClientOptions = tasks.register<JvmOptions>("jvmClientOptions") {
             "-Dcom.datastax.oss.driver.shaded.netty.noUnsafe=true",
             "-Dcom.datastax.shaded.netty.noUnsafe=true",
             "--enable-native-access=org.lz4.java,org.xerial.snappy",
-            // The heap can grow to 80% of the memory of the machine or the container.
-            // MinRAMPercentage sets the maximum heap on a machine with little memory.
-            "-XX:MaxRAMPercentage=80",
-            "-XX:MinRAMPercentage=80",
+            // The heap can grow to 85% of the memory of the machine or the container. On ZGC, the heap
+            // balancer sets a soft maximum heap, so the stress processes on one machine share its memory.
+            // On G1, the launcher sets -Xms and -Xmx. MinRAMPercentage sets the maximum heap on a machine
+            // with little memory.
+            "-XX:MaxRAMPercentage=85",
+            "-XX:MinRAMPercentage=85",
             // Direct buffers count against the size of the heap by default, so the heap and the direct
-            // buffers of netty could take twice the 80%. With noUnsafe, netty prefers heap buffers.
+            // buffers of netty could take twice the 85%. With noUnsafe, netty prefers heap buffers.
             "-XX:MaxDirectMemorySize=256m",
-            // Pre-faults the initial heap, so the first requests take no page faults.
+            // Pre-faults the initial heap, so the first requests take no page faults. On G1, the launcher
+            // sets the initial heap to the maximum heap, so the next stress process sees this memory as used.
             "-XX:+AlwaysPreTouch",
             // The JVM writes its counters to a file in /tmp, and a slow disk stalls a safepoint.
             "-XX:+PerfDisableSharedMem",
@@ -153,6 +156,10 @@ val jvmGcOptions = tasks.register<JvmOptions>("jvmGcOptions") {
             // and 24.0.2 have the fix, so an earlier release runs on G1.
             "21.0.9-21:-XX:+UseZGC",
             "24.0.2-:-XX:+UseZGC",
+            // The heap balancer lowers the soft maximum heap when another stress process starts, and ZGC
+            // returns the memory above it after 1 second instead of 300.
+            "21.0.9-21:-XX:ZUncommitDelay=1",
+            "24.0.2-:-XX:ZUncommitDelay=1",
             "21-21.0.8:-XX:+UseG1GC",
             "22-24.0.1:-XX:+UseG1GC",
             // Java 21 and 22 start the single-generation ZGC without this option. Java 23 and later have

@@ -48,6 +48,7 @@ public final class StressServer {
     private static final AtomicInteger THREAD_COUNTER = new AtomicInteger(1);
 
     public static void main(String[] args) throws IOException {
+        HeapBalancer.start();
         HostAndPort listen;
         try {
             listen = listenAddress(args);
