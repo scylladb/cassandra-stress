@@ -38,4 +38,4 @@ errorprone-core = { module = "com.google.errorprone:error_prone_core", version.r
 [plugins]
 spotbugs = { id = "com.github.spotbugs", version = "6.5.12" }
 spotless = { id = "com.diffplug.spotless", version = "8.10.4" }
-ospackage = { id = "com.netflix.nebula.ospackage", version = "12.3.0" }
+ospackage = { id = "com.netflix.nebula.ospackage", version = "13.0.2" }
