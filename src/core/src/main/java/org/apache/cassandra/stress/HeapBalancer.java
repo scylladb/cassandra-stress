@@ -72,6 +72,7 @@ final class HeapBalancer implements Runnable {
     private final long maxHeap = Runtime.getRuntime().maxMemory();
     private final long started = System.nanoTime();
     private ServerSocket server;
+    private Thread answering;
     private long softMaxHeap = -1;
     private long lastCollection;
     private int collections;
@@ -116,9 +117,9 @@ final class HeapBalancer implements Runnable {
             } catch (IOException e) {
                 continue;
             }
-            Thread thread = new Thread(this::answer, "heap-balancer-server");
-            thread.setDaemon(true);
-            thread.start();
+            answering = new Thread(this::answer, "heap-balancer-server");
+            answering.setDaemon(true);
+            answering.start();
             return;
         }
         LOGGER.debug("All the ports from {} to {} are in use", firstPort, firstPort + ports - 1);
@@ -243,9 +244,19 @@ final class HeapBalancer implements Runnable {
         return memory.getHeapMemoryUsage().getCommitted();
     }
 
+    /**
+     * Closes the port and waits for the thread that answers on it. The JDK closes the port only when
+     * that thread leaves accept, and until then a connection can still get an answer.
+     */
     void close() throws IOException {
-        if (server != null) {
-            server.close();
+        if (server == null) {
+            return;
+        }
+        server.close();
+        try {
+            answering.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
