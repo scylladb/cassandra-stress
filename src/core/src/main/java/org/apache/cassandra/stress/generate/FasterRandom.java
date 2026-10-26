@@ -5,10 +5,15 @@ import java.util.Random;
 import org.apache.commons.math3.random.RandomGenerator;
 
 public class FasterRandom implements RandomGenerator {
-    final Random random = new Random();
+    // The multiplier, the increment and the 48-bit mask of the generator of java.util.Random.
+    private static final long MULTIPLIER = 0x5DEECE66DL;
+    private static final long INCREMENT = 0xBL;
+    private static final long MASK = (1L << 48) - 1;
 
     private long seed;
+    private long rolloverSeed;
     private int reseed;
+    private Random gaussian;
 
     @Override
     public void setSeed(int seed) {
@@ -30,10 +35,17 @@ public class FasterRandom implements RandomGenerator {
         rollover();
     }
 
+    // Gives the value of new Random(seed).nextLong(). Bytes and Strings seed once for each value, and
+    // java.util.Random keeps its state in an AtomicLong, so this arithmetic on a plain long is faster.
     private void rollover() {
         this.reseed = 0;
-        random.setSeed(seed);
-        seed = random.nextLong();
+        rolloverSeed = seed;
+        gaussian = null;
+        long state = (seed ^ MULTIPLIER) & MASK;
+        state = (state * MULTIPLIER + INCREMENT) & MASK;
+        long high = (long) (int) (state >>> 16) << 32;
+        state = (state * MULTIPLIER + INCREMENT) & MASK;
+        seed = high + (int) (state >>> 16);
     }
 
     @Override
@@ -87,8 +99,13 @@ public class FasterRandom implements RandomGenerator {
         return Double.longBitsToDouble(nextLong());
     }
 
+    // The values of a java.util.Random that has the seed of the last rollover and gave one long.
     @Override
     public double nextGaussian() {
-        return random.nextGaussian();
+        if (gaussian == null) {
+            gaussian = new Random(rolloverSeed);
+            gaussian.nextLong();
+        }
+        return gaussian.nextGaussian();
     }
 }

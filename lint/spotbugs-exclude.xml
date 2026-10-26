@@ -50,6 +50,12 @@
         <Method name="balance" />
         <Bug pattern="DM_GC" />
     </Match>
+    <!-- The Random of nextGaussian stays in a field and gives the gaussians until the next rollover. -->
+    <Match>
+        <Class name="org.apache.cassandra.stress.generate.FasterRandom" />
+        <Method name="nextGaussian" />
+        <Bug pattern="DMI_RANDOM_USED_ONLY_ONCE" />
+    </Match>
     <!-- The heap balancer reads the memory of the process from the fixed paths of /proc and /sys on Linux. -->
     <Match>
         <Class name="org.apache.cassandra.stress.HeapBalancer$SystemMemory" />
