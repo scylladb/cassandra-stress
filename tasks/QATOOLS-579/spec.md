@@ -153,9 +153,9 @@ JDK.
 | `-XX:+ExitOnOutOfMemoryError` | 21 and later | A stress thread that dies of an `OutOfMemoryError` leaves the run without progress, and the process does not stop. The JVM stops instead, so the run fails |
 | `-XX:+UseCompactObjectHeaders` | 25 and later | Object headers of 8 bytes, so each request uses less heap. Java 24 has them as an experimental option only |
 
-With less than 4 CPUs or less than 7.5 GiB of memory, the launcher selects G1
-and skips the collector lines of `jvm-gc.options`. A machine of 8 GB shows less
-than 8 GiB, so the limit is 7.5 GiB. The memory is the memory of the machine,
+With less than 4 CPUs or 4 GiB of memory or less, the launcher selects G1 and
+skips the collector lines of `jvm-gc.options`. Above 4 GiB, it keeps
+generational ZGC. The memory is the memory of the machine,
 or the lowest limit of the cgroup of the process and its parents. The CPUs are
 the CPUs that the process may run on, or the lowest CPU quota of those cgroups,
 rounded up. A collector in `JVM_OPTS` still wins.
@@ -394,8 +394,8 @@ module org.apache.cassandra.stress.driver.v3 {
   wait for ScyllaDB. (build)
 - ZGC is the default collector, and Gradle writes the JVM options into
   `conf/`. A Java release without the fix of JDK-8347564 runs on G1, and so
-  does a machine or a container with less than 4 CPUs or less than 7.5 GiB of
-  memory. (build)
+  does a machine or a container with less than 4 CPUs or 4 GiB of memory or
+  less. (build)
 - Each stress thread keeps less live heap. The Apache distributions seed only
   the generator that they sample from, and the measurement queues of a thread
   take 4 KiB each. With 700 threads, the live heap went from 134 MB to 49 MB

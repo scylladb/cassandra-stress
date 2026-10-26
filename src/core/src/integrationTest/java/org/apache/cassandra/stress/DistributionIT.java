@@ -166,11 +166,11 @@ class DistributionIT {
         assertFalse(result.output().contains("VM warning"), result::toString);
     }
 
-    /** The launcher selects G1 on Linux with less than 4 CPUs or less than 7.5 GiB of memory. */
+    /** The launcher selects G1 on Linux with less than 4 CPUs or 4 GiB of memory or less. */
     private static boolean isSmallLinuxMachine() {
         long memory = ((com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean())
                 .getTotalMemorySize();
-        return OS.LINUX.isCurrentOs() && (Runtime.getRuntime().availableProcessors() < 4 || memory < 7680L << 20);
+        return OS.LINUX.isCurrentOs() && (Runtime.getRuntime().availableProcessors() < 4 || memory <= 4096L << 20);
     }
 
     /** The releases with the fix of JDK-8347564, the ranges of the UseZGC lines in conf/jvm-gc.options. */
