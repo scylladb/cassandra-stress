@@ -12,6 +12,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -54,6 +55,87 @@ class HeapBalancerTest {
                 8192000,
                 HeapBalancer.SystemMemory.field(meminfo, "MemAvailable:").orElseThrow());
         assertTrue(HeapBalancer.SystemMemory.field(meminfo, "Missing:").isEmpty());
+    }
+
+    /** A parent cgroup with a lower limit sets the budget, also when the cgroup of the process has none. */
+    @Test
+    void readsTheLimitsOfTheParentCgroups() throws IOException {
+        Path root = dir.resolve("cgroup");
+        Path parent = cgroup(root.resolve("system.slice"), "memory.max", 2 * GIB, "memory.current", "inactive_file");
+        Path leaf = Files.createDirectories(parent.resolve("stress.scope"));
+        Files.writeString(leaf.resolve("memory.max"), "max\n");
+        Path proc = Files.writeString(dir.resolve("proc-cgroup"), "0::/system.slice/stress.scope\n");
+
+        List<HeapBalancer.SystemMemory.Limit> limits =
+                HeapBalancer.SystemMemory.limitedCgroups(meminfo(16 * GIB), proc, root);
+        assertEquals(
+                List.of(parent),
+                limits.stream().map(HeapBalancer.SystemMemory.Limit::directory).toList());
+        assertEquals(GIB + 256 * MIB, limits.getFirst().free().orElseThrow());
+    }
+
+    @Test
+    void choosesTheCgroupWithTheLowestLimit() throws IOException {
+        Path root = dir.resolve("cgroup");
+        Path parent = cgroup(root.resolve("a"), "memory.max", GIB, "memory.current", "inactive_file");
+        cgroup(parent.resolve("b"), "memory.max", 4 * GIB, "memory.current", "inactive_file");
+        Path proc = Files.writeString(dir.resolve("proc-cgroup"), "0::/a/b\n");
+
+        List<HeapBalancer.SystemMemory.Limit> limits =
+                HeapBalancer.SystemMemory.limitedCgroups(meminfo(16 * GIB), proc, root);
+        assertEquals(2, limits.size());
+        assertEquals(
+                parent,
+                HeapBalancer.SystemMemory.lowestLimit(limits).orElseThrow().directory());
+    }
+
+    /** On cgroup v1, the memory cgroup of the process is below the mount of the memory hierarchy. */
+    @Test
+    void readsTheNestedMemoryCgroupOfCgroupV1() throws IOException {
+        Path root = dir.resolve("cgroup");
+        Path nested = cgroup(
+                root.resolve("memory/docker/abc"),
+                "memory.limit_in_bytes",
+                GIB,
+                "memory.usage_in_bytes",
+                "total_inactive_file");
+        Files.writeString(root.resolve("memory/memory.limit_in_bytes"), "9223372036854771712\n");
+        Path proc = Files.writeString(dir.resolve("proc-cgroup"), "5:cpu,cpuacct:/docker/abc\n4:memory:/docker/abc\n");
+
+        List<HeapBalancer.SystemMemory.Limit> limits =
+                HeapBalancer.SystemMemory.limitedCgroups(meminfo(16 * GIB), proc, root);
+        assertEquals(
+                List.of(nested),
+                limits.stream().map(HeapBalancer.SystemMemory.Limit::directory).toList());
+    }
+
+    /** A container with its own cgroup namespace on cgroup v1 has its limit at the mount. */
+    @Test
+    void readsTheMountWhenThePathOfCgroupV1IsNotBelowIt() throws IOException {
+        Path root = dir.resolve("cgroup");
+        Path mount = cgroup(
+                root.resolve("memory"), "memory.limit_in_bytes", GIB, "memory.usage_in_bytes", "total_inactive_file");
+        Path proc = Files.writeString(dir.resolve("proc-cgroup"), "4:memory:/docker/abc\n");
+
+        List<HeapBalancer.SystemMemory.Limit> limits =
+                HeapBalancer.SystemMemory.limitedCgroups(meminfo(16 * GIB), proc, root);
+        assertEquals(
+                List.of(mount),
+                limits.stream().map(HeapBalancer.SystemMemory.Limit::directory).toList());
+    }
+
+    /** A cgroup with {@code limit} bytes, 1 GiB in use and 256 MiB of page cache that the kernel can drop. */
+    private static Path cgroup(Path directory, String limitFile, long limit, String usage, String inactive)
+            throws IOException {
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve(limitFile), limit + "\n");
+        Files.writeString(directory.resolve(usage), GIB + "\n");
+        Files.writeString(directory.resolve("memory.stat"), inactive + " " + 256 * MIB + "\n");
+        return directory;
+    }
+
+    private Path meminfo(long total) throws IOException {
+        return Files.writeString(dir.resolve("meminfo"), "MemTotal: " + (total >> 10) + " kB\n");
     }
 
     /** Two balancers in one range see each other, and a program that does not greet does not count. */
