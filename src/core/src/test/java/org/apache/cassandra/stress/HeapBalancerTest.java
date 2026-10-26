@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -138,8 +139,12 @@ class HeapBalancerTest {
         return Files.writeString(dir.resolve("meminfo"), "MemTotal: " + (total >> 10) + " kB\n");
     }
 
-    /** Two balancers in one range see each other, and a program that does not greet does not count. */
-    @Test
+    /**
+     * Two balancers in one range see each other, and a program that does not greet does not count. A
+     * balancer stops answering when close returns. On Linux, a balancer that closed without the wait for its
+     * answer thread failed 27 to 41 of the 50 repetitions.
+     */
+    @RepeatedTest(50)
     void countsTheStressProcessesThatAnswerOnTheRange() throws IOException {
         int first = freeRange(4);
         HeapBalancer one = new HeapBalancer(first, 4, "machine");
