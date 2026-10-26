@@ -16,6 +16,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +31,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Shares the memory of a machine among the stress processes on it. Each process listens on the first
  * free loopback port of a fixed range. It answers each connection with its committed heap and its
- * memory budget: the machine, or the cgroup that limits its memory. Every two seconds, the balancer
+ * memory budget: the machine, or the cgroup with the lowest memory limit. Every two seconds, the balancer
  * connects to the ports of the range that a process of the same user listens on. Thus it knows the
  * live processes with the same budget and their heaps. The containers of SCT use the network of the
  * host, so they share the loopback ports.
@@ -261,35 +264,43 @@ final class HeapBalancer implements Runnable {
 
     /** The memory of this process as Linux shows it, read the same way as the launcher reads it. */
     static final class SystemMemory {
+        private static final Path MEMINFO = Path.of("/proc/meminfo");
+        private static final Path PROC_CGROUP = Path.of("/proc/self/cgroup");
         private static final Path CGROUP = Path.of("/sys/fs/cgroup");
-        private static final Path CGROUP_V1 = CGROUP.resolve("memory");
 
         private SystemMemory() {}
 
         /**
-         * The available memory of the machine, or less when the cgroup of this process has a lower
-         * limit. The page cache that the kernel can drop counts as available.
+         * The available memory of the machine, or less when a cgroup of this process has a lower limit.
+         * The page cache that the kernel can drop counts as available.
          */
         static OptionalLong available() {
-            OptionalLong machine = field(Path.of("/proc/meminfo"), "MemAvailable:").stream()
+            OptionalLong machine = field(MEMINFO, "MemAvailable:").stream()
                     .map(kib -> kib << 10)
                     .findFirst();
             if (machine.isEmpty()) {
                 return machine;
             }
-            Optional<Long> cgroup = limitedCgroup().flatMap(Limit::free);
-            return cgroup.isPresent() && cgroup.get() < machine.getAsLong() ? OptionalLong.of(cgroup.get()) : machine;
+            long available = machine.getAsLong();
+            for (Limit limit : limitedCgroups(MEMINFO, PROC_CGROUP, CGROUP)) {
+                available = Math.min(available, limit.free().orElse(available));
+            }
+            return OptionalLong.of(available);
         }
 
         /**
-         * The budget of this process: {@code cgroup-<inode>} for the cgroup that limits its memory, or
-         * {@code machine}. Processes in one cgroup see the same inode.
+         * The budget of this process: {@code cgroup-<inode>} for the cgroup with the lowest memory limit,
+         * or {@code machine}. Processes under that cgroup see the same inode.
          */
         static String budget() {
-            return limitedCgroup()
+            return lowestLimit(limitedCgroups(MEMINFO, PROC_CGROUP, CGROUP))
                     .flatMap(limit -> inode(limit.directory()))
                     .map(inode -> "cgroup-" + inode)
                     .orElse("machine");
+        }
+
+        static Optional<Limit> lowestLimit(List<Limit> limits) {
+            return limits.stream().min(Comparator.comparingLong(Limit::limit));
         }
 
         /** The memory limit of a cgroup, with the names of its files for cgroup v2 or cgroup v1. */
@@ -307,40 +318,74 @@ final class HeapBalancer implements Runnable {
             }
         }
 
-        /** The cgroup of this process when it has a memory limit below the memory of the machine. */
-        static Optional<Limit> limitedCgroup() {
-            OptionalLong total = field(Path.of("/proc/meminfo"), "MemTotal:");
-            Optional<Limit> limit = cgroupV2().or(SystemMemory::cgroupV1);
-            return limit.filter(l -> total.isEmpty() || l.limit() < total.getAsLong() << 10);
-        }
-
-        private static Optional<Limit> cgroupV2() {
+        /**
+         * The cgroups of this process with a memory limit below the memory of the machine, from its own
+         * cgroup up to the root. A parent cgroup can have a lower limit than the cgroup of the process.
+         * Uses cgroup v2 when it controls the memory, and otherwise the memory hierarchy of cgroup v1.
+         */
+        static List<Limit> limitedCgroups(Path meminfo, Path procCgroup, Path cgroupRoot) {
+            OptionalLong total = field(meminfo, "MemTotal:");
+            List<String> lines;
             try {
-                Optional<String> path = Files.readAllLines(Path.of("/proc/self/cgroup")).stream()
-                        .filter(line -> line.startsWith("0::"))
-                        .map(line -> line.substring(3).replaceAll("/$", ""))
-                        .findFirst();
-                if (path.isEmpty()) {
-                    return Optional.empty();
-                }
-                Path directory = Path.of(CGROUP + path.get());
-                String limit = Files.readString(directory.resolve("memory.max")).strip();
-                if ("max".equals(limit)) {
-                    return Optional.empty();
-                }
-                return Optional.of(new Limit(directory, Long.parseLong(limit), "memory.current", "inactive_file"));
-            } catch (IOException | NumberFormatException e) {
-                return Optional.empty();
+                lines = Files.readAllLines(procCgroup);
+            } catch (IOException e) {
+                return List.of();
             }
+            List<Limit> limits = cgroupV2(lines, cgroupRoot);
+            if (limits.isEmpty()) {
+                limits = cgroupV1(lines, cgroupRoot.resolve("memory"));
+            }
+            return limits.stream()
+                    .filter(l -> total.isEmpty() || l.limit() < total.getAsLong() << 10)
+                    .toList();
         }
 
-        private static Optional<Limit> cgroupV1() {
+        private static List<Limit> cgroupV2(List<String> lines, Path root) {
+            return lines.stream()
+                    .filter(line -> line.startsWith("0::"))
+                    .findFirst()
+                    .map(line -> ancestors(root, line.substring(3), "memory.max", "memory.current", "inactive_file"))
+                    .orElse(List.of());
+        }
+
+        private static List<Limit> cgroupV1(List<String> lines, Path mount) {
+            return lines.stream()
+                    .map(line -> line.split(":", 3))
+                    .filter(parts -> parts.length == 3
+                            && Arrays.asList(parts[1].split(",")).contains("memory"))
+                    .findFirst()
+                    .map(parts -> ancestors(
+                            mount, parts[2], "memory.limit_in_bytes", "memory.usage_in_bytes", "total_inactive_file"))
+                    .orElse(List.of());
+        }
+
+        /**
+         * The limits of the cgroup at {@code path} below {@code root} and of each of its parents. A container
+         * with its own cgroup namespace on cgroup v1 mounts its cgroup at {@code root}, so its path in
+         * /proc/self/cgroup is not below the mount.
+         */
+        private static List<Limit> ancestors(Path root, String path, String limitFile, String usage, String inactive) {
+            Path directory = root.resolve(path.replaceAll("^/+", "")).normalize();
+            if (!directory.startsWith(root) || !Files.isDirectory(directory)) {
+                directory = root;
+            }
+            List<Limit> limits = new ArrayList<>();
+            for (Path d = directory; d != null && d.startsWith(root); d = d.getParent()) {
+                OptionalLong limit = limit(d.resolve(limitFile));
+                if (limit.isPresent()) {
+                    limits.add(new Limit(d, limit.getAsLong(), usage, inactive));
+                }
+            }
+            return limits;
+        }
+
+        /** The number in a limit file, or nothing for "max" or a missing file, as at the root of cgroup v2. */
+        private static OptionalLong limit(Path file) {
             try {
-                long limit = Long.parseLong(Files.readString(CGROUP_V1.resolve("memory.limit_in_bytes"))
-                        .strip());
-                return Optional.of(new Limit(CGROUP_V1, limit, "memory.usage_in_bytes", "total_inactive_file"));
+                String limit = Files.readString(file).strip();
+                return "max".equals(limit) ? OptionalLong.empty() : OptionalLong.of(Long.parseLong(limit));
             } catch (IOException | NumberFormatException e) {
-                return Optional.empty();
+                return OptionalLong.empty();
             }
         }
 
