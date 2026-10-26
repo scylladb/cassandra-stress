@@ -174,7 +174,9 @@ to 8 GB of memory, 1 to 8 CPUs, and 100 or 700 threads, two runs each:
   pause of G1 was 19 ms in the median run and 92 ms in the worst.
 
 On Linux and ZGC, the stress processes on one machine share its memory. The
-heap starts at 64 MiB and can grow to 85% of the memory. `HeapBalancer`, a
+heap starts at 64 MiB and can grow to 85% of the memory, and the launcher
+keeps 1.5 GiB or more outside the heap. With 700 to 2000 threads in a
+container of 5 or 6 GB, a heap of 85% filled 91% to 96% of the memory. `HeapBalancer`, a
 thread in each process, listens on the first free loopback port from 39300 to
 39363. It answers each connection with its committed heap and its budget: the
 machine, or the inode of the cgroup with the lowest memory limit. Every two seconds,
@@ -400,7 +402,8 @@ module org.apache.cassandra.stress.driver.v3 {
   the generator that they sample from, and the measurement queues of a thread
   take 4 KiB each. With 700 threads, the live heap went from 134 MB to 49 MB
   (QATOOLS-625). (build)
-- The heap can grow to 85% of the memory. On Linux and ZGC, the stress
+- The heap can grow to 85% of the memory. On ZGC, the launcher keeps 1.5 GiB
+  or more outside the heap. On Linux and ZGC, the stress
   processes on one machine find each other on loopback ports and share the
   memory through a soft maximum heap, as best effort. On G1, the launcher sets
   a fixed heap of 1/2 of the free memory. (build)
