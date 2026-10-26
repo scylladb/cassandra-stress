@@ -396,7 +396,10 @@ done
 # MaxRAMPercentage and MinRAMPercentage only.
 #
 # On ZGC, the heap starts at 64 MiB and can grow to 85% of the memory, and the
-# balancer sets the soft maximum heap.
+# balancer sets the soft maximum heap. The heap keeps 1.5 GiB of the memory
+# for the thread stacks, the direct buffers and the JVM. With 700 to 2000
+# threads in a container of 5 or 6 GiB, a heap of 85% filled 91% to 96% of
+# the memory.
 #
 # On G1 and Linux, a workload or the stress server takes a fixed heap when it
 # starts. -Xms is equal to -Xmx, and -XX:+AlwaysPreTouch touches every page, so
@@ -412,6 +415,13 @@ if [[ " $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} " =~ [[:space:]](
   DEFAULT_JVM_OPTS+=("-Dcassandra.stress.heap.balance=false")
 elif [[ "$collector_opts" == *" -XX:+UseZGC "* ]]; then
   DEFAULT_JVM_OPTS+=("-Xms64m")
+  memory="$(memory_limit_mib)"
+  if [ -n "$memory" ]; then
+    heap=$(( memory - 1536 ))
+    if [ "$heap" -ge 512 ] && [ "$heap" -lt $(( memory * 85 / 100 )) ]; then
+      DEFAULT_JVM_OPTS+=("-Xmx${heap}m")
+    fi
+  fi
 else
   case "$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')" in
     ""|help|-\?|print|version) ;;
