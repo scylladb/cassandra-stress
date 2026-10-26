@@ -150,17 +150,27 @@ JDK.
 | `-XX:MaxDirectMemorySize=256m` | 21 and later | The direct buffers have their own limit. By default, the limit is the maximum heap, so the heap and the direct buffers could take 160% of the memory. With `noUnsafe`, netty prefers heap buffers, and the workloads of `distributionTest` pass with a limit of 16 MB |
 | `-XX:+AlwaysPreTouch` | 21 and later | The first requests take no page faults on the initial heap. On G1, the launcher sets `-Xms` equal to `-Xmx`, so the process holds its whole heap from the start, and the next process sees it as used |
 | `-XX:+PerfDisableSharedMem` | 21 and later | A slow write to the `hsperfdata` file in `/tmp` cannot stall a safepoint |
+| `-XX:+ExitOnOutOfMemoryError` | 21 and later | A stress thread that dies of an `OutOfMemoryError` leaves the run without progress, and the process does not stop. The JVM stops instead, so the run fails |
 | `-XX:+UseCompactObjectHeaders` | 25 and later | Object headers of 8 bytes, so each request uses less heap. Java 24 has them as an experimental option only |
+
+Below 2 GiB of memory, the launcher selects G1 and skips the collector lines
+of `jvm-gc.options`. The memory is the memory of the machine, or the lowest
+limit of the cgroup of the process and its parents. A collector in `JVM_OPTS`
+still wins. With 700 threads in a container of 2 CPUs and 512 MB, ZGC stalled
+the stress threads and reached the memory limit of the container, at 18,000 to
+21,000 op/s. G1 with a fixed heap wrote 25,000 op/s and kept 75 MB of the
+container free (QATOOLS-625).
 
 On Linux and ZGC, the stress processes on one machine share its memory. The
 heap starts at 64 MiB and can grow to 85% of the memory. `HeapBalancer`, a
 thread in each process, listens on the first free loopback port from 39300 to
 39363. It answers each connection with its committed heap and its budget: the
-machine, or the inode of the cgroup that limits its memory. Every two seconds,
+machine, or the inode of the cgroup with the lowest memory limit. Every two seconds,
 it connects to the ports of the range that a socket of the same user listens
 on, from `/proc/net/tcp`. It counts the processes with the same budget. A port
-closes when its process stops, so the count holds the live processes only. The free memory is the available memory of the machine, or of the
-cgroup v2 or v1 when its limit is lower. The pool is the free memory plus the committed
+closes when its process stops, so the count holds the live processes only. The free memory is the available memory of the machine, or of a
+cgroup when its limit is lower. The cgroups are the cgroup of the process and
+its parents, on cgroup v2 or in the memory hierarchy of cgroup v1. The pool is the free memory plus the committed
 heaps of the live processes. The fair share of a process is 3/4 of the pool
 divided by the number of processes. A process grows only into memory that is
 free now, so its `SoftMaxHeapSize` is the fair share or its committed heap plus
@@ -189,13 +199,16 @@ rejected: it needs the count from the caller.
 
 On Linux and G1, the launcher sets `-Xms` equal to `-Xmx` for a workload and
 for the stress server, and `-XX:+AlwaysPreTouch` touches every page, so a later
-process sees the heap as used. The heap is 1/2 of the free memory less 256 MiB,
-at most 31 GiB, so the JVM keeps compressed object pointers. The help, print
+process sees the heap as used. The heap is 1/2 of the free memory. Above 1 GiB
+of free memory, it is 1/2 of the free memory less 256 MiB, and 512 MiB or more,
+so a little more free memory never gives a smaller heap. The heap is at most
+31 GiB, so the JVM keeps compressed object pointers. The help, print
 and version commands keep the default heap of the JVM. A process on G1 answers
 on a port of the range, so the processes on ZGC count its heap.
 
-A heap option in `JVM_OPTS`, `JAVA_TOOL_OPTIONS` or `JDK_JAVA_OPTIONS` keeps
-the heap of the user. The launcher then passes
+A heap option in `JVM_OPTS`, `JAVA_TOOL_OPTIONS` or `JDK_JAVA_OPTIONS`, or
+`-Xms`, `-Xmx`, `MaxHeapSize`, `InitialHeapSize` or `SoftMaxHeapSize` in an
+options file, keeps the heap of the user. The launcher then passes
 `-Dcassandra.stress.heap.balance=false`, and the balancer only answers on its
 port.
 
@@ -368,7 +381,12 @@ module org.apache.cassandra.stress.driver.v3 {
   the `testcontainers` label, so a pull request without the label does not
   wait for ScyllaDB. (build)
 - ZGC is the default collector, and Gradle writes the JVM options into
-  `conf/`. A Java release without the fix of JDK-8347564 runs on G1. (build)
+  `conf/`. A Java release without the fix of JDK-8347564 runs on G1, and so
+  does a machine or a container with less than 2 GiB of memory. (build)
+- Each stress thread keeps less live heap. The Apache distributions seed only
+  the generator that they sample from, and the measurement queues of a thread
+  take 4 KiB each. With 700 threads, the live heap went from 134 MB to 49 MB
+  (QATOOLS-625). (build)
 - The heap can grow to 85% of the memory. On Linux and ZGC, the stress
   processes on one machine find each other on loopback ports and share the
   memory through a soft maximum heap, as best effort. On G1, the launcher sets
