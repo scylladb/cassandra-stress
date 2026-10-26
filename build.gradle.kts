@@ -131,6 +131,8 @@ val jvmClientOptions = tasks.register<JvmOptions>("jvmClientOptions") {
             "-XX:+AlwaysPreTouch",
             // The JVM writes its counters to a file in /tmp, and a slow disk stalls a safepoint.
             "-XX:+PerfDisableSharedMem",
+            // A stress thread that dies of an OutOfMemoryError leaves the run without progress, so the run stops.
+            "-XX:+ExitOnOutOfMemoryError",
             // Object headers of 8 bytes: less heap per request, fewer collections.
             // Java 24 has them as an experimental option only.
             "25-:-XX:+UseCompactObjectHeaders",

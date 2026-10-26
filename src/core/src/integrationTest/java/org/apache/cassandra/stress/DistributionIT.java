@@ -267,6 +267,26 @@ class DistributionIT {
         assertTrue(args.contains("-Dcassandra.stress.heap.balance=false"), result::toString);
     }
 
+    @Test
+    void keepsTheHeapOfTheOptionsFile() throws Exception {
+        Path config = Files.createDirectories(dir.resolve("heap-config"));
+        Files.copy(HOME.resolve("conf/logback.xml"), config.resolve("logback.xml"));
+        Files.writeString(
+                config.resolve("jvm-clients.options"),
+                Files.readString(HOME.resolve("conf/jvm-clients.options")) + "-Xmx300m\n");
+        Path javaHome = fakeJavaHome("21.0.5", "jdk-file-xmx");
+        StressResult result = launch(
+                List.of("write", "n=1"),
+                Map.of("JAVA_HOME", javaHome.toString(), "CASSANDRA_STRESS_CONFIG", config.toString()));
+        assertEquals(0, result.exitCode(), result::toString);
+        List<String> args = result.output().lines().toList();
+        assertEquals(
+                List.of("-Xmx300m"),
+                args.stream().filter(a -> a.startsWith("-Xm")).toList(),
+                result::toString);
+        assertTrue(args.contains("-Dcassandra.stress.heap.balance=false"), result::toString);
+    }
+
     /** The version command keeps the default heap of the JVM on G1. */
     @Test
     void keepsTheDefaultHeapForTheVersionOnG1() throws Exception {
