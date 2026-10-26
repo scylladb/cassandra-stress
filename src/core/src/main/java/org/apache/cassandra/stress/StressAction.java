@@ -23,6 +23,7 @@ import org.jctools.queues.atomic.SpscAtomicArrayQueue;
 import org.jctools.queues.atomic.SpscUnboundedAtomicArrayQueue;
 
 public class StressAction implements Runnable {
+    private static final int MEASUREMENT_QUEUE_SIZE = 1024;
 
     private final StressSettings settings;
     private final ResultLogger output;
@@ -435,8 +436,10 @@ public class StressAction implements Runnable {
             this.anyFailed = anyFailed;
             this.metrics = metrics;
             this.opStream = new StreamOfOperations(opDistribution, rateLimiter, workManager);
-            this.measurementsRecycling = new SpscAtomicArrayQueue<OpMeasurement>(8 * 1024);
-            this.measurementsReporting = new SpscUnboundedAtomicArrayQueue<OpMeasurement>(2048);
+            // Each queue takes 4 KiB per stress thread. A measurement that does not fit in the recycling
+            // queue is garbage, and a young collection frees it.
+            this.measurementsRecycling = new SpscAtomicArrayQueue<OpMeasurement>(MEASUREMENT_QUEUE_SIZE);
+            this.measurementsReporting = new SpscUnboundedAtomicArrayQueue<OpMeasurement>(MEASUREMENT_QUEUE_SIZE);
             metrics.add(this);
         }
 
