@@ -120,8 +120,10 @@ The releases also have a deb and an rpm package.
 Stress runs on generational ZGC, so a pause of the client does not show as
 latency of the cluster. Java 21 before 21.0.9 and Java 22 to 24.0.1 run on G1,
 because generational ZGC can crash on them
-([JDK-8347564](https://bugs.openjdk.org/browse/JDK-8347564)). Java 25 and later
-also use compact object headers.
+([JDK-8347564](https://bugs.openjdk.org/browse/JDK-8347564)). A machine or a
+container with less than 2 GiB of memory also runs on G1, because ZGC needs
+more memory around the heap. Java 25 and later also use compact object headers.
+When a stress thread runs out of heap, the JVM stops and the run fails.
 
 The launcher reads its JVM options from `conf/jvm-clients.options` and the
 collector from `conf/jvm-gc.options`. The packages keep both files in
@@ -143,11 +145,12 @@ return their memory. The sharing is best effort: a process that allocates
 faster than ZGC collects can grow past its soft maximum heap. Containers see
 each other when they use the network of the host, as in SCT.
 
-On G1, Java 21 before 21.0.9 and Java 22 to 24.0.1, a workload takes a fixed
-heap of 1/2 of the free memory, at most 31 GiB, when it starts. A later
+On G1, a workload takes a fixed heap when it starts. The heap is 1/2 of the
+free memory. Above 1 GiB of free memory, it is 1/2 of the free memory less
+256 MiB, and 512 MiB or more. It is at most 31 GiB. A later
 process gets a smaller heap.
 
-A heap size in `JVM_OPTS` keeps that heap, and the process then only tells the
+A heap size in `JVM_OPTS` or in `conf/jvm-clients.options` keeps that heap, and the process then only tells the
 others its heap. Set the heap of every process on one machine in `JVM_OPTS`, or
 of none:
 

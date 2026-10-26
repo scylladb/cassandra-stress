@@ -146,32 +146,73 @@ read_jvm_options() {
   done < "$1"
 }
 
+# Prints "<limit> <usage> <page cache>" in bytes for the cgroup at the path $2
+# below the mount $1 and for each of its parents with a memory limit in the
+# file $3. $4 is the usage file, and $5 the field of memory.stat with the page
+# cache that the kernel can drop. A container with its own cgroup namespace on
+# cgroup v1 mounts its cgroup at $1, so its path in /proc/self/cgroup is not
+# below the mount.
+cgroup_limits_below() {
+  local root="$1" dir="$1/${2#/}" limit
+  dir="${dir%/}"
+  if [ ! -d "$dir" ] || [[ "$dir" == *..* ]]; then
+    dir="$root"
+  fi
+  while :; do
+    limit=$(cat "$dir/$3" 2>/dev/null)
+    if [[ "$limit" =~ ^[0-9]+$ ]]; then
+      echo "$limit $(cat "$dir/$4" 2>/dev/null) $(awk -v field="$5" '$1 == field { print $2 }' "$dir/memory.stat" 2>/dev/null)"
+    fi
+    [ "$dir" = "$root" ] && break
+    dir="${dir%/*}"
+  done
+}
+
+# Prints the memory limits of the cgroup of this process and of its parents,
+# one line for each, as cgroup_limits_below prints them. A parent can have a
+# lower limit than the cgroup of the process. Uses cgroup v2 when it controls
+# the memory, and otherwise the memory hierarchy of cgroup v1.
+cgroup_memory_limits() {
+  local v2 v1 limits=""
+  v2=$(awk -F: '$1 == "0" && $2 == "" { print $3; exit }' /proc/self/cgroup 2>/dev/null)
+  v1=$(awk -F: '$2 ~ /(^|,)memory(,|$)/ { print $3; exit }' /proc/self/cgroup 2>/dev/null)
+  if [ -n "$v2" ]; then
+    limits=$(cgroup_limits_below /sys/fs/cgroup "$v2" memory.max memory.current inactive_file)
+  fi
+  if [ -z "$limits" ] && [ -n "$v1" ]; then
+    limits=$(cgroup_limits_below /sys/fs/cgroup/memory "$v1" memory.limit_in_bytes memory.usage_in_bytes total_inactive_file)
+  fi
+  [ -n "$limits" ] && echo "$limits"
+}
+
 # Prints the memory in MiB that a new process can take. That is the available
-# memory of the machine, or less when the cgroup of this process has a lower
+# memory of the machine, or less when a cgroup of this process has a lower
 # limit. The page cache that the kernel can drop counts as available. Prints
 # nothing when the system does not show its memory, as on macOS.
 available_memory_mib() {
-  local available cgroup dir="" limit usage inactive free
+  local available limit usage inactive free
   available=$(awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null)
   [ -n "$available" ] || return 0
-  cgroup=$(awk -F: '$1 == "0" { print $3 }' /proc/self/cgroup 2>/dev/null)
-  if [ -n "$cgroup" ] && [ -r "/sys/fs/cgroup${cgroup%/}/memory.max" ]; then
-    dir="/sys/fs/cgroup${cgroup%/}"
-    limit=$(cat "$dir/memory.max")
-    usage=$(cat "$dir/memory.current")
-    inactive=$(awk '$1 == "inactive_file" { print $2 }' "$dir/memory.stat")
-  elif [ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
-    dir=/sys/fs/cgroup/memory
-    limit=$(cat "$dir/memory.limit_in_bytes")
-    usage=$(cat "$dir/memory.usage_in_bytes")
-    inactive=$(awk '$1 == "total_inactive_file" { print $2 }' "$dir/memory.stat")
-  fi
-  if [ -n "$dir" ] && [[ "$limit" =~ ^[0-9]+$ ]] && [[ "$usage" =~ ^[0-9]+$ ]]; then
+  while read -r limit usage inactive; do
+    [[ "$usage" =~ ^[0-9]+$ ]] || continue
     free=$(( (limit - usage + ${inactive:-0}) / 1048576 ))
     [ "$free" -lt 0 ] && free=0
     [ "$free" -lt "$available" ] && available=$free
-  fi
+  done < <(cgroup_memory_limits)
   echo "$available"
+}
+
+# Prints the memory in MiB of the machine, or the lowest memory limit of the
+# cgroups of this process when it is lower. Prints nothing when the system
+# does not show its memory.
+memory_limit_mib() {
+  local total limit rest
+  total=$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null)
+  [ -n "$total" ] || return 0
+  while read -r limit rest; do
+    [ $(( limit / 1048576 )) -lt "$total" ] && total=$(( limit / 1048576 ))
+  done < <(cgroup_memory_limits)
+  echo "$total"
 }
 
 case "$1" in
@@ -281,6 +322,16 @@ GC_MODE=""
 if [[ " $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} " =~ [[:space:]]-XX:\+Use[A-Za-z0-9]+GC[[:space:]] ]]; then
   GC_MODE=skip-collector
 fi
+# Below 2 GiB of memory, ZGC has too little room around the heap. It stalls
+# the stress threads, and the process reaches the memory limit of its
+# container. So stress runs on G1 there, unless the user selects a collector.
+if [ -z "$GC_MODE" ]; then
+  memory="$(memory_limit_mib)"
+  if [ -n "$memory" ] && [ "$memory" -lt 2048 ]; then
+    GC_MODE=skip-collector
+    DEFAULT_JVM_OPTS+=("-XX:+UseG1GC")
+  fi
+fi
 # The build writes the JVM options into conf. Each file comes from
 # CASSANDRA_STRESS_CONFIG when it is there, and otherwise from the conf
 # directory next to lib, as in a source checkout after ./gradlew installDist.
@@ -298,25 +349,25 @@ done
 
 # The heap balancer in each stress process shares the memory of the machine
 # with the other stress processes. A heap option in JVM_OPTS,
-# JAVA_TOOL_OPTIONS or JDK_JAVA_OPTIONS keeps the heap of the user, and the
-# balancer then only reports this heap to the other processes.
+# JAVA_TOOL_OPTIONS, JDK_JAVA_OPTIONS or the options files keeps the heap of
+# the user, and the balancer then only reports this heap to the other
+# processes. The options files of the build set the heap with
+# MaxRAMPercentage and MinRAMPercentage only.
 #
 # On ZGC, the heap starts at 64 MiB and can grow to 85% of the memory, and the
 # balancer sets the soft maximum heap.
 #
 # On G1 and Linux, a workload or the stress server takes a fixed heap when it
 # starts. -Xms is equal to -Xmx, and -XX:+AlwaysPreTouch touches every page, so
-# a later process sees this memory as used. The heap is 1/2 of the free memory
-# less 256 MiB, or 1/2 of the free memory below 1 GiB. It is at most 31 GiB, so
-# the JVM keeps compressed object pointers. The free memory is the available
-# memory of the machine, or of the cgroup when its limit is lower. The help,
-# print and version commands keep the default heap of the JVM.
-if [ "$GC_MODE" = skip-collector ]; then
-  collector_opts=" $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} "
-else
-  collector_opts=" ${DEFAULT_JVM_OPTS[*]} "
-fi
-if [[ " $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} " =~ [[:space:]](-Xm[sx]|-XX:(MaxHeapSize|InitialHeapSize|MaxRAM|MaxRAMPercentage|InitialRAMPercentage|SoftMaxHeapSize)=) ]]; then
+# a later process sees this memory as used. The heap is 1/2 of the free memory.
+# Above 1 GiB of free memory, it is 1/2 of the free memory less 256 MiB, and
+# 512 MiB or more. It is at most 31 GiB, so the JVM keeps compressed object
+# pointers. The free memory is the available memory of the machine, or of a
+# cgroup of the process when its limit is lower. The help, print and version
+# commands keep the default heap of the JVM.
+collector_opts=" ${DEFAULT_JVM_OPTS[*]} $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} "
+if [[ " $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} " =~ [[:space:]](-Xm[sx]|-XX:(MaxHeapSize|InitialHeapSize|MaxRAM|MaxRAMPercentage|InitialRAMPercentage|SoftMaxHeapSize)=) ]] \
+  || [[ " ${DEFAULT_JVM_OPTS[*]} " =~ [[:space:]](-Xm[sx]|-XX:(MaxHeapSize|InitialHeapSize|SoftMaxHeapSize)=) ]]; then
   DEFAULT_JVM_OPTS+=("-Dcassandra.stress.heap.balance=false")
 elif [[ "$collector_opts" == *" -XX:+UseZGC "* ]]; then
   DEFAULT_JVM_OPTS+=("-Xms64m")
@@ -326,10 +377,10 @@ else
     *)
       available="$(available_memory_mib)"
       if [ -n "$available" ]; then
-        if [ "$available" -lt 1024 ]; then
-          heap=$(( available / 2 ))
-        else
+        heap=$(( available / 2 ))
+        if [ "$available" -ge 1024 ]; then
           heap=$(( available / 2 - 256 ))
+          [ "$heap" -lt 512 ] && heap=512
         fi
         [ "$heap" -gt 31744 ] && heap=31744
         if [ "$heap" -lt 64 ]; then
