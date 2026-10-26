@@ -2,15 +2,19 @@
 package org.apache.cassandra.stress.generate;
 
 import org.apache.commons.math3.distribution.AbstractRealDistribution;
+import org.apache.commons.math3.random.RandomGenerator;
 
 public class DistributionBoundApache extends Distribution {
 
     final AbstractRealDistribution delegate;
+    final RandomGenerator random;
     final long min;
     final long max;
 
-    public DistributionBoundApache(AbstractRealDistribution delegate, long min, long max) {
+    /** {@code random} is the generator that {@code delegate} samples from. */
+    public DistributionBoundApache(RandomGenerator random, AbstractRealDistribution delegate, long min, long max) {
         this.delegate = delegate;
+        this.random = random;
         this.min = min;
         this.max = max;
     }
@@ -32,7 +36,9 @@ public class DistributionBoundApache extends Distribution {
 
     @Override
     public void setSeed(long seed) {
-        delegate.reseedRandomGenerator(seed);
+        // Seeds the generator of sample() only. AbstractRealDistribution.reseedRandomGenerator also creates
+        // a Well19937c of about 15 KiB, once for each distribution of each stress thread.
+        random.setSeed(seed);
     }
 
     private static long bound(long min, long max, double val) {

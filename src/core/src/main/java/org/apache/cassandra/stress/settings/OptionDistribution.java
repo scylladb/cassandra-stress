@@ -387,9 +387,11 @@ public class OptionDistribution extends Option {
 
         @Override
         public Distribution get() {
+            JDKRandomGenerator random = new JDKRandomGenerator();
             return new DistributionOffsetApache(
+                    random,
                     new ExponentialDistribution(
-                            new JDKRandomGenerator(), mean, ExponentialDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY),
+                            random, mean, ExponentialDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY),
                     min,
                     max);
         }
@@ -415,12 +417,11 @@ public class OptionDistribution extends Option {
 
         @Override
         public Distribution get() {
+            JDKRandomGenerator random = new JDKRandomGenerator();
             return new DistributionOffsetApache(
+                    random,
                     new WeibullDistribution(
-                            new JDKRandomGenerator(),
-                            shape,
-                            scale,
-                            WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY),
+                            random, shape, scale, WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY),
                     min,
                     max);
         }
@@ -441,13 +442,12 @@ public class OptionDistribution extends Option {
 
         @Override
         public Distribution get() {
+            JDKRandomGenerator random = new JDKRandomGenerator();
             return new DistributionQuantized(
                     new DistributionOffsetApache(
+                            random,
                             new WeibullDistribution(
-                                    new JDKRandomGenerator(),
-                                    shape,
-                                    scale,
-                                    WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY),
+                                    random, shape, scale, WeibullDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY),
                             min,
                             max),
                     quantas);
@@ -469,12 +469,10 @@ public class OptionDistribution extends Option {
 
         @Override
         public Distribution get() {
+            JDKRandomGenerator random = new JDKRandomGenerator();
             return new DistributionBoundApache(
-                    new NormalDistribution(
-                            new JDKRandomGenerator(),
-                            mean,
-                            stdev,
-                            NormalDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY),
+                    random,
+                    new NormalDistribution(random, mean, stdev, NormalDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY),
                     min,
                     max);
         }
@@ -496,8 +494,8 @@ public class OptionDistribution extends Option {
 
         @Override
         public Distribution get() {
-            return new DistributionBoundApache(
-                    new UniformRealDistribution(new JDKRandomGenerator(), min, max + 1), min, max);
+            JDKRandomGenerator random = new JDKRandomGenerator();
+            return new DistributionBoundApache(random, new UniformRealDistribution(random, min, max + 1), min, max);
         }
 
         @Override

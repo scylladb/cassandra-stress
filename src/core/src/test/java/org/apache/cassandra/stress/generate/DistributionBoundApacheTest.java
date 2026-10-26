@@ -2,9 +2,12 @@ package org.apache.cassandra.stress.generate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Field;
 import org.apache.cassandra.stress.settings.OptionDistribution;
+import org.apache.commons.math3.distribution.AbstractRealDistribution;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -43,6 +46,28 @@ class DistributionBoundApacheTest {
             direct.delegate.reseedRandomGenerator(seed);
             assertEquals((long) direct.delegate.sample(), lazy.next());
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"uniform(1..1000)", "gauss(1..1000)", "exp(1..1000)", "extreme(1..1000,2)"})
+    void seedCreatesNoSecondGenerator(String spec) throws ReflectiveOperationException {
+        Distribution dist = distribution(spec);
+        dist.setSeed(42);
+        dist.next();
+        AbstractRealDistribution delegate = dist instanceof DistributionBoundApache bound
+                ? bound.delegate
+                : ((DistributionOffsetApache) dist).delegate;
+        Object randomData = field(AbstractRealDistribution.class, "randomData").get(delegate);
+        Object generator = field(randomData.getClass(), "delegate").get(randomData);
+        assertNull(field(generator.getClass(), "rand").get(generator));
+    }
+
+    // The generator that seeding must not create is in private fields of commons-math3.
+    @SuppressWarnings("PMD.AvoidAccessibilityAlteration")
+    private static Field field(Class<?> type, String name) throws NoSuchFieldException {
+        Field field = type.getDeclaredField(name);
+        field.setAccessible(true);
+        return field;
     }
 
     @ParameterizedTest
