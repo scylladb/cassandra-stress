@@ -360,16 +360,15 @@ GC_MODE=""
 if [[ " $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} " =~ [[:space:]]-XX:\+Use[A-Za-z0-9]+GC[[:space:]] ]]; then
   GC_MODE=skip-collector
 fi
-# With less than 4 CPUs or less than 7.5 GiB of memory, stress runs on G1,
-# unless the user selects a collector. A machine of 8 GB shows less than
-# 8 GiB, so the limit is 7.5 GiB. With 700 threads on 1 or 2 CPUs, ZGC wrote
-# 15% to 41% fewer operations per second than G1. Up to 4 GiB of memory, ZGC
-# filled 95% to 100% of the memory of the container, and below 2 GiB it
-# stalled the stress threads.
+# With less than 4 CPUs or 4 GiB of memory or less, stress runs on G1,
+# unless the user selects a collector. With 700 threads on 1 or 2 CPUs, ZGC
+# wrote 15% to 41% fewer operations per second than G1. Up to 4 GiB of
+# memory, ZGC filled 95% to 100% of the memory of the container, and below
+# 2 GiB it stalled the stress threads.
 if [ -z "$GC_MODE" ]; then
   memory="$(memory_limit_mib)"
   cpus="$(cpu_count)"
-  if [ -n "$memory" ] && { [ "$memory" -lt 7680 ] || [ "${cpus:-4}" -lt 4 ]; }; then
+  if [ -n "$memory" ] && { [ "$memory" -le 4096 ] || [ "${cpus:-4}" -lt 4 ]; }; then
     GC_MODE=skip-collector
     DEFAULT_JVM_OPTS+=("-XX:+UseG1GC")
   fi
