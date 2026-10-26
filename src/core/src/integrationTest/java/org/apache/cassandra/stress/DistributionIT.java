@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -156,13 +157,20 @@ class DistributionIT {
     void runsOnTheCollectorOfTheJavaReleaseWithoutAJvmWarning() throws Exception {
         StressResult result = launch(List.of("version"), "-Xlog:gc,gc+init:stdout");
         assertEquals(0, result.exitCode(), result::toString);
-        if (hasTheGenerationalZgcFix(Runtime.version())) {
+        if (hasTheGenerationalZgcFix(Runtime.version()) && !isSmallLinuxMachine()) {
             assertTrue(result.output().contains("Using The Z Garbage Collector"), result::toString);
             assertTrue(result.output().contains("GC Workers for Young Generation"), result::toString);
         } else {
             assertTrue(result.output().contains("Using G1"), result::toString);
         }
         assertFalse(result.output().contains("VM warning"), result::toString);
+    }
+
+    /** The launcher selects G1 on Linux with less than 4 CPUs or less than 7.5 GiB of memory. */
+    private static boolean isSmallLinuxMachine() {
+        long memory = ((com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean())
+                .getTotalMemorySize();
+        return OS.LINUX.isCurrentOs() && (Runtime.getRuntime().availableProcessors() < 4 || memory < 7680L << 20);
     }
 
     /** The releases with the fix of JDK-8347564, the ranges of the UseZGC lines in conf/jvm-gc.options. */
