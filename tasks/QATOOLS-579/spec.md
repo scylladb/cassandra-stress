@@ -153,13 +153,25 @@ JDK.
 | `-XX:+ExitOnOutOfMemoryError` | 21 and later | A stress thread that dies of an `OutOfMemoryError` leaves the run without progress, and the process does not stop. The JVM stops instead, so the run fails |
 | `-XX:+UseCompactObjectHeaders` | 25 and later | Object headers of 8 bytes, so each request uses less heap. Java 24 has them as an experimental option only |
 
-Below 2 GiB of memory, the launcher selects G1 and skips the collector lines
-of `jvm-gc.options`. The memory is the memory of the machine, or the lowest
-limit of the cgroup of the process and its parents. A collector in `JVM_OPTS`
-still wins. With 700 threads in a container of 2 CPUs and 512 MB, ZGC stalled
-the stress threads and reached the memory limit of the container, at 18,000 to
-21,000 op/s. G1 with a fixed heap wrote 25,000 op/s and kept 75 MB of the
-container free (QATOOLS-625).
+With less than 4 CPUs or less than 7.5 GiB of memory, the launcher selects G1
+and skips the collector lines of `jvm-gc.options`. A machine of 8 GB shows less
+than 8 GiB, so the limit is 7.5 GiB. The memory is the memory of the machine,
+or the lowest limit of the cgroup of the process and its parents. The CPUs are
+the CPUs that the process may run on, or the lowest CPU quota of those cgroups,
+rounded up. A collector in `JVM_OPTS` still wins.
+
+A grid of runs set these limits (QATOOLS-625): `write cl=ONE duration=45s
+no-warmup` against one ScyllaDB node on its own 4 CPUs, with G1 and ZGC, 512 MB
+to 8 GB of memory, 1 to 8 CPUs, and 100 or 700 threads, two runs each:
+
+- With 700 threads on 1 or 2 CPUs, ZGC wrote 15% to 41% fewer operations per
+  second than G1 for every size of memory.
+- With 700 threads, ZGC filled 98% to 100% of a container of 2 GB or less and
+  95% of a container of 4 GB, and it stalled the stress threads below 2 GB.
+  With 8 GB, it used 71% to 81%.
+- With 4 CPUs or more and 8 GB, G1 and ZGC wrote the same operations per
+  second within the noise of two runs. ZGC paused below 1 ms, and the longest
+  pause of G1 was 19 ms in the median run and 92 ms in the worst.
 
 On Linux and ZGC, the stress processes on one machine share its memory. The
 heap starts at 64 MiB and can grow to 85% of the memory. `HeapBalancer`, a
@@ -382,7 +394,8 @@ module org.apache.cassandra.stress.driver.v3 {
   wait for ScyllaDB. (build)
 - ZGC is the default collector, and Gradle writes the JVM options into
   `conf/`. A Java release without the fix of JDK-8347564 runs on G1, and so
-  does a machine or a container with less than 2 GiB of memory. (build)
+  does a machine or a container with less than 4 CPUs or less than 7.5 GiB of
+  memory. (build)
 - Each stress thread keeps less live heap. The Apache distributions seed only
   the generator that they sample from, and the measurement queues of a thread
   take 4 KiB each. With 700 threads, the live heap went from 134 MB to 49 MB
