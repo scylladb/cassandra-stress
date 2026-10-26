@@ -146,26 +146,34 @@ read_jvm_options() {
   done < "$1"
 }
 
-# Prints "<limit> <usage> <page cache>" in bytes for the cgroup at the path $2
-# below the mount $1 and for each of its parents with a memory limit in the
-# file $3. $4 is the usage file, and $5 the field of memory.stat with the page
-# cache that the kernel can drop. A container with its own cgroup namespace on
-# cgroup v1 mounts its cgroup at $1, so its path in /proc/self/cgroup is not
-# below the mount.
-cgroup_limits_below() {
-  local root="$1" dir="$1/${2#/}" limit
+# Prints the directory of the cgroup at the path $2 below the mount $1, then
+# the directory of each parent up to $1. A container with its own cgroup
+# namespace on cgroup v1 mounts its cgroup at $1, so its path in
+# /proc/self/cgroup is not below the mount.
+cgroup_dirs() {
+  local root="$1" dir="$1/${2#/}"
   dir="${dir%/}"
   if [ ! -d "$dir" ] || [[ "$dir" == *..* ]]; then
     dir="$root"
   fi
   while :; do
+    echo "$dir"
+    [ "$dir" = "$root" ] && break
+    dir="${dir%/*}"
+  done
+}
+
+# Prints "<limit> <usage> <page cache>" in bytes for each directory of
+# cgroup_dirs $1 $2 with a memory limit in the file $3. $4 is the usage file,
+# and $5 the field of memory.stat with the page cache that the kernel can drop.
+cgroup_limits_below() {
+  local dir limit
+  while read -r dir; do
     limit=$(cat "$dir/$3" 2>/dev/null)
     if [[ "$limit" =~ ^[0-9]+$ ]]; then
       echo "$limit $(cat "$dir/$4" 2>/dev/null) $(awk -v field="$5" '$1 == field { print $2 }' "$dir/memory.stat" 2>/dev/null)"
     fi
-    [ "$dir" = "$root" ] && break
-    dir="${dir%/*}"
-  done
+  done < <(cgroup_dirs "$1" "$2")
 }
 
 # Prints the memory limits of the cgroup of this process and of its parents,
@@ -213,6 +221,36 @@ memory_limit_mib() {
     [ $(( limit / 1048576 )) -lt "$total" ] && total=$(( limit / 1048576 ))
   done < <(cgroup_memory_limits)
   echo "$total"
+}
+
+# Prints the number of CPUs that this process can use: the CPUs that it may
+# run on, or fewer when the cgroup of the process or a parent has a lower CPU
+# quota. A quota of 1.5 CPUs counts as 2. Prints nothing when nproc is missing.
+cpu_count() {
+  local cpus path dir quota period
+  cpus=$(nproc 2>/dev/null) || return 0
+  path=$(awk -F: '$1 == "0" && $2 == "" { print $3; exit }' /proc/self/cgroup 2>/dev/null)
+  if [ -n "$path" ]; then
+    while read -r dir; do
+      read -r quota period 2>/dev/null < "$dir/cpu.max" || continue
+      if [[ "$quota" =~ ^[0-9]+$ ]] && [[ "$period" =~ ^[1-9][0-9]*$ ]]; then
+        quota=$(( (quota + period - 1) / period ))
+        [ "$quota" -lt "$cpus" ] && cpus=$quota
+      fi
+    done < <(cgroup_dirs /sys/fs/cgroup "$path")
+  fi
+  path=$(awk -F: '$2 ~ /(^|,)cpu(,|$)/ { print $3; exit }' /proc/self/cgroup 2>/dev/null)
+  if [ -n "$path" ] && [ -d /sys/fs/cgroup/cpu ]; then
+    while read -r dir; do
+      quota=$(cat "$dir/cpu.cfs_quota_us" 2>/dev/null)
+      period=$(cat "$dir/cpu.cfs_period_us" 2>/dev/null)
+      if [[ "$quota" =~ ^[0-9]+$ ]] && [[ "$period" =~ ^[1-9][0-9]*$ ]]; then
+        quota=$(( (quota + period - 1) / period ))
+        [ "$quota" -lt "$cpus" ] && cpus=$quota
+      fi
+    done < <(cgroup_dirs "$(realpath /sys/fs/cgroup/cpu)" "$path")
+  fi
+  echo "$cpus"
 }
 
 case "$1" in
@@ -322,12 +360,16 @@ GC_MODE=""
 if [[ " $JVM_OPTS ${JAVA_TOOL_OPTIONS:-} ${JDK_JAVA_OPTIONS:-} " =~ [[:space:]]-XX:\+Use[A-Za-z0-9]+GC[[:space:]] ]]; then
   GC_MODE=skip-collector
 fi
-# Below 2 GiB of memory, ZGC has too little room around the heap. It stalls
-# the stress threads, and the process reaches the memory limit of its
-# container. So stress runs on G1 there, unless the user selects a collector.
+# With less than 4 CPUs or less than 7.5 GiB of memory, stress runs on G1,
+# unless the user selects a collector. A machine of 8 GB shows less than
+# 8 GiB, so the limit is 7.5 GiB. With 700 threads on 1 or 2 CPUs, ZGC wrote
+# 15% to 41% fewer operations per second than G1. Up to 4 GiB of memory, ZGC
+# filled 95% to 100% of the memory of the container, and below 2 GiB it
+# stalled the stress threads.
 if [ -z "$GC_MODE" ]; then
   memory="$(memory_limit_mib)"
-  if [ -n "$memory" ] && [ "$memory" -lt 2048 ]; then
+  cpus="$(cpu_count)"
+  if [ -n "$memory" ] && { [ "$memory" -lt 7680 ] || [ "${cpus:-4}" -lt 4 ]; }; then
     GC_MODE=skip-collector
     DEFAULT_JVM_OPTS+=("-XX:+UseG1GC")
   fi

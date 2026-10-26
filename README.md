@@ -121,8 +121,9 @@ Stress runs on generational ZGC, so a pause of the client does not show as
 latency of the cluster. Java 21 before 21.0.9 and Java 22 to 24.0.1 run on G1,
 because generational ZGC can crash on them
 ([JDK-8347564](https://bugs.openjdk.org/browse/JDK-8347564)). A machine or a
-container with less than 2 GiB of memory also runs on G1, because ZGC needs
-more memory around the heap. Java 25 and later also use compact object headers.
+container with less than 4 CPUs or less than 7.5 GiB of memory also runs on G1.
+There, G1 wrote more operations per second, and ZGC filled the memory of the
+container. Java 25 and later also use compact object headers.
 When a stress thread runs out of heap, the JVM stops and the run fails.
 
 The launcher reads its JVM options from `conf/jvm-clients.options` and the
