@@ -132,7 +132,7 @@ collector from `conf/jvm-gc.options`. The packages keep both files in
 `JVM_OPTS`. A line `<min>-<max>:<option>` applies to those Java versions only.
 
 The heap starts at 64 MiB and can grow to 85% of the memory of the machine or
-the container. On ZGC, the heap keeps 1.5 GiB or more outside the heap for the
+the container. On ZGC, the heap keeps 1 GiB or more outside the heap for the
 thread stacks, the direct buffers and the JVM. The direct buffers can grow to
 256 MB.
 
