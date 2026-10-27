@@ -661,23 +661,23 @@ public abstract class PartitionIterator implements Iterator<Row> {
     }
 
     static long seed(Object object, AbstractType type, long seed) {
-        if (object instanceof ByteBuffer buf) {
-            for (int i = buf.position(); i < buf.limit(); i++) {
-                seed = (31 * seed) + buf.get(i);
+        return switch (object) {
+            case ByteBuffer buf -> {
+                for (int i = buf.position(); i < buf.limit(); i++) {
+                    seed = (31 * seed) + buf.get(i);
+                }
+                yield seed;
             }
-            return seed;
-        } else if (object instanceof String str) {
-            for (int i = 0; i < str.length(); i++) {
-                seed = (31 * seed) + str.charAt(i);
+            case String str -> {
+                for (int i = 0; i < str.length(); i++) {
+                    seed = (31 * seed) + str.charAt(i);
+                }
+                yield seed;
             }
-            return seed;
-        } else if (object instanceof Number number) {
-            return (seed * 31) + number.longValue();
-        } else if (object instanceof UUID uuid) {
-            return seed * 31 + (uuid.getLeastSignificantBits() ^ uuid.getMostSignificantBits());
-        } else {
-            return seed(type.decompose(object), BytesType.instance, seed);
-        }
+            case Number number -> (seed * 31) + number.longValue();
+            case UUID uuid -> seed * 31 + (uuid.getLeastSignificantBits() ^ uuid.getMostSignificantBits());
+            case null, default -> seed(type.decompose(object), BytesType.instance, seed);
+        };
     }
 
     public Object getPartitionKey(int i) {

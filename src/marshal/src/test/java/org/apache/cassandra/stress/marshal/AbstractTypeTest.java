@@ -49,7 +49,8 @@ class AbstractTypeTest {
     }
 
     // Each address is a literal, so no name lookup runs.
-    @SuppressWarnings("AddressSelection")
+    // DateType reads and writes java.util.Date, so the timestamp set sample is a set of Date.
+    @SuppressWarnings({"AddressSelection", "UndefinedEquals"})
     private static Map<String, Sample> samples() throws IOException {
         Map<String, Sample> samples = new LinkedHashMap<>();
         samples.put("ascii", sample(AsciiType.instance, "stress-1"));
@@ -240,7 +241,9 @@ class AbstractTypeTest {
         assertEquals(0, type.compare(type.decompose(new Date(-1L)), type.decompose(new Date(-1L))));
     }
 
+    // DateType reads and writes java.util.Date, and Date.equals compares the milliseconds.
     @Test
+    @SuppressWarnings("UndefinedEquals")
     void ordersASetOfTimestampsBySignedValue() {
         SetType<Date> set = SetType.getInstance(DateType.instance, false);
         Set<Date> stored = set.compose(set.decompose(new LinkedHashSet<>(List.of(new Date(5L), new Date(-5L)))));
