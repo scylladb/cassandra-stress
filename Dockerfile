@@ -30,6 +30,7 @@ RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY build/install/cassandra-stress .
+RUN ln -s cassandra-stress bin/scylladb-cassandra-stress
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENTRYPOINT ["cassandra-stress"]

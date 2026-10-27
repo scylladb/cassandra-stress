@@ -90,6 +90,9 @@ class PackageIT {
             // A service manager can start the command without HOME.
             ExecResult withoutHome = os.execInContainer("env", "-u", "HOME", "cassandra-stress", "version");
             assertEquals(0, withoutHome.getExitCode(), withoutHome::toString);
+
+            ExecResult prefixed = os.execInContainer("scylladb-cassandra-stress", "version");
+            assertEquals(0, prefixed.getExitCode(), prefixed::toString);
         }
     }
 

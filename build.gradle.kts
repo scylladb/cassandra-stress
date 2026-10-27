@@ -198,8 +198,10 @@ distributions {
     }
 }
 
-// The archive name sets the top directory, so the archives unpack to cassandra-stress/.
+// The scylladb- prefix tells the archives apart from the Apache Cassandra tool. The archive name sets
+// the top directory, so the archives unpack to scylladb-cassandra-stress/.
 tasks.withType<AbstractArchiveTask>().named { it == "distTar" || it == "distZip" }.configureEach {
+    archiveBaseName = "scylladb-cassandra-stress"
     archiveVersion = ""
 }
 
@@ -245,20 +247,20 @@ val sourceTar = tasks.register<Tar>("sourceTar") {
     val gitCheckout = isGitCheckout
     onlyIf("the project directory is a git checkout") { gitCheckout }
     compression = Compression.GZIP
-    archiveFileName = "cassandra-stress-src.tar.gz"
+    archiveFileName = "scylladb-cassandra-stress-src.tar.gz"
     destinationDirectory = layout.buildDirectory.dir("distributions")
     isPreserveFileTimestamps = false
     isReproducibleFileOrder = true
     // Keeps the modes that git records, such as the executable bit of gradlew.
     useFileSystemPermissions()
-    into("cassandra-stress-src") {
+    into("scylladb-cassandra-stress-src") {
         from(tarTree(trackedSources.map { it.outputs.files.singleFile }))
         from(sourceVersionFile)
     }
 }
 
 ospackage {
-    packageName = "cassandra-stress"
+    packageName = "scylladb-cassandra-stress"
     summary = "Stress testing tool for Apache Cassandra and ScyllaDB"
     packageDescription = project.description
     maintainer = "Dusan Malusev <dusan.malusev@scylladb.com>"
@@ -306,11 +308,16 @@ tasks.withType<SystemPackagingTask>().configureEach {
     }
     link("$installPrefix/conf", "/etc/cassandra-stress")
     link("/usr/bin/cassandra-stress", "$installPrefix/bin/cassandra-stress")
+    link("/usr/bin/scylladb-cassandra-stress", "$installPrefix/bin/cassandra-stress")
 }
 
 tasks.withType<Deb>().configureEach {
     setArch("all")
-    from("packaging/debian/copyright") { into("/usr/share/doc/cassandra-stress") }
+    from("packaging/debian/copyright") { into("/usr/share/doc/scylladb-cassandra-stress") }
+    // The package takes the place of a cassandra-stress package of an earlier release.
+    provides("cassandra-stress")
+    conflicts("cassandra-stress")
+    replaces("cassandra-stress")
     packageGroup = "utils"
     priority = "optional"
     requires("temurin-21-jre")
@@ -327,6 +334,10 @@ tasks.withType<Rpm>().configureEach {
     setArch(Architecture.NOARCH)
     os = Os.LINUX
     release = "1"
+    // The package takes the place of a cassandra-stress package of an earlier release.
+    val packageVersion = "${determineArchiveVersion().get()}-$release"
+    provides("cassandra-stress", packageVersion, Flags.EQUAL)
+    obsoletes("cassandra-stress", packageVersion, Flags.LESS)
     requires("rpmlib(RichDependencies)", "4.12.0-1", Flags.LESS or Flags.EQUAL or Flags.RPMLIB)
     requires(
         "(temurin-21-jre or temurin-25-jre or temurin-21-jdk or temurin-25-jdk " +

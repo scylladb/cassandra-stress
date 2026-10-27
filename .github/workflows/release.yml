@@ -50,7 +50,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: cassandra-stress-java21
+          name: scylladb-cassandra-stress-java21
       - name: Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         id: release
@@ -63,14 +63,14 @@ jobs:
           prerelease: false
           fail_on_unmatched_files: true
           files: |
-            cassandra-stress-bin-java21.tar.gz
-            cassandra-stress-bin-java21.tar.gz.sha256
-            cassandra-stress-bin-java21.tar.gz.sha512
-            cassandra-stress-src-java21.tar.gz
-            cassandra-stress-src-java21.tar.gz.sha256
-            cassandra-stress-src-java21.tar.gz.sha512
-            cassandra-stress-java21_${{ needs.tag.outputs.version }}_all.deb
-            cassandra-stress-java21-${{ needs.tag.outputs.version }}-1.noarch.rpm
+            scylladb-cassandra-stress-bin-java21.tar.gz
+            scylladb-cassandra-stress-bin-java21.tar.gz.sha256
+            scylladb-cassandra-stress-bin-java21.tar.gz.sha512
+            scylladb-cassandra-stress-src-java21.tar.gz
+            scylladb-cassandra-stress-src-java21.tar.gz.sha256
+            scylladb-cassandra-stress-src-java21.tar.gz.sha512
+            scylladb-cassandra-stress-java21_${{ needs.tag.outputs.version }}_all.deb
+            scylladb-cassandra-stress-java21-${{ needs.tag.outputs.version }}-1.noarch.rpm
       - name: "Build Changelog"
         id: build_changelog
         uses: mikepenz/release-changelog-builder-action@aa013739bbc8e7067dbbecd4525ff11aeb51a84b # v6.4.0

@@ -47,20 +47,20 @@ jobs:
 
           cd build/distributions
           for ext in "" .sha256 .sha512; do
-            mv "cassandra-stress.tar.gz$ext" "cassandra-stress-bin-java${{ inputs.java }}.tar.gz$ext"
-            mv "cassandra-stress-src.tar.gz$ext" "cassandra-stress-src-java${{ inputs.java }}.tar.gz$ext"
+            mv "scylladb-cassandra-stress.tar.gz$ext" "scylladb-cassandra-stress-bin-java${{ inputs.java }}.tar.gz$ext"
+            mv "scylladb-cassandra-stress-src.tar.gz$ext" "scylladb-cassandra-stress-src-java${{ inputs.java }}.tar.gz$ext"
           done
-          mv cassandra-stress_${{ inputs.version }}_all.deb cassandra-stress-java${{ inputs.java }}_${{ inputs.version }}_all.deb
-          mv cassandra-stress-${{ inputs.version }}-1.noarch.rpm cassandra-stress-java${{ inputs.java }}-${{ inputs.version }}-1.noarch.rpm
+          mv scylladb-cassandra-stress_${{ inputs.version }}_all.deb scylladb-cassandra-stress-java${{ inputs.java }}_${{ inputs.version }}_all.deb
+          mv scylladb-cassandra-stress-${{ inputs.version }}-1.noarch.rpm scylladb-cassandra-stress-java${{ inputs.java }}-${{ inputs.version }}-1.noarch.rpm
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: cassandra-stress-java${{ inputs.java }}
+          name: scylladb-cassandra-stress-java${{ inputs.java }}
           path: |
-            build/distributions/cassandra-stress-bin-java${{ inputs.java }}.tar.gz
-            build/distributions/cassandra-stress-bin-java${{ inputs.java }}.tar.gz.sha256
-            build/distributions/cassandra-stress-bin-java${{ inputs.java }}.tar.gz.sha512
-            build/distributions/cassandra-stress-src-java${{ inputs.java }}.tar.gz
-            build/distributions/cassandra-stress-src-java${{ inputs.java }}.tar.gz.sha256
-            build/distributions/cassandra-stress-src-java${{ inputs.java }}.tar.gz.sha512
-            build/distributions/cassandra-stress-java${{ inputs.java }}_${{ inputs.version }}_all.deb
-            build/distributions/cassandra-stress-java${{ inputs.java }}-${{ inputs.version }}-1.noarch.rpm
+            build/distributions/scylladb-cassandra-stress-bin-java${{ inputs.java }}.tar.gz
+            build/distributions/scylladb-cassandra-stress-bin-java${{ inputs.java }}.tar.gz.sha256
+            build/distributions/scylladb-cassandra-stress-bin-java${{ inputs.java }}.tar.gz.sha512
+            build/distributions/scylladb-cassandra-stress-src-java${{ inputs.java }}.tar.gz
+            build/distributions/scylladb-cassandra-stress-src-java${{ inputs.java }}.tar.gz.sha256
+            build/distributions/scylladb-cassandra-stress-src-java${{ inputs.java }}.tar.gz.sha512
+            build/distributions/scylladb-cassandra-stress-java${{ inputs.java }}_${{ inputs.version }}_all.deb
+            build/distributions/scylladb-cassandra-stress-java${{ inputs.java }}-${{ inputs.version }}-1.noarch.rpm
