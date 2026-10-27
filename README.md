@@ -74,39 +74,46 @@ or a later LTS release, such as 25, is installed on your system.
 **Using `curl`:**
 
 ``` shell
-curl -LO https://github.com/scylladb/cassandra-stress/releases/latest/download/cassandra-stress-bin-java21.tar.gz
-curl -LO https://github.com/scylladb/cassandra-stress/releases/latest/download/cassandra-stress-bin-java21.tar.gz.sha256
+curl -LO https://github.com/scylladb/cassandra-stress/releases/latest/download/scylladb-cassandra-stress-bin-java21.tar.gz
+curl -LO https://github.com/scylladb/cassandra-stress/releases/latest/download/scylladb-cassandra-stress-bin-java21.tar.gz.sha256
 ```
 
 **Using `wget`:**
 
 ``` shell
-wget https://github.com/scylladb/cassandra-stress/releases/latest/download/cassandra-stress-bin-java21.tar.gz
-wget https://github.com/scylladb/cassandra-stress/releases/latest/download/cassandra-stress-bin-java21.tar.gz.sha256
+wget https://github.com/scylladb/cassandra-stress/releases/latest/download/scylladb-cassandra-stress-bin-java21.tar.gz
+wget https://github.com/scylladb/cassandra-stress/releases/latest/download/scylladb-cassandra-stress-bin-java21.tar.gz.sha256
 ```
 
 To get an earlier release, replace `latest/download` with `download/v<version>`,
-for example `download/v3.21.1`.
+for example `download/v3.21.1`. Release v4.0.0 and earlier releases name the
+files without the `scylladb-` prefix, for example
+`cassandra-stress-bin-java21.tar.gz`.
+
+The deb and the rpm install the package `scylladb-cassandra-stress`. It
+replaces the `cassandra-stress` package of an earlier release. The packages
+and the Docker image install the command as `cassandra-stress` and as
+`scylladb-cassandra-stress`.
 
 **Verify the download using `sha256sum`:**
 
 The `.sha256` file holds only the checksum.
 
 ``` shell
-echo "$(cat cassandra-stress-bin-java21.tar.gz.sha256)  cassandra-stress-bin-java21.tar.gz" | sha256sum -c
+echo "$(cat scylladb-cassandra-stress-bin-java21.tar.gz.sha256)  scylladb-cassandra-stress-bin-java21.tar.gz" | sha256sum -c
 ```
 
 If the verification is successful, you will see:
 
 ``` text
-cassandra-stress-bin-java21.tar.gz: OK
+scylladb-cassandra-stress-bin-java21.tar.gz: OK
 ```
 
 **Unpack the archive:**
 
 ``` shell
-tar -xzf cassandra-stress-bin-java21.tar.gz
-cassandra-stress/bin/cassandra-stress version
+tar -xzf scylladb-cassandra-stress-bin-java21.tar.gz
+scylladb-cassandra-stress/bin/cassandra-stress version
 ```
 
 Unpack a new release into an empty directory. The launcher puts every jar in
