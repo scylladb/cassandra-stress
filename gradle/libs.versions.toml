@@ -1,5 +1,5 @@
 [versions]
-scylla-driver3 = "3.11.5.20"
+scylla-driver3 = "3.12.1.0"
 scylla-driver4 = "4.19.2.2"
 jackson = "2.22.4"
 junit = "6.1.3"
