@@ -1,6 +1,6 @@
 # ./gradlew dockerImage builds this image from the tree that ./gradlew installDist
 # writes, so the image holds the same jars as the archives and the packages.
-FROM eclipse-temurin:21.0.12_8-jre-noble
+FROM eclipse-temurin:21.0.13_9-jre-noble
 
 ARG CASSANDRA_STRESS_VERSION
 
