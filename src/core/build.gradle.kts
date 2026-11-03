@@ -155,7 +155,7 @@ registerPackagingTest(
     "Installs the deb and the rpm with a Temurin runtime in Docker and runs cassandra-stress version.",
 ) {
     val distributions = rootBuild.dir("distributions")
-    dependsOn(":buildDeb", ":buildRpm")
+    dependsOn(":buildDeb", ":buildTransitionalDeb", ":buildRpm")
     inputs.files(distributions.map { it.asFileTree.matching { include("*.deb", "*.rpm") } })
         .withPropertyName("packages")
         .withPathSensitivity(PathSensitivity.NAME_ONLY)
