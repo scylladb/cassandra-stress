@@ -259,6 +259,8 @@ val sourceTar = tasks.register<Tar>("sourceTar") {
     }
 }
 
+val transitionalDebTask = "buildTransitionalDeb"
+
 ospackage {
     packageName = "scylladb-cassandra-stress"
     summary = "Stress testing tool for Apache Cassandra and ScyllaDB"
@@ -272,13 +274,16 @@ ospackage {
     permissionGroup = "root"
 }
 
-// The package keeps the files in $installPrefix and links the command and the
-// configuration into it, so the launcher sees one layout for every install.
 tasks.withType<SystemPackagingTask>().configureEach {
     notCompatibleWithConfigurationCache("The nebula ospackage tasks read the project at execution time.")
     // Redline writes into an existing package file without truncating it, so
     // a smaller package keeps the stale tail of the earlier one.
     doFirst { (this as SystemPackagingTask).determineArchiveFile().get().asFile.delete() }
+}
+
+// The package keeps the files in $installPrefix and links the command and the
+// configuration into it, so the launcher sees one layout for every install.
+tasks.withType<SystemPackagingTask>().named { it != transitionalDebTask }.configureEach {
     from(distributionRuntime) { into("$installPrefix/lib") }
     from("examples") {
         include("*.yaml")
@@ -311,13 +316,15 @@ tasks.withType<SystemPackagingTask>().configureEach {
     link("/usr/bin/scylladb-cassandra-stress", "$installPrefix/bin/cassandra-stress")
 }
 
-tasks.withType<Deb>().configureEach {
+tasks.buildDeb {
     setArch("all")
     from("packaging/debian/copyright") { into("/usr/share/doc/scylladb-cassandra-stress") }
-    // The package takes the place of a cassandra-stress package of an earlier release.
+    // The package takes the place of a cassandra-stress package of an earlier release. The
+    // version limit keeps the transitional cassandra-stress package of this release installable.
+    val packageVersion = determineArchiveVersion().get()
     provides("cassandra-stress")
-    conflicts("cassandra-stress")
-    replaces("cassandra-stress")
+    conflicts("cassandra-stress", packageVersion, Flags.LESS)
+    replaces("cassandra-stress", packageVersion, Flags.LESS)
     packageGroup = "utils"
     priority = "optional"
     requires("temurin-21-jre")
@@ -328,6 +335,21 @@ tasks.withType<Deb>().configureEach {
     requires("awk")
     // The conffiles are the files of conf, so an upgrade replaces the JVM options.
     fileTree("conf").forEach { configurationFile("/etc/cassandra-stress/${it.name}") }
+}
+
+// apt has no Obsoletes. The empty cassandra-stress package of the same version depends on
+// scylladb-cassandra-stress, so an apt upgrade of a cassandra-stress install moves to it.
+val transitionalDeb = tasks.register<Deb>(transitionalDebTask) {
+    description = "Builds the transitional cassandra-stress deb that depends on scylladb-cassandra-stress."
+    group = "distribution"
+    packageName = "cassandra-stress"
+    summary = "Transitional package for scylladb-cassandra-stress"
+    packageDescription = "The package installs scylladb-cassandra-stress. You can remove it after the upgrade."
+    setArch("all")
+    packageGroup = "oldlibs"
+    priority = "optional"
+    from("packaging/debian/copyright") { into("/usr/share/doc/cassandra-stress") }
+    requires("scylladb-cassandra-stress", determineArchiveVersion().get(), Flags.EQUAL)
 }
 
 tasks.withType<Rpm>().configureEach {
@@ -399,5 +421,5 @@ val checksums = tasks.register<Checksums>("checksums") {
 }
 
 tasks.assemble {
-    dependsOn(tasks.distTar, tasks.distZip, sourceTar, checksums, tasks.buildDeb, tasks.buildRpm)
+    dependsOn(tasks.distTar, tasks.distZip, sourceTar, checksums, tasks.buildDeb, transitionalDeb, tasks.buildRpm)
 }
