@@ -71,7 +71,7 @@ jobs:
             scylladb-cassandra-stress-src-java21.tar.gz.sha512
             scylladb-cassandra-stress-java21_${{ needs.tag.outputs.version }}_all.deb
             scylladb-cassandra-stress-java21-${{ needs.tag.outputs.version }}-1.noarch.rpm
-            cassandra-stress-transitional_${{ needs.tag.outputs.version }}_all.deb
+            scylladb-cassandra-stress-transitional_${{ needs.tag.outputs.version }}_all.deb
       - name: "Build Changelog"
         id: build_changelog
         uses: mikepenz/release-changelog-builder-action@b0db9d18b53447ef9f940a46c8f31653c4d9f621 # v6.5.0
