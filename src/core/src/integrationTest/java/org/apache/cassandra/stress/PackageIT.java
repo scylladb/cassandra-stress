@@ -37,7 +37,7 @@ class PackageIT {
           > /etc/apt/sources.list.d/adoptium.list
         apt-get update
         apt-get install -y temurin-$1-jre
-        apt-get install -y "$2"
+        apt-get install -y "$2" "$3"
         """;
 
     private static final String INSTALL_RPM = """
@@ -72,13 +72,25 @@ class PackageIT {
                 new GenericContainer<>(DockerImageName.parse(image)).withCommand("sleep", "infinity")) {
             os.start();
             boolean deb = os.execInContainer("sh", "-c", "command -v apt-get").getExitCode() == 0;
-            Path pkg = newest(deb ? ".deb" : ".rpm");
-            String target = "/tmp/" + pkg.getFileName();
-            os.copyFileToContainer(MountableFile.forHostPath(pkg), target);
+            String target = copy(os, newest("scylladb-cassandra-stress", deb ? ".deb" : ".rpm"));
 
-            ExecResult install =
-                    os.execInContainer("sh", "-c", deb ? INSTALL_DEB : INSTALL_RPM, "install", java, target);
+            ExecResult install = deb
+                    ? os.execInContainer(
+                            "sh",
+                            "-c",
+                            INSTALL_DEB,
+                            "install",
+                            java,
+                            target,
+                            copy(os, newest("cassandra-stress_", ".deb")))
+                    : os.execInContainer("sh", "-c", INSTALL_RPM, "install", java, target);
             assertEquals(0, install.getExitCode(), install::toString);
+
+            if (deb) {
+                // The transitional package installs next to the package it depends on.
+                ExecResult transitional = os.execInContainer("dpkg-query", "-W", "-f=${Status}", "cassandra-stress");
+                assertEquals("install ok installed", transitional.getStdout(), transitional::toString);
+            }
 
             ExecResult version = os.execInContainer("cassandra-stress", "version");
             String output = version.getStdout() + version.getStderr();
@@ -96,11 +108,21 @@ class PackageIT {
         }
     }
 
-    private static Path newest(String extension) throws IOException {
+    private static String copy(GenericContainer<?> os, Path pkg) {
+        String target = "/tmp/" + pkg.getFileName();
+        os.copyFileToContainer(MountableFile.forHostPath(pkg), target);
+        return target;
+    }
+
+    private static Path newest(String prefix, String extension) throws IOException {
         try (Stream<Path> files = Files.list(PACKAGES)) {
-            return files.filter(f -> String.valueOf(f.getFileName()).endsWith(extension))
+            return files.filter(f -> {
+                        String name = String.valueOf(f.getFileName());
+                        return name.startsWith(prefix) && name.endsWith(extension);
+                    })
                     .max(Comparator.comparingLong(f -> f.toFile().lastModified()))
-                    .orElseThrow(() -> new IllegalStateException("No " + extension + " package in " + PACKAGES));
+                    .orElseThrow(() ->
+                            new IllegalStateException("No " + prefix + "*" + extension + " package in " + PACKAGES));
         }
     }
 }
