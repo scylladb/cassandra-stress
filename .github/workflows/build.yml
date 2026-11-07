@@ -52,6 +52,7 @@ jobs:
           done
           mv scylladb-cassandra-stress_${{ inputs.version }}_all.deb scylladb-cassandra-stress-java${{ inputs.java }}_${{ inputs.version }}_all.deb
           mv scylladb-cassandra-stress-${{ inputs.version }}-1.noarch.rpm scylladb-cassandra-stress-java${{ inputs.java }}-${{ inputs.version }}-1.noarch.rpm
+          mv cassandra-stress_${{ inputs.version }}_all.deb scylladb-cassandra-stress-transitional_${{ inputs.version }}_all.deb
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: scylladb-cassandra-stress-java${{ inputs.java }}
@@ -64,3 +65,4 @@ jobs:
             build/distributions/scylladb-cassandra-stress-src-java${{ inputs.java }}.tar.gz.sha512
             build/distributions/scylladb-cassandra-stress-java${{ inputs.java }}_${{ inputs.version }}_all.deb
             build/distributions/scylladb-cassandra-stress-java${{ inputs.java }}-${{ inputs.version }}-1.noarch.rpm
+            build/distributions/scylladb-cassandra-stress-transitional_${{ inputs.version }}_all.deb
