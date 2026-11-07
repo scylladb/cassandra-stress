@@ -21,7 +21,7 @@ jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jctools = { module = "org.jctools:jctools-core", version = "4.0.7" }
 hdrhistogram = { module = "org.hdrhistogram:HdrHistogram", version = "2.2.2" }
-typesafe-config = { module = "com.typesafe:config", version = "1.4.9" }
+typesafe-config = { module = "com.typesafe:config", version = "1.4.10" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version = "2.0.20" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.6.6" }
 lz4 = { module = "at.yawk.lz4:lz4-java", version = "1.14.0" }
