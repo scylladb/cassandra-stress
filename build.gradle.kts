@@ -261,6 +261,11 @@ val sourceTar = tasks.register<Tar>("sourceTar") {
 
 val transitionalDebTask = "buildTransitionalDeb"
 
+// The first release with the scylladb- prefix. The deb relations use this fixed version, not the
+// version of each release. A host that keeps the transitional cassandra-stress package then still
+// upgrades scylladb-cassandra-stress after a release ships without the transitional package.
+val firstPrefixedRelease = "4.2.0"
+
 ospackage {
     packageName = "scylladb-cassandra-stress"
     summary = "Stress testing tool for Apache Cassandra and ScyllaDB"
@@ -319,12 +324,11 @@ tasks.withType<SystemPackagingTask>().named { it != transitionalDebTask }.config
 tasks.buildDeb {
     setArch("all")
     from("packaging/debian/copyright") { into("/usr/share/doc/scylladb-cassandra-stress") }
-    // The package takes the place of a cassandra-stress package of an earlier release. The
-    // version limit keeps the transitional cassandra-stress package of this release installable.
-    val packageVersion = determineArchiveVersion().get()
+    // The package takes the place of the cassandra-stress package of the releases before the prefix.
+    // The version limit keeps the transitional cassandra-stress package installable.
     provides("cassandra-stress")
-    conflicts("cassandra-stress", packageVersion, Flags.LESS)
-    replaces("cassandra-stress", packageVersion, Flags.LESS)
+    conflicts("cassandra-stress", firstPrefixedRelease, Flags.LESS)
+    replaces("cassandra-stress", firstPrefixedRelease, Flags.LESS)
     packageGroup = "utils"
     priority = "optional"
     requires("temurin-21-jre")
@@ -349,7 +353,7 @@ val transitionalDeb = tasks.register<Deb>(transitionalDebTask) {
     packageGroup = "oldlibs"
     priority = "optional"
     from("packaging/debian/copyright") { into("/usr/share/doc/cassandra-stress") }
-    requires("scylladb-cassandra-stress", determineArchiveVersion().get(), Flags.EQUAL)
+    requires("scylladb-cassandra-stress", firstPrefixedRelease, Flags.GREATER or Flags.EQUAL)
 }
 
 tasks.withType<Rpm>().configureEach {
