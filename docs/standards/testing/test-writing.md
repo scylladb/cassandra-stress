@@ -43,7 +43,8 @@ class on the native driver with `./gradlew :core:integrationTest --tests
 <Name>IT`, and on the 4x driver with `:core:integrationTest4x`.
 The run sets `-Dstress.skipSleeps=true`, which skips the fixed sleeps of
 stress. CI runs these tests on a pull request with the `testcontainers`
-label, and on each push to `master`.
+label, and on each push to `master`. The 4x driver must pass. A failure on
+the native driver does not fail the run.
 
 ```java
 StressResult write = new CassandraStress(dir).run("write", "n=2000", "-schema", "keyspace=" + keyspace, REPLICATION);
