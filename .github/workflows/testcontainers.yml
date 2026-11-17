@@ -29,10 +29,12 @@ jobs:
       || (contains(github.event.pull_request.labels.*.name, 'testcontainers')
       && (github.event.action != 'labeled' || github.event.label.name == 'testcontainers'))
     name: "Testcontainers ${{ matrix.driver }}"
+    # The Java driver 3.x (native) is optional: its failure does not fail the run.
+    continue-on-error: ${{ matrix.driver == 'native' }}
     strategy:
       fail-fast: false
       matrix:
-        driver: ["native", "4x"]
+        driver: ["4x", "native"]
     runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
