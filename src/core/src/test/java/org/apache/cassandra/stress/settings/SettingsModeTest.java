@@ -28,7 +28,7 @@ class SettingsModeTest {
     @ValueSource(strings = {"simplenative", "SIMPLENATIVE", "SimpleNative"})
     void simpleNativeModeIsRejectedInAnyCase(String mode) {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse("cql3", mode));
-        assertEquals("Mode simplenative was removed. Use -mode cql3 native or -mode cql3 4x.", e.getMessage());
+        assertEquals("Mode simplenative was removed. Use -mode cql3 native.", e.getMessage());
     }
 
     @ParameterizedTest
@@ -40,17 +40,19 @@ class SettingsModeTest {
 
     @ParameterizedTest
     @CsvSource({
-        "native, JAVA_DRIVER_NATIVE",
-        "NATIVE, JAVA_DRIVER_NATIVE",
+        "native, JAVA_DRIVER4_NATIVE",
+        "NATIVE, JAVA_DRIVER4_NATIVE",
         "4x, JAVA_DRIVER4_NATIVE",
-        "4X, JAVA_DRIVER4_NATIVE"
+        "4X, JAVA_DRIVER4_NATIVE",
+        "3x, JAVA_DRIVER_NATIVE",
+        "3X, JAVA_DRIVER_NATIVE"
     })
     void theDriverNameIsReadInAnyCase(String driver, ConnectionAPI api) {
         assertEquals(api, parse("cql3", driver).api);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"native", "4x"})
+    @ValueSource(strings = {"native", "4x", "3x"})
     void acceptsEachDriverName(String driver) {
         assertEquals(ConnectionStyle.CQL_PREPARED, parse("cql3", driver).style);
     }
@@ -77,15 +79,41 @@ class SettingsModeTest {
     }
 
     @Test
-    void nativeSelectsDriver3AndIsTheDefault() {
-        assertEquals(ConnectionAPI.JAVA_DRIVER_NATIVE, parse("cql3", "native").api);
-        assertEquals(ConnectionAPI.JAVA_DRIVER_NATIVE, parse("cql3").api);
-        assertEquals(ConnectionAPI.JAVA_DRIVER_NATIVE, SettingsMode.get(new HashMap<>()).api);
+    void nativeSelectsDriver4AndIsTheDefault() {
+        assertEquals(ConnectionAPI.JAVA_DRIVER4_NATIVE, parse("cql3", "native").api);
+        assertEquals(ConnectionAPI.JAVA_DRIVER4_NATIVE, parse("cql3").api);
+        assertEquals(ConnectionAPI.JAVA_DRIVER4_NATIVE, SettingsMode.get(new HashMap<>()).api);
     }
 
     @Test
     void fourXSelectsDriver4() {
         assertEquals(ConnectionAPI.JAVA_DRIVER4_NATIVE, parse("cql3", "4x").api);
+    }
+
+    @Test
+    void threeXSelectsDriver3AndPrintsADeprecationWarning() {
+        String err = stderrOf(() -> assertEquals(ConnectionAPI.JAVA_DRIVER_NATIVE, parse("cql3", "3x").api));
+
+        assertEquals(SettingsMode.DRIVER3_DEPRECATION_WARNING + System.lineSeparator(), err);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"native", "4x"})
+    void driver4PrintsNoDeprecationWarning(String driver) {
+        assertEquals("", stderrOf(() -> parse("cql3", driver)));
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    private static String stderrOf(Runnable action) {
+        PrintStream original = System.err;
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (PrintStream err = new PrintStream(bytes, true, StandardCharsets.UTF_8)) {
+            System.setErr(err);
+            action.run();
+        } finally {
+            System.setErr(original);
+        }
+        return bytes.toString(StandardCharsets.UTF_8);
     }
 
     @Test
@@ -172,7 +200,7 @@ class SettingsModeTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"native, JAVA_DRIVER_NATIVE", "4x, JAVA_DRIVER4_NATIVE"})
+    @CsvSource({"native, JAVA_DRIVER4_NATIVE", "4x, JAVA_DRIVER4_NATIVE", "3x, JAVA_DRIVER_NATIVE"})
     void printsTheApiFirst(String driver, String api) {
         java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
         parse("cql3", driver)

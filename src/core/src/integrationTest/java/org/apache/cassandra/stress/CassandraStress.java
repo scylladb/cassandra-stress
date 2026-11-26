@@ -45,7 +45,7 @@ final class CassandraStress {
     }
 
     static String driver() {
-        return System.getProperty("stress.it.driver", "native");
+        return System.getProperty("stress.it.driver", "4x");
     }
 
     static String profile(String name) {

@@ -184,7 +184,7 @@ class PredefinedCommandsIT {
     void runsOnTheDriverThatTheModeSelects() {
         CassandraStress stress = new CassandraStress(dir);
         String keyspace = keyspace("driver_" + CassandraStress.driver());
-        String api = "4x".equals(CassandraStress.driver()) ? "JAVA_DRIVER4_NATIVE" : "JAVA_DRIVER_NATIVE";
+        String api = "3x".equals(CassandraStress.driver()) ? "JAVA_DRIVER_NATIVE" : "JAVA_DRIVER4_NATIVE";
 
         StressResult write = stress.run(
                 "write", "n=10", "no-warmup", "-rate", "threads=1", "-schema", "keyspace=" + keyspace, REPLICATION);

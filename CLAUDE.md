@@ -11,12 +11,12 @@
 ./gradlew jacocoTestReport
 # Integration tests against ScyllaDB in Docker (Testcontainers)
 ./gradlew integrationTest
-# One driver: native or 4x
-./gradlew integrationTest -PintegrationDriver=native
-# One integration test class, on the native driver or on the 4x driver
+# One driver: 4x or 3x
+./gradlew integrationTest -PintegrationDriver=4x
+# One integration test class, on the 4x driver or on the deprecated 3x driver
 ./gradlew :core:integrationTest --tests <Name>IT
-./gradlew :core:integrationTest4x --tests <Name>IT
-# The installed launcher against ScyllaDB in Docker, with both drivers
+./gradlew :core:integrationTest3x --tests <Name>IT
+# The installed launcher against ScyllaDB in Docker, with the 4x driver
 ./gradlew distributionTest
 # Install the deb and the rpm in Docker (-Dstress.package.images=, -Dstress.package.java=)
 ./gradlew packageTest

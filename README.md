@@ -289,7 +289,7 @@ There are several operation types:
 * `-insert`: Insert specific options relating to various methods for batching and splitting partition updates
 * `-col`: Column details such as size and count distribution, data generator, names, comparator and if super columns should be used
 * `-rate`: Thread count, rate limit or automatic mode (default is auto)
-* `-mode`: CQL driver and connection options
+* `-mode`: CQL driver and connection options. `-mode cql3 native` uses the Java driver 4.x, which is the default. `-mode cql3 3x` uses the Java driver 3.x. Driver 3.x is deprecated, and a future release removes it.
 * `-errors`: How to handle errors when encountered during stress
 * `-sample`: Specify the number of samples to collect for measuring latency
 * `-schema`: Replication settings, compression, compaction, etc.

@@ -28,13 +28,19 @@ public class SettingsMode {
 
     private static final int MAX_SPECULATIVE_TIMER_TICK_MS = 10;
 
+    static final String DRIVER3_DEPRECATION_WARNING = "WARNING: The Java driver 3.x (-mode cql3 3x) is deprecated."
+            + " A future release removes it. Use the Java driver 4.x (-mode cql3 native).";
+
     private final ProtocolCompression compression;
 
     public SettingsMode(GroupedOptions options) {
         if (options instanceof Options opts) {
-            api = "4x".equalsIgnoreCase(opts.driver.value())
-                    ? ConnectionAPI.JAVA_DRIVER4_NATIVE
-                    : ConnectionAPI.JAVA_DRIVER_NATIVE;
+            if ("3x".equalsIgnoreCase(opts.driver.value())) {
+                api = ConnectionAPI.JAVA_DRIVER_NATIVE;
+                System.err.println(DRIVER3_DEPRECATION_WARNING);
+            } else {
+                api = ConnectionAPI.JAVA_DRIVER4_NATIVE;
+            }
             cqlVersion = CqlVersion.CQL3;
             if ("NEWEST_SUPPORTED".equals(opts.protocolVersion.value())) {
                 protocolVersion = ProtocolVersion.NEWEST_SUPPORTED;
@@ -123,10 +129,10 @@ public class SettingsMode {
         final OptionSimple api = new OptionSimple("cql3", "", null, "", true);
         final OptionSimple driver = new OptionSimple(
                 "",
-                Pattern.compile("(native|4x)$", Pattern.CASE_INSENSITIVE),
-                Pattern.compile("native|4x", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("(native|4x|3x)$", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("native|4x|3x", Pattern.CASE_INSENSITIVE),
                 null,
-                "native: the Java driver 3.x, 4x: the Java driver 4.x",
+                "native or 4x: the Java driver 4.x (default), 3x: the Java driver 3.x (deprecated)",
                 false);
         final OptionSimple protocolVersion =
                 new OptionSimple("protocolVersion=", "[3-5]", "DEFAULT", "CQL Protocol Version", false);
@@ -226,8 +232,7 @@ public class SettingsMode {
         for (String param : params) {
             for (String removed : REMOVED_MODES) {
                 if (removed.equalsIgnoreCase(param)) {
-                    throw new IllegalArgumentException(
-                            "Mode " + removed + " was removed. Use -mode cql3 native or -mode cql3 4x.");
+                    throw new IllegalArgumentException("Mode " + removed + " was removed. Use -mode cql3 native.");
                 }
             }
         }

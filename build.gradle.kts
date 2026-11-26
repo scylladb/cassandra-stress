@@ -96,7 +96,7 @@ tasks.check {
 tasks.register("integrationTest") {
     description = "Runs the integration tests against ScyllaDB in Docker with both drivers."
     group = LifecycleBasePlugin.VERIFICATION_GROUP
-    dependsOn(":core:integrationTest", ":core:integrationTest4x")
+    dependsOn(":core:integrationTest", ":core:integrationTest3x")
 }
 
 // The JVM options of bin/cassandra-stress, written into conf/. The launcher

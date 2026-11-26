@@ -16,7 +16,14 @@ class StressClientsTest {
     @ParameterizedTest
     @CsvSource(
             delimiter = '|',
-            value = {"|v3", "-mode cql3|v3", "-mode cql3 native|v3", "-mode native cql3|v3", "-mode cql3 4x|v4"})
+            value = {
+                "|v4",
+                "-mode cql3|v4",
+                "-mode cql3 native|v4",
+                "-mode native cql3|v4",
+                "-mode cql3 4x|v4",
+                "-mode cql3 3x|v3"
+            })
     void createsTheClientOfTheSelectedDriver(String mode, String driver) {
         String args = "write n=1" + (mode == null ? "" : " " + mode);
         StressSettings settings = StressSettings.parse(args.split(" "));

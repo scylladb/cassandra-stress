@@ -48,7 +48,7 @@ class DistributionIT {
     Path dir;
 
     static Stream<Arguments> workloads() {
-        return Stream.of("native", "4x")
+        return Stream.of("4x")
                 .flatMap(driver -> Stream.of(
                         Arguments.of(driver, "write", List.of(predefined("write"))),
                         Arguments.of(driver, "write and read", List.of(predefined("write"), predefined("read"))),

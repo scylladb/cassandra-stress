@@ -94,7 +94,7 @@ class JavaDriverV3ClientTest {
     @ParameterizedTest
     @CsvSource({"true, HTTPS", "false,"})
     void theTlsEngineNamesThePeerByItsAddressWithoutReverseDns(boolean verify, String algorithm) throws Exception {
-        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "native"});
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "3x"});
         JavaDriverV3Client client = new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, tls(verify));
 
         InetSocketAddress address = ipOnly();
@@ -110,7 +110,7 @@ class JavaDriverV3ClientTest {
     @Test
     void speculationRunsTheTotalExecutionsCountingTheFirst() throws Exception {
         StressSettings settings = StressSettings.parse(new String[] {
-            "write", "n=1", "-mode", "cql3", "native", "idempotent", "speculativeExecutions=3", "speculativeDelay=500"
+            "write", "n=1", "-mode", "cql3", "3x", "idempotent", "speculativeExecutions=3", "speculativeDelay=500"
         });
         JavaDriverV3Client client =
                 new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
@@ -129,7 +129,7 @@ class JavaDriverV3ClientTest {
     @Test
     void speculationShortensTheTimerTick() throws Exception {
         StressSettings settings = StressSettings.parse(new String[] {
-            "write", "n=1", "-mode", "cql3", "native", "idempotent", "speculativeExecutions=3", "speculativeDelay=500"
+            "write", "n=1", "-mode", "cql3", "3x", "idempotent", "speculativeExecutions=3", "speculativeDelay=500"
         });
         JavaDriverV3Client client =
                 new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
@@ -139,7 +139,7 @@ class JavaDriverV3ClientTest {
 
     @Test
     void withoutSpeculationTheTimerKeepsTheDriverTick() throws Exception {
-        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "native"});
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "3x"});
         JavaDriverV3Client client =
                 new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
 
@@ -153,7 +153,7 @@ class JavaDriverV3ClientTest {
 
     @Test
     void withoutSpeculationTheDriverRunsOneExecution() throws Exception {
-        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "native"});
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "3x"});
         JavaDriverV3Client client =
                 new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
 
@@ -176,7 +176,7 @@ class JavaDriverV3ClientTest {
 
     @Test
     void markIdempotentSetsTheDriverFlag() {
-        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "native"});
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "3x"});
         JavaDriverV3Client client =
                 new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions());
 
@@ -186,7 +186,7 @@ class JavaDriverV3ClientTest {
     @Test
     void disconnectingAClientThatNeverConnectedPrintsNothing() {
         ByteArrayOutputStream printed = new ByteArrayOutputStream();
-        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "native"});
+        StressSettings settings = StressSettings.parse(new String[] {"write", "n=1", "-mode", "cql3", "3x"});
         settings.setOutput(new MultiResultLogger(new PrintStream(printed, true, StandardCharsets.UTF_8)));
 
         new JavaDriverV3Client(settings, List.of("127.0.0.1"), 9042, new EncryptionOptions()).disconnect();

@@ -65,8 +65,8 @@ Maven Central.
     ```
 
 3. Run cassandra-stress from `build/install/cassandra-stress/bin/cassandra-stress`.
-   Select driver 3.x with `-mode cql3 native` and driver 4.x with
-   `-mode cql3 4x`.
+   Driver 4.x is the default. Select it with `-mode cql3 native`.
+   Select the deprecated driver 3.x with `-mode cql3 3x`.
 
 The same properties apply to every task. For example, `./gradlew assemble`
 makes the archives, the deb and the rpm, and `./gradlew dockerImage` makes
