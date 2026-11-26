@@ -1,6 +1,7 @@
 package org.apache.cassandra.stress;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -82,7 +83,7 @@ class ProfileInsertTest {
         assertTrue(cql.startsWith("UPDATE t SET "), cql);
         assertTrue(cql.contains("tags = tags + ?"), cql);
         assertTrue(cql.contains("nums = ?"), cql);
-        assertTrue(!cql.contains("m ="), cql);
+        assertFalse(cql.contains("m ="), cql);
         assertTrue(cql.endsWith(" WHERE pk = ? AND ck = ?") || cql.endsWith(" WHERE ck = ? AND pk = ?"), cql);
     }
 

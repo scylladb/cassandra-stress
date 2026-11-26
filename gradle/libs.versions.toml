@@ -1,16 +1,16 @@
 [versions]
 scylla-driver3 = "3.13.0.0"
-scylla-driver4 = "4.19.2.2"
+scylla-driver4 = "4.19.4.0"
 jackson = "2.23.0"
 junit = "6.1.3"
 testcontainers = "2.0.5"
 errorprone = "2.53.0"
-checkstyle = "14.3.0"
-pmd = "7.28.0"
-spotbugs = "4.10.4"
-palantir-java-format = "2.102.0"
+checkstyle = "14.4.0"
+pmd = "7.29.0"
+spotbugs = "4.10.5"
+palantir-java-format = "2.103.0"
 ktlint = "1.8.0"
-jacoco = "0.8.15"
+jacoco = "0.8.16"
 
 [libraries]
 scylla-driver3 = { module = "com.scylladb:scylla-driver-core", version.ref = "scylla-driver3" }

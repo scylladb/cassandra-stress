@@ -112,11 +112,11 @@ class AbstractStressClientTest {
         protected Iterator<String> rows(List<String> results) {
             Iterator<String> rows = results.iterator();
             return new Iterator<>() {
-                int read;
+                final AtomicInteger read = new AtomicInteger();
 
                 @Override
                 public boolean hasNext() {
-                    if (read == rowsBeforeFetchFailure) {
+                    if (read.get() == rowsBeforeFetchFailure) {
                         throw new IllegalStateException("overloaded while fetching the next page");
                     }
                     return rows.hasNext();
@@ -124,7 +124,7 @@ class AbstractStressClientTest {
 
                 @Override
                 public String next() {
-                    read++;
+                    read.incrementAndGet();
                     return rows.next();
                 }
             };

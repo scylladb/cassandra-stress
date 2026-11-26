@@ -204,7 +204,7 @@ class PartitionIteratorTest {
         while (iterator.hasNext()) {
             Row row = iterator.next();
             for (Object value : row.row) {
-                assertTrue(value != null, describe(generator, row));
+                assertNotNull(value, describe(generator, row));
             }
         }
     }

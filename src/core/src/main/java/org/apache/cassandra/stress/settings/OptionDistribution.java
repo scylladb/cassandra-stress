@@ -371,7 +371,6 @@ public class OptionDistribution extends Option {
         public String getConfigAsString() {
             return "Inverse: " + wrapped.getConfigAsString();
         }
-        ;
     }
 
     private static final class ExpFactory implements DistributionFactory {

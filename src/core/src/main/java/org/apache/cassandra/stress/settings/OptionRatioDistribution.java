@@ -139,7 +139,6 @@ public class OptionRatioDistribution extends Option {
         public String getConfigAsString() {
             return String.format(Locale.ROOT, "Ratio: divisor=%f;delegate=%s", divisor, delegate.getConfigAsString());
         }
-        ;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package org.apache.cassandra.stress;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -58,7 +59,7 @@ class StressTest {
         settings.output().println("after the run");
 
         assertInstanceOf(MultiResultLogger.class, settings.output());
-        assertTrue(Files.size(log) == size, "a line after the run reached the closed log file");
+        assertEquals(size, Files.size(log), "a line after the run reached the closed log file");
     }
 
     @Test
