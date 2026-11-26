@@ -46,9 +46,9 @@ val integrationTestProperties = providers.systemPropertiesPrefixedBy("scylla.")
 
 // The integration test task of each driver. The suite target of a task runs
 // the same classes with another driver.
-val integrationDriverTasks = mapOf("native" to "integrationTest", "4x" to "integrationTest4x")
+val integrationDriverTasks = mapOf("4x" to "integrationTest", "3x" to "integrationTest3x")
 
-// -PintegrationDriver=native or -PintegrationDriver=4x runs the integration tests with one driver only.
+// -PintegrationDriver=4x or -PintegrationDriver=3x runs the integration tests with one driver only.
 val integrationDriver = providers.gradleProperty("integrationDriver").orNull?.also {
     if (it !in integrationDriverTasks) {
         throw GradleException(
@@ -134,7 +134,7 @@ fun registerPackagingTest(name: String, tag: String, describe: String, configure
 registerPackagingTest(
     "distributionTest",
     "distribution",
-    "Runs bin/cassandra-stress of the installed distribution against ScyllaDB in Docker with both drivers.",
+    "Runs bin/cassandra-stress of the installed distribution against ScyllaDB in Docker with the 4x driver.",
 ) {
     val installDir = rootBuild.dir("install/cassandra-stress")
     dependsOn(":installDist")

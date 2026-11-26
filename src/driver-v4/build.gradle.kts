@@ -12,11 +12,10 @@ dependencies {
         exclude(group = "io.dropwizard.metrics", module = "metrics-core")
         exclude(group = "org.hdrhistogram", module = "HdrHistogram")
         exclude(group = "com.github.jnr", module = "jnr-posix")
-        exclude(group = "org.reactivestreams", module = "reactive-streams")
     }
     implementation(libs.slf4j.api)
     runtimeOnly(libs.typesafe.config)
     runtimeOnly(libs.lz4)
     runtimeOnly(libs.snappy)
-    testRuntimeOnly(libs.reactive.streams)
+    runtimeOnly(libs.reactive.streams)
 }

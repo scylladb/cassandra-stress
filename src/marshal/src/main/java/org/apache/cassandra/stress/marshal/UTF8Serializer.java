@@ -28,7 +28,7 @@ public final class UTF8Serializer extends AbstractTextSerializer {
             THREE_80bf_2,
             FOUR_90bf,
             FOUR_80bf_3,
-        };
+        }
 
         static boolean validate(ByteBuffer buf) {
             if (buf == null) {
